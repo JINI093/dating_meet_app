@@ -1,0 +1,105 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'dev.flutter.flutter-gradle-plugin'
+    // id 'com.google.gms.google-services' // Removed Firebase dependency
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+android {
+    namespace "com.example.dating_meet_app"
+    compileSdkVersion 35
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        applicationId "com.example.dating_meet_app"
+        minSdkVersion 24 // 최소 SDK 버전
+        targetSdkVersion 35
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true // AWS SDK 호환을 위해 추가
+    }
+
+    signingConfigs {
+        debug {
+            // 기본 디버그 서명 사용
+        }
+        release {
+            // 릴리즈 서명 설정 (필요한 경우)
+            // keyAlias keystoreProperties['keyAlias']
+            // keyPassword keystoreProperties['keyPassword']
+            // storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+            // storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        debug {
+            // 기본 디버그 설정
+        }
+        release {
+            // 기본 릴리즈 설정
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    // Firebase 임시 비활성화
+    // implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    // implementation 'com.google.firebase:firebase-analytics'
+    // implementation 'com.google.firebase:firebase-auth'
+    // (필요시) implementation 'com.google.firebase:firebase-messaging'
+    // (필요시) implementation 'com.google.firebase:firebase-crashlytics'
+    // implementation "com.kakao.sdk:v2-user:2.19.0" // 카카오 SDK - 임시 비활성화
+}
+
+// 권한 관련 안내 (AndroidManifest.xml에 추가 필요)
+// <uses-permission android:name="android.permission.INTERNET" />
+// <uses-permission android:name="android.permission.CAMERA" />
+// <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+// <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+// <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+// <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />

@@ -1,97 +1,82 @@
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
-class AuthProvider with ChangeNotifier {
-  bool _isAuthenticated = false;
-  String? _userToken;
-  Map<String, dynamic>? _userData;
+class AuthProvider extends ChangeNotifier {
+  final AuthService _authService = AuthService();
+  bool _isLoggedIn = false;
+  Map<String, dynamic>? _user;
+  bool _isLoading = false;
+  String? _error;
 
-  bool get isAuthenticated => _isAuthenticated;
-  String? get userToken => _userToken;
-  Map<String, dynamic>? get userData => _userData;
+  bool get isLoggedIn => _isLoggedIn;
+  Map<String, dynamic>? get user => _user;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  AuthProvider() {
-    _loadAuthState();
-  }
-
-  Future<void> _loadAuthState() async {
-    final prefs = await SharedPreferences.getInstance();
-    _userToken = prefs.getString('user_token');
-    _isAuthenticated = _userToken != null;
-    
-    if (_isAuthenticated) {
-      // 사용자 데이터 로드
-      final userDataString = prefs.getString('user_data');
-      if (userDataString != null) {
-        // JSON 파싱 로직 추가 필요
-        // _userData = jsonDecode(userDataString);
+  Future<void> checkAutoLogin() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final currentUser = await _authService.getCurrentUser();
+      if (currentUser != null) {
+        _isLoggedIn = true;
+        _user = {'username': currentUser.username, 'userId': currentUser.userId};
+      } else {
+        _isLoggedIn = false;
+        _user = null;
       }
+      _error = null;
+    } catch (e) {
+      _isLoggedIn = false;
+      _user = null;
+      _error = e.toString();
     }
-    
+    _isLoading = false;
     notifyListeners();
   }
 
   Future<bool> signIn(String email, String password) async {
+    _isLoading = true;
+    notifyListeners();
     try {
-      // Firebase Auth 로그인 로직
-      // final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-      //   email: email,
-      //   password: password,
-      // );
-      
-      // 임시 로그인 로직 (실제로는 Firebase Auth 사용)
-      if (email == 'admin@example.com' && password == 'password') {
-        _userToken = 'dummy_token_${DateTime.now().millisecondsSinceEpoch}';
-        _isAuthenticated = true;
-        _userData = {
-          'id': '1',
-          'email': email,
-          'name': '관리자',
-          'role': 'admin',
-        };
-        
-        // 토큰 저장
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_token', _userToken!);
-        await prefs.setString('user_data', '{"id":"1","email":"$email","name":"관리자","role":"admin"}');
-        
+      final result = await _authService.signIn(email: email, password: password);
+      if (result.isSignedIn) {
+        _isLoggedIn = true;
+        _user = {'username': email};
+        _error = null;
         notifyListeners();
         return true;
+      } else {
+        _isLoggedIn = false;
+        _user = null;
+        _error = '로그인 실패';
+        notifyListeners();
+        return false;
       }
-      
-      return false;
     } catch (e) {
-      print('로그인 오류: $e');
+      _isLoggedIn = false;
+      _user = null;
+      _error = e.toString();
+      notifyListeners();
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<void> signOut() async {
+    _isLoading = true;
+    notifyListeners();
     try {
-      // Firebase Auth 로그아웃 로직
-      // await FirebaseAuth.instance.signOut();
-      
-      _isAuthenticated = false;
-      _userToken = null;
-      _userData = null;
-      
-      // 저장된 데이터 삭제
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_token');
-      await prefs.remove('user_data');
-      
-      notifyListeners();
+      await _authService.signOut();
+      _isLoggedIn = false;
+      _user = null;
+      _error = null;
     } catch (e) {
-      print('로그아웃 오류: $e');
+      _error = e.toString();
     }
-  }
-
-  Future<void> updateUserData(Map<String, dynamic> newData) async {
-    _userData = newData;
-    
-    final prefs = await SharedPreferences.getInstance();
-    // await prefs.setString('user_data', jsonEncode(newData));
-    
+    _isLoading = false;
     notifyListeners();
   }
 } 

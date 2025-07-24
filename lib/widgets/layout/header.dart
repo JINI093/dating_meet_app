@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../providers/auth_provider.dart';
-import '../../providers/theme_provider.dart';
-import '../../utils/theme.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../../utils/app_colors.dart';
 
-class Header extends StatelessWidget {
+class Header extends ConsumerWidget {
   final VoidCallback onMenuPressed;
   final VoidCallback onThemeToggle;
   final VoidCallback onSignOut;
@@ -18,9 +17,9 @@ class Header extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final userData = authProvider.userData;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authViewModel = ref.watch(authViewModelProvider);
+    final userData = authViewModel.userData;
 
     return Container(
       height: 80,
@@ -88,7 +87,7 @@ class Header extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppColors.primary,
                         child: Text(
                           userData['name']?[0] ?? 'A',
                           style: const TextStyle(

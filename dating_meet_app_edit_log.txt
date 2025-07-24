@@ -1,0 +1,20 @@
+[2024-06-13] 임시로 필수 입력 없이 다음 단계로 넘어가도록 수정한 파일 목록
+
+- lib/screens/onboarding/profile_setup_screen.dart
+  - _isProfileComplete()가 항상 true를 반환하도록 수정
+  - 저장 버튼이 항상 활성화되도록 변경
+
+- lib/screens/auth/signup_screen.dart
+  - 회원가입 단계 이동 버튼이 항상 활성화되도록 변경
+
+- lib/screens/auth/terms_screen.dart
+  - 약관 동의 체크 없이도 다음 단계로 이동 가능하도록 버튼 활성화 조건 변경
+
+- lib/screens/onboarding/intro_screen.dart
+- lib/screens/onboarding/profile_complete_screen.dart
+  - (별도의 조건이 있다면 항상 true로 변경, 조건이 없으면 영향 없음)
+
+- 기타: 로그인, 휴대폰 인증, 좋아요 등 주요 화면에서 버튼 활성화 조건이 있다면 모두 항상 true로 변경(실제 조건이 없으면 영향 없음) 
+
+- lib/screens/auth/login.dart 
+  - 아이디,비밀번호 없이도 로그인 가능

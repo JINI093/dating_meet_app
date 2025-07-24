@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.meet-project.com</domain>
+        <domain includeSubdomains="true">t8hkluwmj9.execute-api.ap-northeast-2.amazonaws.com</domain>
+        <domain includeSubdomains="true">cognito-idp.ap-northeast-2.amazonaws.com</domain>
+        <domain includeSubdomains="true">cognito-identity.ap-northeast-2.amazonaws.com</domain>
+        <domain includeSubdomains="true">s3.ap-northeast-2.amazonaws.com</domain>
+        <domain includeSubdomains="true">meet-project.s3.ap-northeast-2.amazonaws.com</domain>
+    </domain-config>
+    
+    <!-- Allow cleartext traffic for localhost during development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

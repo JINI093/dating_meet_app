@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../providers/auth_provider.dart';
-import '../../providers/theme_provider.dart';
-import '../../utils/theme.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/theme_viewmodel.dart';
 import 'sidebar.dart';
 import 'header.dart';
 
-class AppLayout extends StatefulWidget {
+class AppLayout extends ConsumerStatefulWidget {
   final Widget child;
 
   const AppLayout({
@@ -17,10 +16,10 @@ class AppLayout extends StatefulWidget {
   });
 
   @override
-  State<AppLayout> createState() => _AppLayoutState();
+  ConsumerState<AppLayout> createState() => _AppLayoutState();
 }
 
-class _AppLayoutState extends State<AppLayout> {
+class _AppLayoutState extends ConsumerState<AppLayout> {
   bool _isSidebarCollapsed = false;
 
   void _toggleSidebar() {
@@ -48,10 +47,10 @@ class _AppLayoutState extends State<AppLayout> {
                 Header(
                   onMenuPressed: _toggleSidebar,
                   onThemeToggle: () {
-                    Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+                    ref.read(themeViewModelProvider.notifier).toggleTheme();
                   },
                   onSignOut: () async {
-                    await Provider.of<AuthProvider>(context, listen: false).signOut();
+                    ref.read(authViewModelProvider.notifier).signOut();
                     if (mounted) {
                       context.go('/signin');
                     }

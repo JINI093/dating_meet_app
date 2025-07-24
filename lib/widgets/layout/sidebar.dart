@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../providers/auth_provider.dart';
-import '../../utils/theme.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../../utils/app_colors.dart';
 
-class Sidebar extends StatelessWidget {
+class Sidebar extends ConsumerWidget {
   final bool isCollapsed;
   final VoidCallback onToggle;
 
@@ -16,10 +16,10 @@ class Sidebar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentLocation = GoRouterState.of(context).uri.path;
-    final authProvider = Provider.of<AuthProvider>(context);
-    final userData = authProvider.userData;
+    final authViewModel = ref.watch(authViewModelProvider);
+    final userData = authViewModel.userData;
 
     return Container(
       width: isCollapsed ? 70 : 280,
@@ -35,7 +35,7 @@ class Sidebar extends StatelessWidget {
                 if (!isCollapsed) ...[
                   const Icon(
                     Icons.admin_panel_settings,
-                    color: AppTheme.primaryColor,
+                    color: AppColors.primary,
                     size: 32,
                   ),
                   const SizedBox(width: 12),
@@ -45,21 +45,21 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
                 ] else ...[
                   const Icon(
                     Icons.admin_panel_settings,
-                    color: AppTheme.primaryColor,
+                    color: AppColors.primary,
                     size: 32,
                   ),
                 ],
                 IconButton(
                   icon: Icon(
                     isCollapsed ? Icons.chevron_right : Icons.chevron_left,
-                    color: AppTheme.lightTextSecondary,
+                    color: AppColors.primary,
                   ),
                   onPressed: onToggle,
                 ),
@@ -77,7 +77,7 @@ class Sidebar extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppColors.primary,
                     child: Text(
                       userData['name']?[0] ?? 'A',
                       style: const TextStyle(
@@ -102,7 +102,7 @@ class Sidebar extends StatelessWidget {
                           userData['email'] ?? '',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.lightTextSecondary,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -196,18 +196,18 @@ class Sidebar extends StatelessWidget {
       child: ListTile(
         leading: Icon(
           icon,
-          color: isActive ? AppTheme.primaryColor : AppTheme.lightTextSecondary,
+          color: isActive ? AppColors.primary : AppColors.primary,
         ),
         title: isCollapsed
             ? null
             : Text(
                 title,
                 style: TextStyle(
-                  color: isActive ? AppTheme.primaryColor : AppTheme.lightText,
+                  color: isActive ? AppColors.primary : AppColors.primary,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
-        tileColor: isActive ? AppTheme.primaryColor.withOpacity(0.1) : null,
+        tileColor: isActive ? AppColors.primary.withValues(alpha: 0.1) : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
