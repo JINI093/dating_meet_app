@@ -518,33 +518,21 @@ class AWSProfileService {
 
       return null;
     } catch (e) {
-      Logger.error('GraphQL 프로필 조회 실패, REST API로 재시도: $e', name: 'AWSProfileService');
+      Logger.error('GraphQL 프로필 조회 실패, DynamoDB 직접 스캔으로 재시도: $e', name: 'AWSProfileService');
       
-      // GraphQL 실패 시 REST API로 재시도
+      // GraphQL 실패 시 DynamoDB 직접 스캔으로 재시도 (REST API 건너뛰기)
       try {
-        final apiService = ApiService();
-        final response = await apiService.get('/profiles/$userId');
-        
-        if (response.statusCode == 200) {
-          Logger.log('REST API를 통한 프로필 조회 성공', name: 'AWSProfileService');
-          return ProfileModel.fromJson(response.data);
+        final directProfile = await _getProfileByUserIdDirect(userId);
+        if (directProfile != null) {
+          Logger.log('✅ DynamoDB 직접 스캔으로 프로필 조회 성공: ${directProfile.name}', name: 'AWSProfileService');
+          return directProfile;
         }
-      } catch (restError) {
-        Logger.error('REST API 프로필 조회도 실패: $restError', name: 'AWSProfileService');
+      } catch (directError) {
+        Logger.error('DynamoDB 직접 스캔도 실패: $directError', name: 'AWSProfileService');
       }
       
-      // API 실패 시 로컬 저장소에서 시도
-      try {
-        final profile = await _getProfileFromLocal(userId);
-        if (profile != null) {
-          Logger.log('로컬 저장소에서 프로필 조회 성공', name: 'AWSProfileService');
-          return profile;
-        }
-      } catch (localError) {
-        Logger.error('로컬 저장소 프로필 조회도 실패: $localError', name: 'AWSProfileService');
-      }
-      
-      // 프로필이 없는 경우는 예외가 아니므로 null 반환
+      // 프로필을 찾지 못한 경우 null 반환
+      Logger.log('❌ DynamoDB 스캔 실패: $userId', name: 'AWSProfileService');
       return null;
     }
   }
@@ -766,7 +754,11 @@ class AWSProfileService {
           final data = response.data;
           List<dynamic>? profilesData;
           
-          if (data is Map && data['profiles'] is List) {
+          if (data is Map && data['data'] is Map && data['data']['profiles'] is List) {
+            // /discover 엔드포인트 응답 형태: { success: true, data: { profiles: [...] } }
+            profilesData = data['data']['profiles'] as List;
+            Logger.log('📋 data.profiles 키에서 데이터 추출: ${profilesData.length}개', name: 'AWSProfileService');
+          } else if (data is Map && data['profiles'] is List) {
             profilesData = data['profiles'] as List;
             Logger.log('📋 profiles 키에서 데이터 추출: ${profilesData.length}개', name: 'AWSProfileService');
           } else if (data is Map && data['body'] is String) {
@@ -1241,97 +1233,122 @@ class AWSProfileService {
     try {
       Logger.log('DynamoDB에서 프로필 조회 시작: $userId', name: 'AWSProfileService');
       
-      // 1. 직접 DynamoDB 스캔을 통한 조회 시도 (userId 기반)
+      // 1. 직접 DynamoDB 스캔을 통한 조회 시도 (userId 기반) - 주요 방법
       try {
         final directProfile = await _getProfileByUserIdDirect(userId);
         if (directProfile != null) {
-          Logger.log('직접 DynamoDB에서 프로필 로드 성공: ${directProfile.name}', name: 'AWSProfileService');
+          Logger.log('✅ 직접 DynamoDB에서 프로필 로드 성공: ${directProfile.name}', name: 'AWSProfileService');
           return directProfile;
         }
+        Logger.log('직접 DynamoDB 스캔에서 프로필을 찾지 못함: $userId', name: 'AWSProfileService');
       } catch (directError) {
         Logger.log('직접 DynamoDB 조회 실패, GraphQL로 재시도: $directError', name: 'AWSProfileService');
       }
 
-      // 2. GraphQL로 userId 기반 조회 시도
+      // 2. GraphQL로 userId 기반 조회 시도 (백업 방법)
       try {
         final graphqlProfile = await _getProfileByUserIdGraphQL(userId);
         if (graphqlProfile != null) {
-          Logger.log('GraphQL에서 프로필 로드 성공: ${graphqlProfile.name}', name: 'AWSProfileService');
+          Logger.log('✅ GraphQL에서 프로필 로드 성공: ${graphqlProfile.name}', name: 'AWSProfileService');
           return graphqlProfile;
         }
+        Logger.log('GraphQL에서도 프로필을 찾지 못함: $userId', name: 'AWSProfileService');
       } catch (graphqlError) {
-        Logger.log('GraphQL 조회 실패, REST API로 재시도: $graphqlError', name: 'AWSProfileService');
+        Logger.log('GraphQL 조회도 실패: $graphqlError', name: 'AWSProfileService');
       }
       
-      // 2. REST API로 재시도
-      final apiService = ApiService();
-      final response = await apiService.get('/profiles/$userId');
+      // REST API 호출 제거 - DynamoDB 직접 스캔이 성공적으로 작동하므로 불필요한 404 에러 방지
+      Logger.log('⚠️ DynamoDB 스캔과 GraphQL 모두 실패 - REST API 호출 건너뛰고 로컬 저장소 확인', name: 'AWSProfileService');
       
-      Logger.log('프로필 조회 응답: ${response.statusCode}', name: 'AWSProfileService');
+      Logger.log('❌ DynamoDB 스캔과 GraphQL 모두 실패, REST API 시도: $userId', name: 'AWSProfileService');
       
-      if (response.statusCode == 200) {
-        final responseMap = response.data as Map<String, dynamic>;
-        Logger.log('🌐 REST API 응답 데이터: ${responseMap.toString()}', name: 'AWSProfileService');
+      // GraphQL 실패 시 REST API로 재시도
+      try {
+        final apiService = ApiService();
+        final response = await apiService.get('/profiles/$userId');
         
-        Map<String, dynamic>? profileData;
+        Logger.log('REST API 응답 상태: ${response.statusCode}', name: 'AWSProfileService');
+        Logger.log('REST API 응답 데이터: ${response.data}', name: 'AWSProfileService');
         
-        // Lambda 응답에서 'data' 객체 추출
-        if (responseMap.containsKey('body') && responseMap['body'] is String) {
-          final bodyString = responseMap['body'] as String;
-          final bodyData = json.decode(bodyString) as Map<String, dynamic>;
-          Logger.log('📄 Lambda 응답 body: ${bodyData.toString()}', name: 'AWSProfileService');
-          
-          if (bodyData['success'] == true && bodyData.containsKey('data')) {
-            profileData = bodyData['data'] as Map<String, dynamic>;
+        if (response.statusCode == 200) {
+          final responseData = response.data;
+          if (responseData != null && responseData['success'] == true && responseData['data'] != null) {
+            Logger.log('✅ REST API로 프로필 조회 성공', name: 'AWSProfileService');
+            return ProfileModel.fromJson(responseData['data']);
+          } else {
+            Logger.log('REST API 응답 형식 오류: $responseData', name: 'AWSProfileService');
           }
         }
-        // 직접 data 객체가 있는 경우
-        else if (responseMap.containsKey('data') && responseMap['data'] != null) {
-          profileData = responseMap['data'] as Map<String, dynamic>;
-        }
-        // 응답 자체가 프로필 데이터인 경우
-        else if (responseMap.containsKey('id') || responseMap.containsKey('name')) {
-          profileData = responseMap;
-        }
-        
-        if (profileData != null) {
-          Logger.log('📋 추출된 프로필 데이터: ${profileData.toString()}', name: 'AWSProfileService');
-          
-          // DynamoDB 형식인지 확인하고 변환
-          final convertedData = _isDynamoDBFormat(profileData) 
-              ? _convertDynamoDBToJson(profileData)
-              : profileData;
-          
-          Logger.log('🔄 최종 변환된 데이터: ${convertedData.toString()}', name: 'AWSProfileService');
-          
-          return ProfileModel.fromJson(convertedData);
-        }
-      } else if (response.statusCode == 404) {
-        Logger.log('❌ DynamoDB에서 프로필을 찾을 수 없음: $userId', name: 'AWSProfileService');
-        return null;
+      } catch (restError) {
+        Logger.error('REST API 프로필 조회도 실패: $restError', name: 'AWSProfileService');
       }
       
-      Logger.error('프로필 조회 실패: ${response.statusCode}', name: 'AWSProfileService');
       return null;
       
     } catch (e) {
       Logger.error('DynamoDB 프로필 조회 오류: $e', name: 'AWSProfileService');
-      
-      // DynamoDB 조회 실패시 로컬 저장소에서 조회
-      return await _getProfileFromLocal(userId);
+      return null;
     }
   }
 
-  /// 직접 DynamoDB에서 userId로 프로필 조회 (스캔 방식)
+  /// 직접 DynamoDB에서 userId로 프로필 조회 (GetItem 방식)
   Future<ProfileModel?> _getProfileByUserIdDirect(String userId) async {
     try {
-      Logger.log('🔍 직접 DynamoDB 스캔 시작: $userId', name: 'AWSProfileService');
+      Logger.log('🔍 DynamoDB GetItem으로 프로필 조회 시작: $userId', name: 'AWSProfileService');
       
-      // 테스트: 실제 DynamoDB 데이터 파싱
-      await _testDynamoDBDataParsing();
+      // 먼저 id로 직접 조회 시도 (프로필 ID와 userId가 같은 경우)
+      final getRequest = GraphQLRequest<String>(
+        document: '''
+          query GetProfile(\$id: ID!) {
+            getProfile(id: \$id) {
+              id
+              userId
+              name
+              age
+              gender
+              location
+              profileImages
+              bio
+              occupation
+              education
+              height
+              bodyType
+              smoking
+              drinking
+              religion
+              mbti
+              hobbies
+              badges
+              isVip
+              isPremium
+              isVerified
+              isOnline
+              lastSeen
+              likeCount
+              superChatCount
+              createdAt
+              updatedAt
+            }
+          }
+        ''',
+        variables: {'id': userId},
+      );
+
+      final getResponse = await Amplify.API.query(request: getRequest).response;
       
-      // DynamoDB에서 모든 프로필을 스캔하여 userId가 일치하는 것 찾기
-      final request = GraphQLRequest<String>(
+      if (getResponse.data != null && !getResponse.hasErrors) {
+        final data = _parseGraphQLResponse(getResponse.data!);
+        final profile = data['getProfile'];
+        if (profile != null) {
+          Logger.log('✅ GetItem으로 프로필 발견: ${profile['name']}', name: 'AWSProfileService');
+          return ProfileModel.fromJson(profile as Map<String, dynamic>);
+        }
+      }
+      
+      // GetItem 실패 시 전체 스캔해서 userId 매칭
+      Logger.log('GetItem 실패, 전체 프로필 스캔 시작', name: 'AWSProfileService');
+      
+      final scanRequest = GraphQLRequest<String>(
         document: '''
           query ListAllProfiles {
             listProfiles {
@@ -1369,43 +1386,55 @@ class AWSProfileService {
         ''',
       );
 
-      final response = await Amplify.API.query(request: request).response;
+      final response = await Amplify.API.query(request: scanRequest).response;
+      
+      Logger.log('GraphQL 응답 상태:', name: 'AWSProfileService');
+      Logger.log('  hasErrors: ${response.hasErrors}', name: 'AWSProfileService');
+      Logger.log('  errors: ${response.errors}', name: 'AWSProfileService');
+      Logger.log('  data != null: ${response.data != null}', name: 'AWSProfileService');
       
       if (response.errors.isNotEmpty) {
-        Logger.error('GraphQL 스캔 에러: ${response.errors.first.message}', name: 'AWSProfileService');
-        throw Exception('GraphQL 스캔 에러: ${response.errors.first.message}');
+        Logger.error('GraphQL 스캔 에러: ${response.errors.map((e) => e.message).join(", ")}', name: 'AWSProfileService');
+        return null;
       }
 
       if (response.data != null) {
-        Logger.log('📄 GraphQL 응답 원본 데이터:', name: 'AWSProfileService');
+        Logger.log('원본 GraphQL 응답 데이터:', name: 'AWSProfileService');
         Logger.log(response.data!, name: 'AWSProfileService');
         
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['listProfiles']?['items'] as List?;
-        
-        Logger.log('📊 파싱된 아이템 수: ${items?.length ?? 0}', name: 'AWSProfileService');
-        
-        if (items != null && items.isNotEmpty) {
-          // 모든 프로필의 원본 데이터 출력
-          for (int i = 0; i < items.length; i++) {
-            final item = items[i] as Map<String, dynamic>;
-            Logger.log('📋 원본 프로필 $i: ${item.toString()}', name: 'AWSProfileService');
-            
-            // DynamoDB 형식 데이터를 일반 JSON으로 변환
-            final convertedData = _convertDynamoDBToJson(item);
-            Logger.log('🔄 변환된 프로필 $i: ${convertedData.toString()}', name: 'AWSProfileService');
-            
-            final itemUserId = convertedData['userId'] as String?;
-            Logger.log('🆔 비교 - 요청 userId: $userId, 프로필 userId: $itemUserId', name: 'AWSProfileService');
-            
-            if (itemUserId == userId) {
-              Logger.log('✅ userId 일치하는 프로필 발견: ${convertedData['name']}', name: 'AWSProfileService');
-              return ProfileModel.fromJson(convertedData);
-            }
-          }
+        try {
+          final data = _parseGraphQLResponse(response.data!);
+          Logger.log('파싱된 데이터: $data', name: 'AWSProfileService');
           
-          Logger.log('❌ userId와 일치하는 프로필을 찾지 못함. 총 ${items.length}개 프로필 스캔', name: 'AWSProfileService');
+          final items = data['listProfiles']?['items'] as List?;
+          
+          Logger.log('전체 프로필 수: ${items?.length ?? 0}', name: 'AWSProfileService');
+          
+          if (items != null && items.isNotEmpty) {
+            // userId 매칭되는 프로필 찾기
+            for (final item in items) {
+              final profile = item as Map<String, dynamic>;
+              final profileUserId = profile['userId'] as String?;
+              final profileId = profile['id'] as String?;
+              
+              Logger.log('프로필 체크: id=$profileId, userId=$profileUserId, name=${profile['name']}', name: 'AWSProfileService');
+              
+              // userId 또는 id가 일치하는 경우
+              if (profileUserId == userId || profileId == userId) {
+                Logger.log('✅ 매칭되는 프로필 발견: ${profile['name']}', name: 'AWSProfileService');
+                return ProfileModel.fromJson(profile);
+              }
+            }
+            
+            Logger.log('❌ 매칭되는 프로필을 찾지 못함', name: 'AWSProfileService');
+          } else {
+            Logger.log('❌ 프로필 데이터가 비어있음', name: 'AWSProfileService');
+          }
+        } catch (parseError) {
+          Logger.error('GraphQL 응답 파싱 오류: $parseError', name: 'AWSProfileService');
         }
+      } else {
+        Logger.log('❌ GraphQL 응답 데이터가 null', name: 'AWSProfileService');
       }
 
       return null;
@@ -1536,72 +1565,6 @@ class AWSProfileService {
     return false;
   }
 
-  /// 실제 DynamoDB 데이터 파싱 테스트
-  Future<void> _testDynamoDBDataParsing() async {
-    Logger.log('🧪 실제 DynamoDB 데이터 파싱 테스트 시작', name: 'AWSProfileService');
-    
-    // 제공받은 실제 DynamoDB 데이터
-    final Map<String, dynamic> realDynamoData = {
-      "id": {"S": "1753173618393-805-force-user"},
-      "age": {"N": "40"},
-      "badges": {"L": []},
-      "bio": {"S": "ㅎㅇ"},
-      "bodyType": {"S": ""},
-      "createdAt": {"S": "2025-07-22T08:40:19.026Z"},
-      "drinking": {"S": ""},
-      "education": {"S": ""},
-      "gender": {"S": "여성"},
-      "height": {"NULL": true},
-      "hobbies": {"L": [{"S": "여행"}]},
-      "incomeCode": {"S": ""},
-      "isOnline": {"BOOL": true},
-      "isPremium": {"BOOL": false},
-      "isVerified": {"BOOL": false},
-      "isVip": {"BOOL": false},
-      "lastSeen": {"NULL": true},
-      "likeCount": {"N": "0"},
-      "location": {"S": "서울 강남구"},
-      "mbti": {"S": ""},
-      "meetingType": {"S": ""},
-      "name": {"S": "시아"},
-      "occupation": {"S": "프리랜서"},
-      "profileImages": {
-        "L": [
-          {"S": "file:///Users/sunwoo/Library/Developer/CoreSimulator/Devices/3C2198AF-389A-4F09-8BB1-B91BAE7F1611/data/Containers/Data/Application/C96538D8-4A98-4761-89F1-145A8EA872DB/tmp/image_picker_88F932E8-9776-4A1A-9EA0-E36AFA818577-31357-00000A5F33120AC8.jpg"},
-          {"S": "file:///Users/sunwoo/Library/Developer/CoreSimulator/Devices/3C2198AF-389A-4F09-8BB1-B91BAE7F1611/data/Containers/Data/Application/C96538D8-4A98-4761-89F1-145A8EA872DB/tmp/image_picker_B62B4EEF-D59B-4473-8F29-E7EB309E32B9-31357-00000A5F3597A65A.jpg"},
-          {"S": "file:///Users/sunwoo/Library/Developer/CoreSimulator/Devices/3C2198AF-389A-4F09-8BB1-B91BAE7F1611/data/Containers/Data/Application/C96538D8-4A98-4761-89F1-145A8EA872DB/tmp/image_picker_683A8522-68C5-48B3-981A-CDBA3E908292-31357-00000A5F37DB7732.jpg"}
-        ]
-      },
-      "religion": {"S": ""},
-      "smoking": {"S": ""},
-      "superChatCount": {"N": "0"},
-      "updatedAt": {"S": "2025-07-22T08:40:19.027Z"}
-    };
-    
-    Logger.log('📄 실제 DynamoDB 원본 데이터:', name: 'AWSProfileService');
-    Logger.log(realDynamoData.toString(), name: 'AWSProfileService');
-    
-    // 변환 테스트
-    final converted = _convertDynamoDBToJson(realDynamoData);
-    
-    Logger.log('🎯 변환 후 주요 정보:', name: 'AWSProfileService');
-    Logger.log('   이름: ${converted["name"]}', name: 'AWSProfileService');
-    Logger.log('   나이: ${converted["age"]}', name: 'AWSProfileService');
-    Logger.log('   성별: ${converted["gender"]}', name: 'AWSProfileService');
-    Logger.log('   직업: ${converted["occupation"]}', name: 'AWSProfileService');
-    Logger.log('   위치: ${converted["location"]}', name: 'AWSProfileService');
-    
-    try {
-      // ProfileModel 생성 테스트
-      final profile = ProfileModel.fromJson(converted);
-      Logger.log('✅ ProfileModel 생성 성공:', name: 'AWSProfileService');
-      Logger.log('   프로필 이름: ${profile.name}', name: 'AWSProfileService');
-      Logger.log('   프로필 나이: ${profile.age}', name: 'AWSProfileService');
-      Logger.log('   프로필 성별: ${profile.gender}', name: 'AWSProfileService');
-    } catch (e) {
-      Logger.error('❌ ProfileModel 생성 실패: $e', name: 'AWSProfileService');
-    }
-  }
 
   /// GraphQL로 userId 기반 프로필 조회
   Future<ProfileModel?> _getProfileByUserIdGraphQL(String userId) async {

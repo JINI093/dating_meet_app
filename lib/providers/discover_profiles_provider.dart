@@ -185,11 +185,11 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
         }
       }
 
-      // 4. 프로필 목록 조회 (임시로 성별 필터 제거)
-      Logger.log('🔧 임시 성별 필터 비활성화 - AWS 데이터 gender 필드 문제로 인함', name: 'DiscoverProfilesProvider');
+      // 4. 프로필 목록 조회 (성별 필터 활성화)
+      Logger.log('✅ 성별 필터 활성화 - 이성 프로필만 조회: $oppositeGender', name: 'DiscoverProfilesProvider');
       final profiles = await _profileService.getDiscoverProfiles(
         currentUserId: currentUserId,
-        gender: null,  // 임시로 성별 필터 제거
+        gender: oppositeGender,  // 이성 프로필만 조회
         minAge: state.filter.minAge,
         maxAge: state.filter.maxAge,
         maxDistance: state.filter.maxDistance,
