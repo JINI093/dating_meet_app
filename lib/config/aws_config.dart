@@ -17,7 +17,7 @@ class AWSConfig {
   static String get s3BucketRegion => 'ap-northeast-2';
 
   // API Gateway 설정
-  static String get apiGatewayUrl => dotenv.env['API_GATEWAY_URL'] ?? '';
+  static String get apiGatewayUrl => dotenv.env['API_GATEWAY_URL'] ?? 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev';
   static String get apiGatewayStage => dotenv.env['API_GATEWAY_STAGE'] ?? 'dev';
 
   /// 환경 변수 로딩 (main 함수에서 호출 필요)

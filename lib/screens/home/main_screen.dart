@@ -40,6 +40,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _swipeCount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // 초기화 시 matchProvider 인덱스 확인
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(matchProvider.notifier).setCurrentIndex(0);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final matchState = ref.watch(matchProvider);
     final profiles = matchState.profiles;
@@ -294,10 +303,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 );
               },
               onIndexChanged: (index) {
-                // 4. 카드를 5번 넘기면 모달 노출
+                // 스와이프 카운트 업데이트 및 matchProvider와 동기화
                 setState(() {
                   _swipeCount++;
                 });
+                
+                // matchProvider의 currentIndex와 동기화
+                ref.read(matchProvider.notifier).setCurrentIndex(index);
+                
+                // 4. 카드를 5번 넘기면 모달 노출
                 if (_swipeCount == 5) {
                   _showCardLimitModal();
                 }

@@ -1,5 +1,31 @@
 {
   "dependencies": {
-    "aws-amplify": "^6.15.4"
-  }
+    "@aws-sdk/client-dynamodb": "^3.848.0",
+    "@aws-sdk/lib-dynamodb": "^3.850.0",
+    "aws-amplify": "^6.15.4",
+    "uuid": "^11.1.0"
+  },
+  "name": "dating_meet_app",
+  "version": "1.0.0",
+  "description": "A new Flutter project.",
+  "main": "add_male_profiles.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JINI093/dating_meet_app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JINI093/dating_meet_app/issues"
+  },
+  "homepage": "https://github.com/JINI093/dating_meet_app#readme",
+  "type": "module"
 }

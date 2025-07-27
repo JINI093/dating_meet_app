@@ -1,0 +1,32 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:BatchGetItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:TransactWriteItems"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Superchats",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Superchats/index/*",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Likes",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Likes/index/*",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Matches",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Matches/index/*",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/UserPoints",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/PointsHistory",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/PointsHistory/index/*",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Notifications",
+                "arn:aws:dynamodb:ap-northeast-2:213265226405:table/Notifications/index/*"
+            ]
+        }
+    ]
+}

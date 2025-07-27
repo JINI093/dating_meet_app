@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+
+# YoYo AI version control directory
+.yoyo/
+node_modules

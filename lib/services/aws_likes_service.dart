@@ -1,12 +1,9 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_api/amplify_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/like_model.dart';
-import '../models/match_model.dart';
 import '../utils/logger.dart';
-import 'notification_service.dart';
-import 'aws_match_service.dart';
+import 'api_service.dart';
 
 /// AWS 기반 호감 표시 서비스
 /// DynamoDB를 통한 좋아요/패스 데이터 관리
@@ -15,12 +12,11 @@ class AWSLikesService {
   factory AWSLikesService() => _instance;
   AWSLikesService._internal();
 
-  static const int _dailyLikeLimit = 10;
+  static const int _dailyLikeLimit = 20;
   static const String _likesCountKey = 'daily_likes_count';
   static const String _lastLikeDateKey = 'last_like_date';
   
-  final NotificationService _notificationService = NotificationService();
-  final AWSMatchService _matchService = AWSMatchService();
+  final ApiService _apiService = ApiService();
 
   /// 서비스 초기화
   Future<void> initialize() async {
@@ -35,128 +31,61 @@ class AWSLikesService {
     }
   }
 
-  /// 호감 표시 (좋아요)
+  /// 호감 표시 (좋아요) - 서버사이드 처리
   Future<LikeModel?> sendLike({
     required String fromUserId,
     required String toProfileId,
     String? message,
   }) async {
     try {
-      // 1. 일일 제한 확인
-      final canSendLike = await _checkDailyLimit(fromUserId);
-      if (!canSendLike) {
-        throw Exception('일일 호감 표시 제한을 초과했습니다. (${_dailyLikeLimit}회)');
-      }
+      Logger.log('🚀 서버사이드 좋아요 전송 시작', name: 'AWSLikesService');
+      Logger.log('   전송자: $fromUserId', name: 'AWSLikesService');
+      Logger.log('   수신자: $toProfileId', name: 'AWSLikesService');
 
-      // 2. 중복 확인
-      final existingLike = await _getLikeBetweenUsers(fromUserId, toProfileId);
-      if (existingLike != null) {
-        throw Exception('이미 호감을 표시한 사용자입니다.');
-      }
-
-      // 3. 호감 데이터 생성
-      final now = DateTime.now();
-      final likeData = {
+      // REST API를 통한 서버사이드 처리
+      final response = await _apiService.post('/likes', data: {
         'fromUserId': fromUserId,
         'toProfileId': toProfileId,
         'likeType': 'LIKE',
         'message': message,
-        'isMatched': false,
-        'createdAt': now.toIso8601String(),
-        'updatedAt': now.toIso8601String(),
-      };
+      });
 
-      // 4. GraphQL 뮤테이션 실행
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation CreateLike(\$input: CreateLikeInput!) {
-            createLike(input: \$input) {
-              id
-              fromUserId
-              toProfileId
-              likeType
-              message
-              isMatched
-              createdAt
-              updatedAt
-            }
-          }
-        ''',
-        variables: {'input': likeData},
-      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final likeData = response.data['data']['like'];
+        final isMatch = response.data['data']['isMatch'] ?? false;
 
-      final response = await Amplify.API.mutate(request: request).response;
-      
-      if (response.errors.isNotEmpty) {
-        throw Exception('호감 표시 실패: ${response.errors.first.message}');
+        Logger.log('✅ 좋아요 전송 성공', name: 'AWSLikesService');
+        Logger.log('   매칭 여부: $isMatch', name: 'AWSLikesService');
+        Logger.log('   남은 일일 제한: ${response.data['data']['remaining']}', name: 'AWSLikesService');
+
+        // SharedPreferences 업데이트 (로컬 캐시용)
+        await _incrementDailyCount(fromUserId);
+
+        // LikeModel 객체 생성
+        final like = LikeModel.fromJson({
+          'id': likeData['id'],
+          'fromUserId': likeData['fromUserId'],
+          'toProfileId': likeData['toProfileId'],
+          'likeType': likeData['actionType'],
+          'message': likeData['message'],
+          'isMatched': isMatch,
+          'createdAt': likeData['createdAt'],
+          'updatedAt': likeData['updatedAt'],
+          'isRead': false,
+        });
+
+        return like;
+      } else {
+        final errorMessage = response.data['message'] ?? '좋아요 전송에 실패했습니다.';
+        Logger.error('❌ 좋아요 전송 실패: $errorMessage', name: 'AWSLikesService');
+        throw Exception(errorMessage);
       }
-
-      // 5. 일일 카운트 증가
-      await _incrementDailyLikeCount();
-
-      // 6. 매칭 확인 및 생성 (AWS 매칭 서비스 사용)
-      MatchModel? newMatch;
-      bool isMatched = false;
-      
-      try {
-        newMatch = await _matchService.checkAndCreateMatch(
-          fromUserId: fromUserId,
-          toUserId: toProfileId,
-        );
-        
-        if (newMatch != null) {
-          isMatched = true;
-          
-          // 호감 데이터를 매칭 상태로 업데이트
-          if (response.data != null) {
-            final likeJson = _parseGraphQLResponse(response.data!);
-            final likeId = likeJson['createLike']?['id'];
-            if (likeId != null) {
-              await _updateMatchStatus(likeId, true);
-            }
-          }
-          
-          Logger.log('새 매칭 생성됨: ${newMatch.id}', name: 'AWSLikesService');
-        }
-      } catch (e) {
-        Logger.error('매칭 확인 오류', error: e, name: 'AWSLikesService');
-        // 매칭 실패해도 호감 표시는 유지
-      }
-
-      // 7. 프로필 호감 수 증가
-      await _incrementProfileLikeCount(toProfileId);
-
-      // 8. 알림 전송
-      try {
-        if (!isMatched) {
-          // 호감 받음 알림 전송 (상대방에게) - 매칭 알림은 매칭 서비스에서 처리됨
-          await _notificationService.showLikeReceivedNotification(
-            fromUserName: 'Unknown User', // 실제로는 프로필 정보에서 가져와야 함
-            fromUserId: fromUserId,
-            message: message,
-            isSuperChat: message != null,
-          );
-        }
-      } catch (e) {
-        Logger.error('알림 전송 오류', error: e, name: 'AWSLikesService');
-        // 알림 실패는 전체 프로세스를 중단시키지 않음
-      }
-
-      if (response.data != null) {
-        final likeJson = _parseGraphQLResponse(response.data!);
-        final likeData = likeJson['createLike'];
-        if (likeData != null) {
-          final like = LikeModel.fromJson(likeData);
-          return like.copyWith(isMatched: isMatched);
-        }
-      }
-
-      return null;
     } catch (e) {
-      Logger.error('호감 표시 오류', error: e, name: 'AWSLikesService');
+      Logger.error('❌ 좋아요 전송 중 오류 발생', error: e, name: 'AWSLikesService');
       rethrow;
     }
   }
+
 
   /// 패스하기
   Future<LikeModel?> sendPass({
@@ -438,17 +367,11 @@ class AWSLikesService {
     }
   }
 
-  /// 일일 제한 확인
-  Future<bool> _checkDailyLimit(String userId) async {
-    final remaining = await getRemainingDailyLikes(userId);
-    return remaining > 0;
-  }
 
-  /// 일일 호감 표시 카운트 증가
-  Future<void> _incrementDailyLikeCount() async {
+  /// 로컬 일일 카운트 증가 (캐시용)
+  Future<void> _incrementDailyCount(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = 'current_user'; // 실제로는 현재 사용자 ID 사용
       final today = DateTime.now();
       final todayString = '${today.year}-${today.month}-${today.day}';
       
@@ -462,55 +385,7 @@ class AWSLikesService {
     }
   }
 
-  /// 매칭 상태 업데이트
-  Future<void> _updateMatchStatus(String likeId, bool isMatched) async {
-    try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation UpdateLikeMatchStatus(\$input: UpdateLikeInput!) {
-            updateLike(input: \$input) {
-              id
-              isMatched
-              updatedAt
-            }
-          }
-        ''',
-        variables: {
-          'input': {
-            'id': likeId,
-            'isMatched': isMatched,
-            'updatedAt': DateTime.now().toIso8601String(),
-          }
-        },
-      );
 
-      await Amplify.API.mutate(request: request).response;
-      Logger.log('매칭 상태 업데이트: $likeId -> $isMatched', name: 'AWSLikesService');
-    } catch (e) {
-      Logger.error('매칭 상태 업데이트 오류', error: e, name: 'AWSLikesService');
-    }
-  }
-
-  /// 프로필 호감 수 증가
-  Future<void> _incrementProfileLikeCount(String profileId) async {
-    try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation IncrementProfileLikeCount(\$id: ID!) {
-            incrementProfileLikeCount(id: \$id) {
-              id
-              likeCount
-            }
-          }
-        ''',
-        variables: {'id': profileId},
-      );
-
-      await Amplify.API.mutate(request: request).response;
-    } catch (e) {
-      Logger.error('프로필 호감 수 증가 오류', error: e, name: 'AWSLikesService');
-    }
-  }
 
   /// GraphQL 응답 파싱
   Map<String, dynamic> _parseGraphQLResponse(String response) {

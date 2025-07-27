@@ -2,10 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/profile_model.dart';
 import '../models/match_model.dart';
 import '../models/like_model.dart';
+import '../models/superchat_model.dart';
 import '../services/aws_profile_service.dart';
-import '../services/aws_likes_service.dart';
+import '../services/enhanced_likes_service.dart';
+import '../services/enhanced_superchat_service.dart';
 import '../services/aws_match_service.dart';
-import '../services/aws_superchat_service.dart';
 import 'notification_provider.dart';
 import 'matches_provider.dart';
 import 'likes_provider.dart';
@@ -110,9 +111,9 @@ class MatchState {
 class MatchNotifier extends StateNotifier<MatchState> {
   final Ref ref;
   final AWSProfileService _profileService = AWSProfileService();
-  final AWSLikesService _likesService = AWSLikesService();
+  final EnhancedLikesService _likesService = EnhancedLikesService();
   final AWSMatchService _matchService = AWSMatchService();
-  final AWSSuperchatService _superchatService = AWSSuperchatService();
+  final EnhancedSuperchatService _superchatService = EnhancedSuperchatService();
   
   MatchNotifier(this.ref) : super(const MatchState(
     profiles: [],
@@ -341,7 +342,7 @@ class MatchNotifier extends StateNotifier<MatchState> {
       
       final fromUserId = authState.currentUser!.user!.userId;
       
-      // Send like via AWS service
+      // 서버사이드 좋아요 전송 (향상된 검증 및 매칭 처리)
       final sentLike = await _likesService.sendLike(
         fromUserId: fromUserId,
         toProfileId: currentProfile.id,
@@ -349,18 +350,20 @@ class MatchNotifier extends StateNotifier<MatchState> {
       
       if (sentLike != null) {
         if (sentLike.isMatched) {
-          // Match occurred
+          // 서버에서 자동으로 매칭 처리됨
           final matchId = 'match_${DateTime.now().millisecondsSinceEpoch}';
           
-          // Add notification
+          // 알림 추가
           ref.read(notificationProvider.notifier).addMatchNotification(
             matchId: matchId,
             profileId: currentProfile.id,
             profileName: currentProfile.name,
-            profileImageUrl: currentProfile.profileImages.first,
+            profileImageUrl: currentProfile.profileImages.isNotEmpty 
+                ? currentProfile.profileImages.first 
+                : '',
           );
           
-          // Add to matches provider
+          // 매칭 목록에 추가
           final newMatch = MatchModel(
             id: matchId,
             profile: currentProfile,
@@ -377,10 +380,10 @@ class MatchNotifier extends StateNotifier<MatchState> {
           _moveToNextProfile();
           return MatchResult.success(
             profile: currentProfile,
-            message: '${currentProfile.name}님과 매칭되었습니다! 🎉',
+            message: '🎉 ${currentProfile.name}님과 매칭되었습니다!',
           );
         } else {
-          // Like sent successfully, add to local state
+          // 좋아요 전송 성공 (매칭은 아님)
           final likeWithProfile = sentLike.copyWith(profile: currentProfile);
           final currentSentLikes = ref.read(likesProvider).sentLikes;
           ref.read(likesProvider.notifier).state = ref.read(likesProvider).copyWith(
@@ -445,16 +448,16 @@ class MatchNotifier extends StateNotifier<MatchState> {
       
       final fromUserId = authState.currentUser!.user!.userId;
       
-      // Send super chat via AWS service
+      // 서버사이드 슈퍼챗 전송 (원자적 포인트 차감 포함)
       final sentSuperChat = await _superchatService.sendSuperchat(
         fromUserId: fromUserId,
         toProfileId: currentProfile.id,
         message: message,
-        pointsUsed: 100, // Default super chat cost
+        pointsUsed: 100, // 기본 슈퍼챗 비용
       );
       
       if (sentSuperChat != null) {
-        // Super chat sent successfully, create LikeModel for local state
+        // 슈퍼챗 전송 성공, 좋아요 목록에 표시용으로 변환
         final superChatAsLike = LikeModel(
           id: sentSuperChat.id,
           fromUserId: fromUserId,
@@ -468,18 +471,20 @@ class MatchNotifier extends StateNotifier<MatchState> {
           isRead: false,
         );
         
-        // Add to sent likes
+        // 전송한 좋아요 목록에 추가
         final currentSentLikes = ref.read(likesProvider).sentLikes;
         ref.read(likesProvider.notifier).state = ref.read(likesProvider).copyWith(
           sentLikes: [...currentSentLikes, superChatAsLike],
         );
         
-        // Send notification for super chat received
+        // 슈퍼챗 수신 알림 (서버에서 자동 처리되지만 로컬 상태 동기화)
         ref.read(notificationProvider.notifier).addSuperChatNotification(
           chatId: sentSuperChat.id,
           profileId: currentProfile.id,
           profileName: currentProfile.name,
-          profileImageUrl: currentProfile.profileImages.first,
+          profileImageUrl: currentProfile.profileImages.isNotEmpty 
+              ? currentProfile.profileImages.first 
+              : '',
           message: message,
         );
         
@@ -550,6 +555,13 @@ class MatchNotifier extends StateNotifier<MatchState> {
   // Reset to first profile
   void resetToFirst() {
     state = state.copyWith(currentIndex: 0);
+  }
+
+  // Set current index to specific value (for syncing with external components)
+  void setCurrentIndex(int index) {
+    if (index >= 0 && index < state.profiles.length) {
+      state = state.copyWith(currentIndex: index);
+    }
   }
 }
 
