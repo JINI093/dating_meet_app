@@ -8,6 +8,7 @@ import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
+import 'package:dio/dio.dart';
 
 import '../models/profile_model.dart';
 import '../utils/logger.dart';
@@ -725,7 +726,6 @@ class AWSProfileService {
     // REST API 폴백
     Logger.log('🔄 REST API 폴백 시작', name: 'AWSProfileService');
     try {
-      final apiService = ApiService();
       final queryParams = <String, dynamic>{
         'currentUserId': currentUserId,
         if (gender != null) 'gender': gender,
@@ -737,7 +737,26 @@ class AWSProfileService {
       
       Logger.log('📝 REST API 요청 파라미터: ${json.encode(queryParams)}', name: 'AWSProfileService');
       
-      final response = await apiService.get('/profiles/discover', queryParameters: queryParams);
+      // 프로필 API는 별도 API Gateway 사용
+      final profileApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            profileApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('디스커버 프로필 API 토큰 추가 실패: $e', name: 'AWSProfileService');
+      }
+      
+      final response = await profileApiService.get('/profiles/discover', queryParameters: queryParams);
       
       Logger.log('📡 REST API 응답:', name: 'AWSProfileService');
       Logger.log('   상태 코드: ${response.statusCode}', name: 'AWSProfileService');
@@ -1262,10 +1281,27 @@ class AWSProfileService {
       
       Logger.log('❌ DynamoDB 스캔과 GraphQL 모두 실패, REST API 시도: $userId', name: 'AWSProfileService');
       
-      // GraphQL 실패 시 REST API로 재시도
+      // GraphQL 실패 시 REST API로 재시도 (올바른 프로필 API URL 사용)
       try {
-        final apiService = ApiService();
-        final response = await apiService.get('/profiles/$userId');
+        final profileApiService = Dio(BaseOptions(
+          baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+          headers: {'Content-Type': 'application/json'},
+        ));
+        
+        // JWT 토큰 추가
+        try {
+          final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+          if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+            final idToken = session.userPoolTokensResult.value!.idToken.raw;
+            if (idToken.isNotEmpty) {
+              profileApiService.options.headers['Authorization'] = 'Bearer $idToken';
+            }
+          }
+        } catch (e) {
+          Logger.error('프로필 API 토큰 추가 실패: $e', name: 'AWSProfileService');
+        }
+        
+        final response = await profileApiService.get('/profiles/$userId');
         
         Logger.log('REST API 응답 상태: ${response.statusCode}', name: 'AWSProfileService');
         Logger.log('REST API 응답 데이터: ${response.data}', name: 'AWSProfileService');

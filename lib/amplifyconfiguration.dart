@@ -1,5 +1,4 @@
-const amplifyconfig = '''
-{
+const amplifyconfig = '''{
   "UserAgent": "aws-amplify-cli/2.0",
   "Version": "1.0",
   "auth": {
@@ -14,7 +13,9 @@ const amplifyconfig = '''
           "Default": {
             "PoolId": "ap-northeast-2_lKdTmyEaP",
             "AppClientId": "cqu5l148pkrtoh0e28bh385ns",
-            "Region": "ap-northeast-2"
+            "Region": "ap-northeast-2",
+            "UsernameAliases": ["email"],
+            "SignupAttributes": ["email"]
           }
         },
         "CredentialsProvider": {
@@ -27,7 +28,17 @@ const amplifyconfig = '''
         },
         "Auth": {
           "Default": {
-            "authenticationFlowType": "USER_SRP_AUTH"
+            "authenticationFlowType": "USER_SRP_AUTH",
+            "socialProviders": [],
+            "usernameAttributes": ["email"],
+            "signupAttributes": ["email"],
+            "passwordProtectionSettings": {
+              "passwordPolicyMinLength": 8,
+              "passwordPolicyCharacters": []
+            },
+            "mfaConfiguration": "OFF",
+            "mfaTypes": ["SMS"],
+            "verificationMechanisms": ["EMAIL"]
           }
         }
       }
@@ -61,5 +72,4 @@ const amplifyconfig = '''
       }
     }
   }
-}
-''';
+}''';

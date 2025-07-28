@@ -24,6 +24,7 @@ class LikeModel {
   final LikeType likeType;
   final String? message;
   final bool isMatched;
+  final String? matchId; // Match ID when isMatched is true
   final DateTime createdAt;
   final DateTime updatedAt;
   
@@ -38,6 +39,7 @@ class LikeModel {
     required this.likeType,
     this.message,
     this.isMatched = false,
+    this.matchId,
     required this.createdAt,
     required this.updatedAt,
     this.profile,
@@ -71,6 +73,7 @@ class LikeModel {
             return LikeType.pass;
           case 'SUPER_LIKE':
             return LikeType.superLike;
+          case 'SUPERCHAT':
           case 'super_chat':
             return LikeType.superChat;
           default:
@@ -84,9 +87,10 @@ class LikeModel {
       id: json['id'] as String? ?? '',
       fromUserId: json['fromUserId'] as String? ?? '',
       toProfileId: json['toProfileId'] as String? ?? '',
-      likeType: parseLikeType(json['likeType']),
+      likeType: parseLikeType(json['likeType'] ?? json['actionType']),
       message: json['message'] as String?,
       isMatched: json['isMatched'] as bool? ?? false,
+      matchId: json['matchId'] as String?,
       createdAt: parseDateTime(json['createdAt']),
       updatedAt: parseDateTime(json['updatedAt']),
       profile: json['profile'] != null ? ProfileModel.fromJson(json['profile']) : null,
@@ -102,6 +106,7 @@ class LikeModel {
       'likeType': likeType.name,
       'message': message,
       'isMatched': isMatched,
+      'matchId': matchId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'profile': profile?.toJson(),
@@ -116,6 +121,7 @@ class LikeModel {
     LikeType? likeType,
     String? message,
     bool? isMatched,
+    String? matchId,
     DateTime? createdAt,
     DateTime? updatedAt,
     ProfileModel? profile,
@@ -128,6 +134,7 @@ class LikeModel {
       likeType: likeType ?? this.likeType,
       message: message ?? this.message,
       isMatched: isMatched ?? this.isMatched,
+      matchId: matchId ?? this.matchId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       profile: profile ?? this.profile,
@@ -156,7 +163,7 @@ class LikeModel {
     }
   }
 
-  bool get isSuperChat => likeType == LikeType.superChat && message != null;
+  bool get isSuperChat => likeType == LikeType.superChat;
 
   String get displayMessage {
     if (isSuperChat && message != null) {
@@ -189,6 +196,7 @@ class LikeModel {
       likeType: type,
       message: message,
       isMatched: false,
+      matchId: null,
       createdAt: createTime,
       updatedAt: createTime,
       profile: profile,

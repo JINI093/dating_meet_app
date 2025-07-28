@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
-import '../services/aws_likes_service.dart';
-import '../services/aws_match_service.dart';
+import '../services/aws_notification_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 
@@ -67,22 +67,76 @@ class NotificationState {
 class NotificationNotifier extends StateNotifier<NotificationState> {
   final Ref ref;
   final NotificationService _notificationService = NotificationService();
-  final AWSLikesService _likesService = AWSLikesService();
-  final AWSMatchService _matchService = AWSMatchService();
+  late final AWSNotificationService _awsNotificationService;
+  
+  Timer? _pollingTimer;
+  static const Duration _pollingInterval = Duration(seconds: 30);
 
   NotificationNotifier(this.ref) : super(const NotificationState()) {
+    _awsNotificationService = AWSNotificationService();
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
     try {
       await _notificationService.initialize();
-      await _likesService.initialize();
-      await _matchService.initialize();
       await _loadNotifications();
+      _startPolling(); // 실시간 알림 폴링 시작
     } catch (e) {
-      Logger.error('알림 provider 초기화 실패', error: e, name: 'NotificationProvider');
+      AppLogger.e('NotificationProvider', '알림 provider 초기화 실패', e);
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  /// 실시간 알림 폴링 시작
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(_pollingInterval, (_) {
+      _pollRecentNotifications();
+    });
+    AppLogger.d('NotificationProvider', '📡 알림 폴링 시작 (${_pollingInterval.inSeconds}초 간격)');
+  }
+
+  /// 최근 알림 폴링
+  Future<void> _pollRecentNotifications() async {
+    try {
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        return;
+      }
+
+      final userId = authState.currentUser!.user!.userId;
+      final since = state.lastChecked ?? DateTime.now().subtract(const Duration(minutes: 5));
+      
+      final newNotifications = await _awsNotificationService.pollRecentNotifications(userId, since: since);
+      
+      if (newNotifications.isNotEmpty) {
+        // 새 알림을 기존 알림 목록에 추가
+        final updatedNotifications = [...newNotifications, ...state.notifications];
+        final unreadCount = updatedNotifications.where((n) => !n.isRead).length;
+        
+        state = state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: unreadCount,
+          hasNewNotifications: true,
+          lastChecked: DateTime.now(),
+        );
+        
+        AppLogger.d('NotificationProvider', '🔔 새 알림 ${newNotifications.length}개 수신');
+        
+        // 로컬 알림 표시
+        for (final notification in newNotifications) {
+          await _showLocalNotification(notification);
+        }
+      }
+    } catch (e) {
+      AppLogger.e('NotificationProvider', '알림 폴링 실패', e);
     }
   }
 
@@ -104,35 +158,10 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       }
 
       final userId = authState.currentUser!.user!.userId;
-      final notifications = <NotificationModel>[];
-
-      // Load recent received likes to create notifications
-      final receivedLikes = await _likesService.getReceivedLikes(userId: userId, limit: 20);
-      for (final like in receivedLikes) {
-        if (!like.isRead) {
-          notifications.add(NotificationModel(
-            id: 'like_${like.id}',
-            userId: userId,
-            title: like.isSuperChat ? '새로운 슈퍼챗!' : '새로운 좋아요!',
-            message: like.displayMessage,
-            type: like.isSuperChat ? NotificationType.newSuperChat : NotificationType.newLike,
-            createdAt: like.createdAt,
-            isImportant: like.isSuperChat,
-            imageUrl: like.profile?.profileImages.first,
-            actionUrl: '/likes',
-            data: {
-              'likeId': like.id,
-              'fromUserId': like.fromUserId,
-              'isSuperChat': like.isSuperChat,
-            },
-          ));
-        }
-      }
-
-      // Sort by creation date (newest first)
-      notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
-      final unreadCount = notifications.where((n) => !n.isRead).length;
+      // DynamoDB에서 알림 데이터 가져오기
+      final notifications = await _awsNotificationService.getUserNotifications(userId);
+      final unreadCount = await _awsNotificationService.getUnreadNotificationCount(userId);
 
       state = state.copyWith(
         notifications: notifications,
@@ -141,9 +170,9 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         lastChecked: DateTime.now(),
       );
 
-      Logger.log('알림 ${notifications.length}개 로드 완료 (읽지 않음: $unreadCount)', name: 'NotificationProvider');
+      AppLogger.d('NotificationProvider', '✅ 알림 ${notifications.length}개 로드 완료 (읽지 않음: $unreadCount)');
     } catch (e) {
-      Logger.error('알림 로드 실패', error: e, name: 'NotificationProvider');
+      AppLogger.e('NotificationProvider', '알림 로드 실패', e);
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -153,47 +182,75 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 
   Future<void> markAsRead(String notificationId) async {
     try {
-      final updatedNotifications = state.notifications.map((notification) {
-        if (notification.id == notificationId) {
-          return notification.copyWith(isRead: true);
-        }
-        return notification;
-      }).toList();
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        return;
+      }
 
-      final unreadCount = updatedNotifications.where((n) => !n.isRead).length;
+      final userId = authState.currentUser!.user!.userId;
+      
+      // DynamoDB에서 읽음 상태 업데이트
+      final success = await _awsNotificationService.markNotificationAsRead(notificationId, userId);
+      
+      if (success) {
+        // 로컬 상태 업데이트
+        final updatedNotifications = state.notifications.map((notification) {
+          if (notification.id == notificationId) {
+            return notification.copyWith(isRead: true);
+          }
+          return notification;
+        }).toList();
 
-      state = state.copyWith(
-        notifications: updatedNotifications,
-        unreadCount: unreadCount,
-      );
+        final unreadCount = updatedNotifications.where((n) => !n.isRead).length;
 
-      // Simulate API call to mark as read
-      await Future.delayed(const Duration(milliseconds: 200));
+        state = state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: unreadCount,
+        );
+        
+        AppLogger.d('NotificationProvider', '✅ 알림 읽음 처리 완료: $notificationId');
+      }
     } catch (e) {
+      AppLogger.e('NotificationProvider', '알림 읽음 처리 실패', e);
       state = state.copyWith(error: e.toString());
     }
   }
 
   Future<void> markAllAsRead() async {
     try {
-      final updatedNotifications = state.notifications
-          .map((notification) => notification.copyWith(isRead: true))
-          .toList();
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        return;
+      }
 
-      state = state.copyWith(
-        notifications: updatedNotifications,
-        unreadCount: 0,
-      );
+      final userId = authState.currentUser!.user!.userId;
+      
+      // DynamoDB에서 모든 알림 읽음 처리
+      final success = await _awsNotificationService.markAllNotificationsAsRead(userId);
+      
+      if (success) {
+        // 로컬 상태 업데이트
+        final updatedNotifications = state.notifications
+            .map((notification) => notification.copyWith(isRead: true))
+            .toList();
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 300));
+        state = state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: 0,
+          hasNewNotifications: false,
+        );
+        
+        AppLogger.d('NotificationProvider', '✅ 모든 알림 읽음 처리 완료');
+      }
     } catch (e) {
+      AppLogger.e('NotificationProvider', '모든 알림 읽음 처리 실패', e);
       state = state.copyWith(error: e.toString());
     }
   }
 
   Future<void> deleteNotification(String notificationId) async {
     try {
+      // 로컬에서만 제거 (DynamoDB에서는 실제 삭제하지 않음)
       final updatedNotifications = state.notifications
           .where((notification) => notification.id != notificationId)
           .toList();
@@ -204,10 +261,10 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         notifications: updatedNotifications,
         unreadCount: unreadCount,
       );
-
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 200));
+      
+      AppLogger.d('NotificationProvider', '🗑️ 알림 삭제: $notificationId');
     } catch (e) {
+      AppLogger.e('NotificationProvider', '알림 삭제 실패', e);
       state = state.copyWith(error: e.toString());
     }
   }
@@ -217,16 +274,18 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       state = state.copyWith(
         notifications: [],
         unreadCount: 0,
+        hasNewNotifications: false,
       );
-
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 300));
+      
+      AppLogger.d('NotificationProvider', '🗑️ 모든 알림 삭제');
     } catch (e) {
+      AppLogger.e('NotificationProvider', '모든 알림 삭제 실패', e);
       state = state.copyWith(error: e.toString());
     }
   }
 
   Future<void> refreshNotifications() async {
+    AppLogger.d('NotificationProvider', '🔄 알림 새로고침');
     await _loadNotifications();
   }
 
@@ -239,6 +298,52 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       unreadCount: unreadCount,
       hasNewNotifications: true,
     );
+    
+    AppLogger.d('NotificationProvider', '➕ 새 알림 추가: ${notification.type.name}');
+  }
+
+  /// 새 알림이 도착했을 때 상태 업데이트
+  void clearNewNotificationFlag() {
+    state = state.copyWith(hasNewNotifications: false);
+  }
+
+  /// 로컬 푸시 알림 표시
+  Future<void> _showLocalNotification(NotificationModel notification) async {
+    try {
+      final fromUserId = notification.data?['fromUserId']?.toString() ?? '';
+      final fromUserName = '익명의 사용자'; // 프로필 이름은 별도로 조회 필요
+      
+      if (notification.type == NotificationType.newLike) {
+        await _notificationService.showLikeReceivedNotification(
+          fromUserName: fromUserName,
+          fromUserId: fromUserId,
+          message: null,
+          isSuperChat: false,
+        );
+      } else if (notification.type == NotificationType.newSuperChat) {
+        final pointsUsed = notification.data?['pointsUsed'] ?? 100;
+        final superChatPriority = pointsUsed >= 500 ? 4 : 
+                                 pointsUsed >= 300 ? 3 : 
+                                 pointsUsed >= 200 ? 2 : 1;
+        
+        await _notificationService.showSuperchatNotification(
+          fromUserName: fromUserName,
+          fromUserId: fromUserId,
+          message: notification.message,
+          priority: superChatPriority,
+          pointsUsed: pointsUsed,
+        );
+      } else if (notification.type == NotificationType.newMatch) {
+        await _notificationService.showMatchNotification(
+          matchUserName: fromUserName,
+          matchUserId: fromUserId,
+        );
+      }
+      
+      AppLogger.d('NotificationProvider', '📱 로컬 알림 표시: ${notification.title}');
+    } catch (e) {
+      AppLogger.e('NotificationProvider', '로컬 알림 표시 실패', e);
+    }
   }
 
   // 매칭 성공 알림 생성

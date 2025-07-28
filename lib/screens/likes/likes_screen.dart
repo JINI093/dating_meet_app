@@ -12,6 +12,7 @@ import '../../widgets/sheets/received_superchat_bottom_sheet.dart';
 import '../../widgets/sheets/sent_action_bottom_sheet.dart';
 import '../../providers/likes_provider.dart';
 import '../../providers/superchat_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
 import 'received_likes_screen.dart';
 
 class LikesScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,18 @@ class _LikesScreenState extends ConsumerState<LikesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // 화면 로드 시 좋아요 데이터 새로고침
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 현재 사용자 정보 디버깅
+      final authState = ref.read(enhancedAuthProvider);
+      print('🔍 [좋아요 화면] 현재 사용자 정보:');
+      print('   - isSignedIn: ${authState.isSignedIn}');
+      print('   - userId: ${authState.currentUser?.user?.userId}');
+      print('   - username: ${authState.currentUser?.user?.username}');
+      
+      ref.read(likesProvider.notifier).loadAllLikes();
+    });
   }
 
   @override

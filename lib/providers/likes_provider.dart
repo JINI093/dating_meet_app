@@ -99,6 +99,7 @@ class LikesNotifier extends StateNotifier<LikesState> {
     }
 
     final userId = authState.currentUser!.user!.userId;
+    Logger.log('🔄 모든 좋아요 데이터 로드 시작 - 사용자 ID: $userId', name: 'LikesProvider');
 
     await Future.wait([
       loadReceivedLikes(userId),
@@ -106,6 +107,11 @@ class LikesNotifier extends StateNotifier<LikesState> {
       loadMatches(userId),
       updateRemainingDailyLikes(userId),
     ]);
+    
+    Logger.log('✅ 모든 좋아요 데이터 로드 완료', name: 'LikesProvider');
+    Logger.log('📊 받은 좋아요: ${state.receivedLikes.length}개', name: 'LikesProvider');
+    Logger.log('📊 보낸 좋아요: ${state.sentLikes.length}개', name: 'LikesProvider');
+    Logger.log('📊 매칭: ${state.matches.length}개', name: 'LikesProvider');
   }
 
   /// 받은 호감 로드
@@ -133,9 +139,12 @@ class LikesNotifier extends StateNotifier<LikesState> {
   /// 보낸 호감 로드
   Future<void> loadSentLikes(String userId) async {
     state = state.copyWith(isLoadingSent: true, error: null);
+    Logger.log('📤 보낸 호감 로드 시작 - 사용자 ID: $userId', name: 'LikesProvider');
 
     try {
       final likes = await _likesService.getSentLikes(userId: userId);
+      Logger.log('📤 보낸 호감 로드 결과: ${likes.length}개', name: 'LikesProvider');
+      
       state = state.copyWith(
         sentLikes: likes,
         isLoadingSent: false,
@@ -343,6 +352,21 @@ class LikesNotifier extends StateNotifier<LikesState> {
     } catch (e) {
       Logger.error('호감 거절 오류', error: e, name: 'LikesProvider');
       state = state.copyWith(error: '호감 거절에 실패했습니다.');
+    }
+  }
+
+  /// 보낸 호감 취소
+  Future<void> cancelSentLike(String likeId) async {
+    try {
+      // 보낸 호감 목록에서 제거
+      final updatedLikes = state.sentLikes.where((like) => like.id != likeId).toList();
+      
+      state = state.copyWith(sentLikes: updatedLikes);
+      
+      Logger.log('보낸 호감 취소: $likeId', name: 'LikesProvider');
+    } catch (e) {
+      Logger.error('보낸 호감 취소 오류', error: e, name: 'LikesProvider');
+      state = state.copyWith(error: '호감 취소에 실패했습니다.');
     }
   }
 

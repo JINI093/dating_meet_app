@@ -6,6 +6,7 @@ import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../models/like_model.dart';
 import '../../widgets/sheets/super_chat_bottom_sheet.dart';
+import '../../providers/likes_provider.dart';
 
 class SentLikesScreen extends ConsumerStatefulWidget {
   const SentLikesScreen({super.key});
@@ -17,14 +18,16 @@ class SentLikesScreen extends ConsumerStatefulWidget {
 class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late List<LikeModel> _sentSuperChats;
-  late List<LikeModel> _sentLikes;
   
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadSentLikes();
+    
+    // 화면 로드 시 좋아요 데이터 새로고침
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(likesProvider.notifier).loadAllLikes();
+    });
   }
 
   @override
@@ -33,26 +36,22 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
     super.dispose();
   }
 
-  void _loadSentLikes() {
-    // TODO: 실제 API 호출로 대체
-    final allSentLikes = LikeModel.getMockSentLikes();
-    _sentSuperChats = allSentLikes.where((like) => like.isSuperChat).toList();
-    _sentLikes = allSentLikes.where((like) => !like.isSuperChat).toList();
-  }
-
   void _cancelLike(LikeModel like) {
-    // TODO: 좋아요 취소 로직
-    setState(() {
-      if (like.isSuperChat) {
-        _sentSuperChats.remove(like);
-      } else {
-        _sentLikes.remove(like);
-      }
-    });
+    ref.read(likesProvider.notifier).cancelSentLike(like.id);
   }
 
   @override
   Widget build(BuildContext context) {
+    final likesState = ref.watch(likesProvider);
+    
+    // 보낸 좋아요에서 슈퍼챗과 일반 좋아요 분리
+    final sentSuperChats = likesState.sentLikes
+        .where((like) => like.isSuperChat)
+        .toList();
+    final sentLikes = likesState.sentLikes
+        .where((like) => !like.isSuperChat)
+        .toList();
+    
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -85,7 +84,7 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
             // Tab Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppDimensions.spacing16),
-              child: _buildTabBar(),
+              child: _buildTabBar(sentSuperChats, sentLikes),
             ),
 
             // Tab Bar View
@@ -93,8 +92,8 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildSuperChatTab(),
-                  _buildLikesTab(),
+                  _buildSuperChatTab(sentSuperChats),
+                  _buildLikesTab(sentLikes),
                 ],
               ),
             ),
@@ -104,7 +103,7 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildTabBar(List<LikeModel> sentSuperChats, List<LikeModel> sentLikes) {
     return Container(
       height: 44,
       decoration: BoxDecoration(
@@ -126,15 +125,15 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
         ),
         unselectedLabelStyle: AppTextStyles.bodyMedium,
         tabs: [
-          Tab(text: '슈퍼챗 ${_sentSuperChats.length}개'),
-          Tab(text: '좋아요 ${_sentLikes.length}개'),
+          Tab(text: '슈퍼챗 ${sentSuperChats.length}개'),
+          Tab(text: '좋아요 ${sentLikes.length}개'),
         ],
       ),
     );
   }
 
-  Widget _buildSuperChatTab() {
-    if (_sentSuperChats.isEmpty) {
+  Widget _buildSuperChatTab(List<LikeModel> sentSuperChats) {
+    if (sentSuperChats.isEmpty) {
       return _buildEmptyState(
         icon: CupertinoIcons.paperplane,
         title: '보낸 슈퍼챗이 없어요',
@@ -147,11 +146,11 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
       );
     }
 
-    return _buildLikesList(_sentSuperChats, true);
+    return _buildLikesList(sentSuperChats, true);
   }
 
-  Widget _buildLikesTab() {
-    if (_sentLikes.isEmpty) {
+  Widget _buildLikesTab(List<LikeModel> sentLikes) {
+    if (sentLikes.isEmpty) {
       return _buildEmptyState(
         icon: CupertinoIcons.heart,
         title: '보낸 좋아요가 없어요',
@@ -164,7 +163,7 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
       );
     }
 
-    return _buildLikesList(_sentLikes, false);
+    return _buildLikesList(sentLikes, false);
   }
 
   Widget _buildEmptyState({

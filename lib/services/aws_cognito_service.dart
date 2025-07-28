@@ -51,11 +51,17 @@ class AWSCognitoService {
   /// 현재 세션 확인
   Future<void> _checkCurrentSession() async {
     try {
-      final session = await Amplify.Auth.fetchAuthSession();
-      if (session.isSignedIn) {
-        print('✅ 기존 세션 발견');
-        await _saveTokensFromSession(session);
-      }
+      final sessionResult = Amplify.Auth.fetchAuthSession();
+      await sessionResult.then((session) async {
+        if (session.isSignedIn) {
+          print('✅ 기존 세션 발견');
+          await _saveTokensFromSession(session);
+        } else {
+          print('ℹ️ 활성 세션 없음');
+        }
+      }).catchError((error) {
+        print('⚠️ 세션 확인 중 오류: $error');
+      });
     } catch (e) {
       print('⚠️ 세션 확인 실패: $e');
     }
@@ -266,19 +272,33 @@ class AWSCognitoService {
 
       if (result?.isSignedIn == true) {
         // 로그인 성공
-        final user = await Amplify.Auth.getCurrentUser();
-        final session = await Amplify.Auth.fetchAuthSession();
-        
-        // 토큰 저장
-        await _saveTokensFromSession(session);
-        await _saveUserInfo(user, email);
+        try {
+          final userResult = Amplify.Auth.getCurrentUser();
+          final user = await userResult.catchError((error) {
+            print('사용자 정보 조회 에러: $error');
+            throw error;
+          });
+          
+          final sessionResult = Amplify.Auth.fetchAuthSession();
+          final session = await sessionResult.catchError((error) {
+            print('세션 조회 에러: $error');
+            throw error;
+          });
+          
+          // 토큰 저장
+          await _saveTokensFromSession(session);
+          await _saveUserInfo(user, email);
 
-        return AppAuthResult.AuthResult.success(
-          user: user,
-          loginMethod: 'COGNITO',
-          accessToken: await _getStoredToken(_accessTokenKey),
-          refreshToken: await _getStoredToken(_refreshTokenKey),
-        );
+          return AppAuthResult.AuthResult.success(
+            user: user,
+            loginMethod: 'COGNITO',
+            accessToken: await _getStoredToken(_accessTokenKey),
+            refreshToken: await _getStoredToken(_refreshTokenKey),
+          );
+        } catch (e) {
+          print('로그인 후 정보 처리 실패: $e');
+          return AppAuthResult.AuthResult.failure(error: '로그인 후 정보 처리에 실패했습니다: $e');
+        }
       } else if (result?.nextStep.signInStep == AuthSignInStep.confirmSignUp) {
         // 이메일 인증이 필요한 경우
         print('이메일 인증이 필요합니다.');
@@ -407,13 +427,31 @@ class AWSCognitoService {
   /// 현재 사용자 정보 조회
   Future<AppAuthResult.AuthResult?> getCurrentUser() async {
     try {
-      final session = await Amplify.Auth.fetchAuthSession();
+      print('현재 사용자 조회 시작...');
+      
+      // 먼저 세션 상태를 확인
+      final sessionResult = Amplify.Auth.fetchAuthSession();
+      final session = await sessionResult.catchError((error) {
+        print('세션 조회 에러: $error');
+        throw error;
+      });
+      
+      print('세션 상태: isSignedIn=${session.isSignedIn}');
+      
       if (!session.isSignedIn) {
+        print('로그인되지 않은 상태');
         return null;
       }
 
-      final user = await Amplify.Auth.getCurrentUser();
+      // 사용자 정보 조회
+      final userResult = Amplify.Auth.getCurrentUser();
+      final user = await userResult.catchError((error) {
+        print('사용자 정보 조회 에러: $error');
+        throw error;
+      });
+      
       final storedEmail = await _getStoredValue(_emailKey);
+      print('현재 사용자: ${user.username}, 이메일: $storedEmail');
 
       return AppAuthResult.AuthResult.success(
         user: user,
@@ -539,29 +577,43 @@ class AWSCognitoService {
   Future<void> _saveTokensFromSession(AuthSession session) async {
     try {
       if (session is CognitoAuthSession) {
-        final accessToken = session.userPoolTokensResult.value.accessToken;
-        if (accessToken != null) {
-          await _secureStorage.write(
-            key: _accessTokenKey,
-            value: accessToken.toString(),
-          );
-        }
+        // 토큰 결과가 성공 상태인지 확인
+        final tokenResult = session.userPoolTokensResult;
         
-        final refreshToken = session.userPoolTokensResult.value.refreshToken;
-        if (refreshToken != null) {
-          await _secureStorage.write(
-            key: _refreshTokenKey,
-            value: refreshToken,
-          );
+        try {
+          // 토큰 결과에서 값 직접 접근 시도
+          final tokens = tokenResult.value;
+          
+          final accessToken = tokens.accessToken;
+          if (accessToken != null) {
+            await _secureStorage.write(
+              key: _accessTokenKey,
+              value: accessToken.toString(),
+            );
+          }
+          
+          final refreshToken = tokens.refreshToken;
+          if (refreshToken != null) {
+            await _secureStorage.write(
+              key: _refreshTokenKey,
+              value: refreshToken,
+            );
+          }
+          
+          final idToken = tokens.idToken;
+          if (idToken != null) {
+            await _secureStorage.write(
+              key: _idTokenKey,
+              value: idToken.toString(),
+            );
+          }
+          
+          print('✅ 토큰 저장 완료');
+        } catch (tokenError) {
+          print('⚠️ 토큰 접근 실패: $tokenError');
         }
-        
-        final idToken = session.userPoolTokensResult.value.idToken;
-        if (idToken != null) {
-          await _secureStorage.write(
-            key: _idTokenKey,
-            value: idToken.toString(),
-          );
-        }
+      } else {
+        print('⚠️ 세션이 CognitoAuthSession이 아님');
       }
     } catch (e) {
       print('⚠️ 토큰 저장 실패: $e');

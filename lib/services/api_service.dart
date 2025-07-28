@@ -17,6 +17,7 @@ class ApiService {
   );
 
   ApiService() {
+    print('[API][DEBUG] ApiService initialized with baseUrl: ${_dio.options.baseUrl}');
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         // JWT 토큰 자동 헤더 추가

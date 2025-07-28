@@ -1,9 +1,14 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
+import 'dart:convert';
 
 import '../models/like_model.dart';
+import '../models/profile_model.dart';
 import '../utils/logger.dart';
 import 'api_service.dart';
+import 'aws_profile_service.dart';
 
 /// AWS 기반 호감 표시 서비스
 /// DynamoDB를 통한 좋아요/패스 데이터 관리
@@ -17,6 +22,7 @@ class AWSLikesService {
   static const String _lastLikeDateKey = 'last_like_date';
   
   final ApiService _apiService = ApiService();
+  final AWSProfileService _profileService = AWSProfileService();
 
   /// 서비스 초기화
   Future<void> initialize() async {
@@ -42,8 +48,26 @@ class AWSLikesService {
       Logger.log('   전송자: $fromUserId', name: 'AWSLikesService');
       Logger.log('   수신자: $toProfileId', name: 'AWSLikesService');
 
-      // REST API를 통한 서버사이드 처리
-      final response = await _apiService.post('/likes', data: {
+      // REST API를 통한 서버사이드 처리 (올바른 API Gateway 사용)
+      final likesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            likesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('좋아요 API 토큰 추가 실패: $e', name: 'AWSLikesService');
+      }
+      
+      final response = await likesApiService.post('/likes', data: {
         'fromUserId': fromUserId,
         'toProfileId': toProfileId,
         'likeType': 'LIKE',
@@ -53,9 +77,11 @@ class AWSLikesService {
       if (response.statusCode == 200 && response.data['success'] == true) {
         final likeData = response.data['data']['like'];
         final isMatch = response.data['data']['isMatch'] ?? false;
+        final matchId = response.data['data']['matchId'];
 
         Logger.log('✅ 좋아요 전송 성공', name: 'AWSLikesService');
         Logger.log('   매칭 여부: $isMatch', name: 'AWSLikesService');
+        Logger.log('   매치 ID: $matchId', name: 'AWSLikesService');
         Logger.log('   남은 일일 제한: ${response.data['data']['remaining']}', name: 'AWSLikesService');
 
         // SharedPreferences 업데이트 (로컬 캐시용)
@@ -69,6 +95,7 @@ class AWSLikesService {
           'likeType': likeData['actionType'],
           'message': likeData['message'],
           'isMatched': isMatch,
+          'matchId': matchId,
           'createdAt': likeData['createdAt'],
           'updatedAt': likeData['updatedAt'],
           'isRead': false,
@@ -150,113 +177,181 @@ class AWSLikesService {
     }
   }
 
-  /// 받은 호감 목록 조회
+  /// 받은 호감 목록 조회 - 단순화
   Future<List<LikeModel>> getReceivedLikes({
     required String userId,
     int limit = 20,
     String? nextToken,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetReceivedLikes(\$toProfileId: String!, \$limit: Int, \$nextToken: String) {
-            likesByToProfileId(toProfileId: \$toProfileId, limit: \$limit, nextToken: \$nextToken) {
-              items {
-                id
-                fromUserId
-                toProfileId
-                likeType
-                message
-                isMatched
-                createdAt
-                updatedAt
-              }
-              nextToken
-            }
-          }
-        ''',
-        variables: {
-          'toProfileId': userId,
-          'limit': limit,
-          'nextToken': nextToken,
-        },
-      );
-
-      final response = await Amplify.API.query(request: request).response;
+      Logger.log('🔍 받은 호감 조회 시작: $userId', name: 'AWSLikesService');
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('받은 호감 조회 실패: ${response.errors.first.message}');
+      // 올바른 API Gateway 사용
+      final likesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            likesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('받은 좋아요 API 토큰 추가 실패: $e', name: 'AWSLikesService');
       }
-
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['likesByToProfileId']?['items'] as List?;
-        if (items != null) {
-          return items
-              .where((item) => item['likeType'] == 'LIKE')
-              .map((item) => LikeModel.fromJson(item as Map<String, dynamic>))
-              .toList();
+      
+      final response = await likesApiService.get('/likes/$userId/received');
+      Logger.log('API 응답 상태: ${response.statusCode}', name: 'AWSLikesService');
+      Logger.log('API 응답 데이터: ${response.data}', name: 'AWSLikesService');
+      
+      // API Gateway가 Lambda 응답을 중첩시키는 경우 처리
+      dynamic responseData = response.data;
+      if (responseData is Map && responseData.containsKey('statusCode') && responseData.containsKey('body')) {
+        final lambdaStatusCode = responseData['statusCode'];
+        final lambdaBody = responseData['body'] is String 
+            ? jsonDecode(responseData['body']) 
+            : responseData['body'];
+        
+        Logger.log('Lambda 응답 상태: $lambdaStatusCode', name: 'AWSLikesService');
+        Logger.log('Lambda 응답 본문: $lambdaBody', name: 'AWSLikesService');
+        
+        if (lambdaStatusCode == 200 && lambdaBody['success'] == true) {
+          responseData = lambdaBody;
+        } else {
+          Logger.error('❌ Lambda 응답 실패', name: 'AWSLikesService');
+          return [];
         }
       }
-
+      
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        final List<dynamic> items = responseData['data'] ?? [];
+        final likes = <LikeModel>[];
+        
+        for (final item in items) {
+          // actionType을 likeType으로 매핑
+          final mappedItem = Map<String, dynamic>.from(item);
+          if (mappedItem['actionType'] != null && mappedItem['likeType'] == null) {
+            mappedItem['likeType'] = mappedItem['actionType'];
+          }
+          
+          // 프로필 정보 가져오기 (슈퍼챗인 경우에만)
+          if (mappedItem['actionType'] == 'SUPERCHAT' && mappedItem['fromUserId'] != null) {
+            try {
+              final profile = await _profileService.getProfile(mappedItem['fromUserId']);
+              if (profile != null) {
+                mappedItem['profile'] = profile.toJson();
+              }
+            } catch (e) {
+              Logger.error('프로필 정보 가져오기 실패: ${mappedItem['fromUserId']}', error: e, name: 'AWSLikesService');
+            }
+          }
+          
+          likes.add(LikeModel.fromJson(mappedItem));
+        }
+        
+        Logger.log('✅ 받은 좋아요 ${likes.length}개 조회 성공', name: 'AWSLikesService');
+        return likes;
+      }
+      
+      Logger.log('⚠️  받은 좋아요 데이터 없음', name: 'AWSLikesService');
       return [];
     } catch (e) {
-      Logger.error('받은 호감 조회 오류', error: e, name: 'AWSLikesService');
+      Logger.error('❌ 받은 호감 조회 중 오류 발생', error: e, name: 'AWSLikesService');
       return [];
     }
   }
 
-  /// 보낸 호감 목록 조회
+  /// 보낸 호감 목록 조회 - 단순화
   Future<List<LikeModel>> getSentLikes({
     required String userId,
     int limit = 20,
     String? nextToken,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetSentLikes(\$fromUserId: String!, \$limit: Int, \$nextToken: String) {
-            likesByFromUserId(fromUserId: \$fromUserId, limit: \$limit, nextToken: \$nextToken) {
-              items {
-                id
-                fromUserId
-                toProfileId
-                likeType
-                message
-                isMatched
-                createdAt
-                updatedAt
-              }
-              nextToken
-            }
-          }
-        ''',
-        variables: {
-          'fromUserId': userId,
-          'limit': limit,
-          'nextToken': nextToken,
-        },
-      );
-
-      final response = await Amplify.API.query(request: request).response;
+      Logger.log('🔍 보낸 호감 조회 시작: $userId', name: 'AWSLikesService');
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('보낸 호감 조회 실패: ${response.errors.first.message}');
+      // 올바른 API Gateway 사용
+      final likesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            likesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('보낸 좋아요 API 토큰 추가 실패: $e', name: 'AWSLikesService');
       }
-
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['likesByFromUserId']?['items'] as List?;
-        if (items != null) {
-          return items
-              .map((item) => LikeModel.fromJson(item as Map<String, dynamic>))
-              .toList();
+      
+      final response = await likesApiService.get('/likes/$userId');
+      Logger.log('API 응답 상태: ${response.statusCode}', name: 'AWSLikesService');
+      Logger.log('API 응답 데이터: ${response.data}', name: 'AWSLikesService');
+      
+      // API Gateway가 Lambda 응답을 중첩시키는 경우 처리
+      dynamic responseData = response.data;
+      if (responseData is Map && responseData.containsKey('statusCode') && responseData.containsKey('body')) {
+        final lambdaStatusCode = responseData['statusCode'];
+        final lambdaBody = responseData['body'] is String 
+            ? jsonDecode(responseData['body']) 
+            : responseData['body'];
+        
+        Logger.log('Lambda 응답 상태: $lambdaStatusCode', name: 'AWSLikesService');
+        Logger.log('Lambda 응답 본문: $lambdaBody', name: 'AWSLikesService');
+        
+        if (lambdaStatusCode == 200 && lambdaBody['success'] == true) {
+          responseData = lambdaBody;
+        } else {
+          Logger.error('❌ Lambda 응답 실패', name: 'AWSLikesService');
+          return [];
         }
       }
-
+      
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        final List<dynamic> items = responseData['data'] ?? [];
+        final likes = <LikeModel>[];
+        
+        for (final item in items) {
+          // actionType을 likeType으로 매핑
+          final mappedItem = Map<String, dynamic>.from(item);
+          if (mappedItem['actionType'] != null && mappedItem['likeType'] == null) {
+            mappedItem['likeType'] = mappedItem['actionType'];
+          }
+          
+          // 프로필 정보 가져오기 (슈퍼챗인 경우에만, toProfileId 기준)
+          if (mappedItem['actionType'] == 'SUPERCHAT' && mappedItem['toProfileId'] != null) {
+            try {
+              final profile = await _profileService.getProfile(mappedItem['toProfileId']);
+              if (profile != null) {
+                mappedItem['profile'] = profile.toJson();
+              }
+            } catch (e) {
+              Logger.error('프로필 정보 가져오기 실패: ${mappedItem['toProfileId']}', error: e, name: 'AWSLikesService');
+            }
+          }
+          
+          likes.add(LikeModel.fromJson(mappedItem));
+        }
+        
+        Logger.log('✅ 보낸 좋아요 ${likes.length}개 조회 성공', name: 'AWSLikesService');
+        return likes;
+      }
+      
+      Logger.log('⚠️  보낸 좋아요 데이터 없음', name: 'AWSLikesService');
       return [];
+      
     } catch (e) {
-      Logger.error('보낸 호감 조회 오류', error: e, name: 'AWSLikesService');
+      Logger.error('❌ 보낸 호감 조회 중 오류 발생', error: e, name: 'AWSLikesService');
       return [];
     }
   }
@@ -391,7 +486,13 @@ class AWSLikesService {
   Map<String, dynamic> _parseGraphQLResponse(String response) {
     try {
       if (response.startsWith('{') || response.startsWith('[')) {
-        return Map<String, dynamic>.from(response as Map);
+        // String을 JSON으로 파싱
+        final decoded = jsonDecode(response);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        } else {
+          return {};
+        }
       }
       return {};
     } catch (e) {

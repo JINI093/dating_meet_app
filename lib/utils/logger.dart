@@ -21,4 +21,23 @@ class Logger {
     // AWS/Flutter 구분은 prefix로 처리
     print('$prefix $msg');
   }
+}
+
+// 앱 전용 로거 클래스
+class AppLogger {
+  static void d(String tag, String message) {
+    print('[DEBUG][$tag] $message');
+  }
+  
+  static void i(String tag, String message) {
+    print('[INFO][$tag] $message');
+  }
+  
+  static void w(String tag, String message) {
+    print('[WARNING][$tag] $message');
+  }
+  
+  static void e(String tag, String message, [Object? error]) {
+    print('[ERROR][$tag] $message ${error != null ? '($error)' : ''}');
+  }
 } 

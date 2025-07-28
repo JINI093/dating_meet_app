@@ -4,7 +4,7 @@ import '../models/match_model.dart';
 import '../models/like_model.dart';
 import '../models/superchat_model.dart';
 import '../services/aws_profile_service.dart';
-import '../services/enhanced_likes_service.dart';
+import '../services/aws_likes_service.dart';
 import '../services/enhanced_superchat_service.dart';
 import '../services/aws_match_service.dart';
 import 'notification_provider.dart';
@@ -111,7 +111,7 @@ class MatchState {
 class MatchNotifier extends StateNotifier<MatchState> {
   final Ref ref;
   final AWSProfileService _profileService = AWSProfileService();
-  final EnhancedLikesService _likesService = EnhancedLikesService();
+  final AWSLikesService _likesService = AWSLikesService();
   final AWSMatchService _matchService = AWSMatchService();
   final EnhancedSuperchatService _superchatService = EnhancedSuperchatService();
   

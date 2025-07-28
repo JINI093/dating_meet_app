@@ -5,93 +5,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
-import '../../models/profile_model.dart';
 import '../../models/like_model.dart';
 import '../../widgets/cards/like_card.dart';
-// import '../../providers/likes_provider.dart';
-
-// 임시 provider 구현
-class ReceivedLikesState {
-  final List<LikeModel> likes;
-  final int unreadCount;
-  final bool isLoading;
-
-  const ReceivedLikesState({
-    this.likes = const [],
-    this.unreadCount = 0,
-    this.isLoading = false,
-  });
-
-  ReceivedLikesState copyWith({
-    List<LikeModel>? likes,
-    int? unreadCount,
-    bool? isLoading,
-  }) {
-    return ReceivedLikesState(
-      likes: likes ?? this.likes,
-      unreadCount: unreadCount ?? this.unreadCount,
-      isLoading: isLoading ?? this.isLoading,
-    );
-  }
-}
-
-class ReceivedLikesNotifier extends StateNotifier<ReceivedLikesState> {
-  ReceivedLikesNotifier() : super(const ReceivedLikesState()) {
-    _loadLikes();
-  }
-
-  Future<void> _loadLikes() async {
-    state = state.copyWith(isLoading: true);
-    // TODO: 실제 API 호출로 대체
-    await Future.delayed(const Duration(seconds: 1));
-    state = state.copyWith(
-      isLoading: false,
-      likes: [], // 임시로 빈 리스트
-    );
-  }
-
-  Future<void> refreshLikes() async {
-    await _loadLikes();
-  }
-
-  void markAsRead(String likeId) {
-    // TODO: 읽음 처리 로직
-  }
-
-  void acceptLike(String likeId) {
-    // TODO: 좋아요 수락 로직
-  }
-
-  void rejectLike(String likeId) {
-    // TODO: 좋아요 거절 로직
-  }
-}
-
-final receivedLikesProvider = StateNotifierProvider<ReceivedLikesNotifier, ReceivedLikesState>((ref) {
-  return ReceivedLikesNotifier();
-});
+import '../../providers/likes_provider.dart';
 
 class ReceivedLikesScreen extends ConsumerWidget {
   const ReceivedLikesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final likesState = ref.watch(receivedLikesProvider);
+    final likesState = ref.watch(likesProvider);
+    final receivedLikes = likesState.receivedLikes;
+    final unreadCount = likesState.totalUnreadLikes;
     
-    if (likesState.isLoading) {
+    if (likesState.isLoadingReceived) {
       return _buildLoadingState();
     }
     
-    if (likesState.likes.isEmpty) {
+    if (receivedLikes.isEmpty) {
       return _buildEmptyState();
     }
     
     return RefreshIndicator(
-      onRefresh: () => ref.read(receivedLikesProvider.notifier).refreshLikes(),
+      onRefresh: () => ref.read(likesProvider.notifier).loadAllLikes(),
       child: Column(
         children: [
           // Header with count
-          _buildHeader(context, likesState.likes.length, likesState.unreadCount),
+          _buildHeader(context, receivedLikes.length, unreadCount),
           
           // Likes List
           Expanded(
@@ -103,9 +43,9 @@ class ReceivedLikesScreen extends ConsumerWidget {
                 crossAxisSpacing: AppDimensions.gridCrossAxisSpacing,
                 mainAxisSpacing: AppDimensions.gridMainAxisSpacing,
               ),
-              itemCount: likesState.likes.length,
+              itemCount: receivedLikes.length,
               itemBuilder: (context, index) {
-                final like = likesState.likes[index];
+                final like = receivedLikes[index];
                 return LikeCard(
                   like: like,
                   onTap: () => _handleLikeCardTap(context, ref, like),
@@ -268,21 +208,21 @@ class ReceivedLikesScreen extends ConsumerWidget {
 
   void _handleLikeCardTap(BuildContext context, WidgetRef ref, LikeModel like) {
     // Mark as read
-    ref.read(receivedLikesProvider.notifier).markAsRead(like.id);
+    ref.read(likesProvider.notifier).markAsRead(like.id);
     
     // TODO: Navigate to profile detail
     _showProfileDetail(context, ref, like);
   }
 
   void _handleAcceptLike(WidgetRef ref, LikeModel like) {
-    ref.read(receivedLikesProvider.notifier).acceptLike(like.id);
+    ref.read(likesProvider.notifier).acceptLike(like.id);
     
     // Show match success
     _showMatchSuccess(like);
   }
 
   void _handleRejectLike(WidgetRef ref, LikeModel like) {
-    ref.read(receivedLikesProvider.notifier).rejectLike(like.id);
+    ref.read(likesProvider.notifier).rejectLike(like.id);
   }
 
   void _showProfileDetail(BuildContext context, WidgetRef ref, LikeModel like) {

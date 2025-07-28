@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
@@ -78,6 +79,20 @@ class ProfileCard extends StatelessWidget {
         ),
         errorWidget: (context, url, error) => _buildPlaceholderImage(),
       );
+    } else if (imageUrl.startsWith('file://')) {
+      final filePath = imageUrl.replaceFirst('file://', '');
+      final file = File(filePath);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+        );
+      } else {
+        return _buildPlaceholderImage();
+      }
+    } else if (imageUrl.isNotEmpty && !imageUrl.startsWith('assets/')) {
+      return _buildPlaceholderImage();
     } else {
       return Image.asset(
         imageUrl.isNotEmpty ? imageUrl : 'assets/icons/profile.png',

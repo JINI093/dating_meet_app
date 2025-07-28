@@ -207,8 +207,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'chatRoom',
         builder: (context, state) {
           final chatId = state.pathParameters['chatId']!;
-          // TODO: Create MatchModel from chatId or pass it as extra
-          final match = MatchModel(
+          
+          // Debug logging
+          print('🚀 ChatRoom 라우트 빌더 호출됨');
+          print('   chatId: $chatId');
+          print('   state.extra: ${state.extra}');
+          
+          // Try to get MatchModel from extra parameter
+          final match = state.extra as MatchModel?;
+          
+          if (match != null) {
+            print('✅ MatchModel 전달됨: ${match.id}, 프로필: ${match.profile.name}');
+          } else {
+            print('⚠️  MatchModel이 없어서 임시 생성');
+          }
+          
+          // If no match provided, create a temporary one
+          final finalMatch = match ?? MatchModel(
             id: chatId,
             profile: ProfileModel(
               id: 'temp_user',
@@ -221,8 +236,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
             matchedAt: DateTime.now(),
           );
+          
+          print('📱 ChatRoomScreen 생성: ${finalMatch.id}');
           return ChatRoomScreen(
-            match: match,
+            match: finalMatch,
             chatId: chatId,
           );
         },

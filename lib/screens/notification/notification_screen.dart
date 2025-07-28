@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/notification_provider.dart';
+import '../../models/notification_model.dart';
+import '../../routes/route_names.dart';
 
 class NotificationScreen extends ConsumerStatefulWidget {
   const NotificationScreen({super.key});
@@ -10,50 +14,23 @@ class NotificationScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationScreenState extends ConsumerState<NotificationScreen> {
-  bool _isAllNotificationsEnabled = true;
 
-  // 더미 데이터
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'id': '1',
-      'profileImage': 'assets/images/profile1.jpg',
-      'title': '화수님께 좋아요를 받았습니다.',
-      'subtitle': '좋아요를 누른 회원님을 확인해주세요!',
-      'time': '5분 전',
-      'isRead': false,
-      'type': 'like',
-    },
-    {
-      'id': '2',
-      'profileImage': 'assets/images/profile2.jpg',
-      'title': '민지님이 슈퍼챗을 가져왔습니다.',
-      'subtitle': '슈퍼챗 발송에 성공된 300P가 적립되었습니다.',
-      'time': '1시간 전',
-      'isRead': false,
-      'type': 'superchat',
-    },
-    {
-      'id': '3',
-      'profileImage': 'assets/images/profile3.jpg',
-      'title': 'Jenny님께 좋아요를 받았습니다.',
-      'subtitle': '좋아요를 누른 회원님을 확인해주세요!',
-      'time': '2시간 전',
-      'isRead': false,
-      'type': 'like',
-    },
-    {
-      'id': '4',
-      'profileImage': 'assets/images/profile4.jpg',
-      'title': '민지님께 메시지가 도착했습니다.',
-      'subtitle': '먼저 온 메시지를 확인해주세요',
-      'time': '3시간 전',
-      'isRead': true,
-      'type': 'message',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 로드될 때 알림 새로고침 및 새 알림 플래그 클리어
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationProvider.notifier).refreshNotifications();
+      ref.read(notificationProvider.notifier).clearNewNotificationFlag();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final notificationState = ref.watch(notificationProvider);
+    final notifications = notificationState.notifications;
+    final isLoading = notificationState.isLoading;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -73,32 +50,46 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Switch(
-              value: _isAllNotificationsEnabled,
-              onChanged: (value) {
-                setState(() {
-                  _isAllNotificationsEnabled = value;
-                });
-              },
-              activeColor: const Color(0xFFFF357B),
-              inactiveThumbColor: Colors.grey,
-              inactiveTrackColor: Colors.grey.shade300,
-            ),
+          // 개발용: 테스트 알림 생성 버튼
+          IconButton(
+            onPressed: () {
+              _createTestNotification();
+            },
+            icon: const Icon(CupertinoIcons.add, color: Colors.black),
           ),
+          if (notifications.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                ref.read(notificationProvider.notifier).markAllAsRead();
+              },
+              child: const Text(
+                '모두 읽음',
+                style: TextStyle(
+                  color: Color(0xFFFF357B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: _notifications.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              itemCount: _notifications.length,
-              itemBuilder: (context, index) {
-                final notification = _notifications[index];
-                return _buildNotificationItem(notification);
-              },
-            ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(notificationProvider.notifier).refreshNotifications();
+        },
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : notifications.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+                      return _buildNotificationItem(notification, index);
+                    },
+                  ),
+      ),
     );
   }
 
@@ -126,102 +117,209 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     );
   }
 
-  Widget _buildNotificationItem(Map<String, dynamic> notification) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: notification['isRead'] ? Colors.white : const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: notification['isRead'] ? const Color(0xFFE5E5E5) : const Color(0xFFFF357B).withValues(alpha: 0.2),
-          width: 1,
+  Widget _buildNotificationItem(NotificationModel notification, int index) {
+    return GestureDetector(
+      onTap: () {
+        if (!notification.isRead) {
+          ref.read(notificationProvider.notifier).markAsRead(notification.id);
+        }
+        _handleNotificationTap(notification);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: notification.isRead ? Colors.white : const Color(0xFFF8F9FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: notification.isRead 
+                ? const Color(0xFFE5E5E5) 
+                : const Color(0xFFFF357B).withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 프로필 이미지
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE5E5E5)),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                notification['profileImage'],
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 48,
-                    height: 48,
-                    color: const Color(0xFFF0F0F0),
-                    child: const Icon(
-                      CupertinoIcons.person,
-                      color: Colors.grey,
-                      size: 24,
-                    ),
-                  );
-                },
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 알림 아이콘
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _getNotificationIconColor(notification.type),
+                border: Border.all(color: const Color(0xFFE5E5E5)),
+              ),
+              child: Icon(
+                _getNotificationIcon(notification.type),
+                color: Colors.white,
+                size: 24,
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          // 알림 내용
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  notification['title'],
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: notification['isRead'] ? FontWeight.w500 : FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  notification['subtitle'],
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF666666),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // 확인하기 버튼
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE5E5E5)),
-                  ),
-                  child: Text(
-                    '확인하기',
+            const SizedBox(width: 16),
+            // 알림 내용
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                      fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.w700,
                       color: Colors.black,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.message,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF666666),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (notification.isImportant) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF357B).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '중요',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFFF357B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // 시간 표시
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  notification.timeAgo,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF999999),
+                  ),
                 ),
+                if (!notification.isRead) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFF357B),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
               ],
             ),
-          ),
-          // 시간 표시
-          Text(
-            notification['time'],
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF999999),
-            ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getNotificationIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.newLike:
+        return CupertinoIcons.heart_fill;
+      case NotificationType.newSuperChat:
+        return CupertinoIcons.star_fill;
+      case NotificationType.newMatch:
+        return CupertinoIcons.heart_circle_fill;
+      case NotificationType.newMessage:
+        return CupertinoIcons.chat_bubble_fill;
+      default:
+        return CupertinoIcons.bell_fill;
+    }
+  }
+
+  Color _getNotificationIconColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.newLike:
+        return Colors.pink;
+      case NotificationType.newSuperChat:
+        return Colors.amber;
+      case NotificationType.newMatch:
+        return Colors.red;
+      case NotificationType.newMessage:
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  void _handleNotificationTap(NotificationModel notification) {
+    // 알림 타입에 따른 화면 이동 처리
+    switch (notification.type) {
+      case NotificationType.newLike:
+      case NotificationType.newSuperChat:
+        context.go(RouteNames.likes);
+        break;
+      case NotificationType.newMatch:
+        context.go(RouteNames.chat);
+        break;
+      case NotificationType.newMessage:
+        context.go(RouteNames.chat);
+        break;
+      default:
+        break;
+    }
+  }
+
+  void _createTestNotification() {
+    final testNotifications = [
+      NotificationModel(
+        id: 'test_${DateTime.now().millisecondsSinceEpoch}',
+        userId: 'current_user',
+        title: '새 좋아요 💕',
+        message: '누군가 회원님을 좋아합니다',
+        type: NotificationType.newLike,
+        createdAt: DateTime.now(),
+        data: {'fromUserId': 'test_user_1', 'type': 'like'},
+      ),
+      NotificationModel(
+        id: 'test_${DateTime.now().millisecondsSinceEpoch + 1}',
+        userId: 'current_user',
+        title: '슈퍼챗 ⭐',
+        message: '슈퍼챗을 받았습니다',
+        type: NotificationType.newSuperChat,
+        createdAt: DateTime.now(),
+        isImportant: true,
+        data: {'fromUserId': 'test_user_2', 'type': 'superchat', 'pointsUsed': 300},
+      ),
+      NotificationModel(
+        id: 'test_${DateTime.now().millisecondsSinceEpoch + 2}',
+        userId: 'current_user',
+        title: '새 매칭! 🎉',
+        message: '새로운 매칭이 생겼습니다',
+        type: NotificationType.newMatch,
+        createdAt: DateTime.now(),
+        isImportant: true,
+        data: {'fromUserId': 'test_user_3', 'type': 'match'},
+      ),
+    ];
+
+    // 랜덤으로 하나 선택해서 추가
+    final randomNotification = testNotifications[DateTime.now().millisecond % 3];
+    ref.read(notificationProvider.notifier).addNotification(randomNotification);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('테스트 알림이 추가되었습니다: ${randomNotification.title}'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

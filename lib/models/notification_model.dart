@@ -35,6 +35,109 @@ class NotificationModel {
 
   // Map<String, dynamic> toJson() => _$NotificationModelToJson(this);
 
+  /// DynamoDB에서 가져온 데이터를 NotificationModel로 변환
+  factory NotificationModel.fromDynamoDB(Map<String, dynamic> dynamoData) {
+    try {
+      // DynamoDB 데이터 구조에서 값 추출
+      final id = dynamoData['id']?.toString() ?? '';
+      final userId = dynamoData['userId']?.toString() ?? '';
+      final type = _parseNotificationType(dynamoData['type']?.toString() ?? 'system');
+      final message = dynamoData['message']?.toString() ?? '';
+      final createdAt = DateTime.parse(dynamoData['createdAt']?.toString() ?? DateTime.now().toIso8601String());
+      final isRead = dynamoData['isRead'] == true || dynamoData['isRead']?.toString().toLowerCase() == 'true';
+      final fromUserId = dynamoData['fromUserId']?.toString();
+      
+      // 알림 타입에 따른 제목과 메시지 생성
+      String title;
+      String finalMessage;
+      Map<String, dynamic>? data;
+      bool isImportant = false;
+      
+      switch (type) {
+        case NotificationType.newLike:
+          title = '새 좋아요 💕';
+          finalMessage = message.isNotEmpty ? message : '누군가 회원님을 좋아합니다';
+          data = {
+            'fromUserId': fromUserId,
+            'type': 'like',
+          };
+          break;
+          
+        case NotificationType.newSuperChat:
+          title = '슈퍼챗 ⭐';
+          finalMessage = message.isNotEmpty ? message : '슈퍼챗을 받았습니다';
+          isImportant = true;
+          data = {
+            'fromUserId': fromUserId,
+            'type': 'superchat',
+            'priority': dynamoData['priority'],
+            'pointsUsed': dynamoData['pointsUsed'],
+          };
+          break;
+          
+        case NotificationType.newMatch:
+          title = '새 매칭! 🎉';
+          finalMessage = message.isNotEmpty ? message : '새로운 매칭이 생겼습니다';
+          isImportant = true;
+          data = {
+            'fromUserId': fromUserId,
+            'type': 'match',
+          };
+          break;
+          
+        default:
+          title = '알림';
+          finalMessage = message;
+          data = dynamoData;
+      }
+      
+      return NotificationModel(
+        id: id,
+        userId: userId,
+        title: title,
+        message: finalMessage,
+        type: type,
+        data: data,
+        createdAt: createdAt,
+        isRead: isRead,
+        isImportant: isImportant,
+      );
+    } catch (e) {
+      // 파싱 실패 시 기본 알림 반환
+      return NotificationModel(
+        id: dynamoData['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: dynamoData['userId']?.toString() ?? '',
+        title: '알림',
+        message: dynamoData['message']?.toString() ?? '새 알림이 있습니다',
+        type: NotificationType.system,
+        createdAt: DateTime.now(),
+        data: dynamoData,
+      );
+    }
+  }
+
+  /// 문자열을 NotificationType으로 변환
+  static NotificationType _parseNotificationType(String typeString) {
+    switch (typeString.toUpperCase()) {
+      case 'LIKE':
+        return NotificationType.newLike;
+      case 'SUPERCHAT':
+        return NotificationType.newSuperChat;
+      case 'MATCH':
+        return NotificationType.newMatch;
+      case 'MESSAGE':
+        return NotificationType.newMessage;
+      case 'PROFILE_VISIT':
+        return NotificationType.profileVisit;
+      case 'VIP_UPDATE':
+        return NotificationType.vipUpdate;
+      case 'PROMOTION':
+        return NotificationType.promotion;
+      default:
+        return NotificationType.system;
+    }
+  }
+
   NotificationModel copyWith({
     String? id,
     String? userId,
