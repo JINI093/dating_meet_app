@@ -38,7 +38,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   @override
   void initState() {
     super.initState();
-    _chatId = widget.chatId ?? 'chat_${widget.match.id}';
+    _chatId = widget.chatId ?? widget.match.id;
     _messageController.addListener(_onTextChanged);
     
     // Load chat room when screen initializes
@@ -119,6 +119,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       final success = await ref.read(chatProvider.notifier).sendMessage(
         chatId: _chatId,
         content: text,
+        receiverId: widget.match.profile.id,
       );
       
       if (success && mounted) {
@@ -166,6 +167,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       final success = await ref.read(chatProvider.notifier).sendSuperChatMessage(
         chatId: _chatId,
         content: text,
+        receiverId: widget.match.profile.id,
       );
       
       if (success && mounted) {
@@ -417,7 +419,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           const SizedBox(height: AppDimensions.spacing8),
           
           Text(
-            '${widget.match.profile.name}�� �  T|8',
+            '${widget.match.profile.name}, ${widget.match.profile.age}',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textHint,
             ),

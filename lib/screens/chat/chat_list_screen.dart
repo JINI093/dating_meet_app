@@ -47,12 +47,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       // Create chat room from match data
       // This would normally be managed by the chat service
       final chatRoom = ChatRoom(
-        id: 'chat_${match.id}',
+        id: match.id,
         matchId: match.id,
         participantIds: ['current_user', match.profile.id], // Will be replaced with real user IDs
         lastMessage: match.lastMessage != null ? ChatMessage(
           id: 'msg_${match.id}',
-          chatId: 'chat_${match.id}',
+          chatId: match.id,
           senderId: match.profile.id,
           receiverId: 'current_user',
           content: match.lastMessage!,

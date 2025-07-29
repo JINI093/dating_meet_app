@@ -1,8 +1,9 @@
 {
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.848.0",
-    "@aws-sdk/lib-dynamodb": "^3.850.0",
+    "@aws-sdk/client-dynamodb": "^3.855.0",
+    "@aws-sdk/lib-dynamodb": "^3.855.0",
     "aws-amplify": "^6.15.4",
+    "jsonwebtoken": "^9.0.2",
     "uuid": "^11.1.0"
   },
   "name": "dating_meet_app",
@@ -26,6 +27,5 @@
   "bugs": {
     "url": "https://github.com/JINI093/dating_meet_app/issues"
   },
-  "homepage": "https://github.com/JINI093/dating_meet_app#readme",
-  "type": "module"
+  "homepage": "https://github.com/JINI093/dating_meet_app#readme"
 }

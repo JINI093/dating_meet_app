@@ -18,9 +18,11 @@ import '../../widgets/dialogs/match_success_dialog.dart';
 import '../../models/profile_model.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/matches_provider.dart';
 import '../../routes/route_names.dart';
 import '../../widgets/dialogs/region_selector_bottom_sheet.dart';
 import '../notification/notification_screen.dart';
+import '../chat/chat_room_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -651,8 +653,44 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   
   void _showActionResult(MatchResult result) {
     if (result.isMatch) {
-      // Show match dialog
-      _showMatchDialog(result);
+      // Show match success snackbar and automatically navigate to chat
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textWhite,
+            ),
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusS),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Navigate to chat room automatically after a brief delay
+      if (result.matchModel != null) {
+        // Add match to matches provider so it appears in chat list
+        ref.read(matchesProvider.notifier).addNewMatch(result.matchModel!);
+        
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) {
+            // Use direct Navigator.push instead of GoRouter
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatRoomScreen(
+                  match: result.matchModel!,
+                  chatId: result.matchModel!.id,
+                ),
+              ),
+            );
+          }
+        });
+      }
     } else {
       // Show simple snackbar
       ScaffoldMessenger.of(context).showSnackBar(
@@ -682,10 +720,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       builder: (context) => MatchSuccessDialog(
         matchedProfile: result.matchedProfile!,
         onChatTap: () {
-          // TODO: Navigate to chat screen
+          // Navigate to chat screen with match data
+          Navigator.pop(context); // Close dialog first
+          
+          if (result.matchModel != null) {
+            final matchId = result.matchModel!.id;
+            final chatRoomPath = RouteNames.getChatRoomPath(matchId);
+            context.push(chatRoomPath, extra: result.matchModel);
+          }
         },
         onContinueTap: () {
           // Continue with current flow
+          Navigator.pop(context);
         },
       ),
     );

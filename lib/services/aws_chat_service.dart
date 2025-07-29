@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_api/amplify_api.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 import '../models/message_model.dart';
 import '../models/match_model.dart';
 import '../utils/logger.dart';
+import '../config/api_config.dart' as AppApiConfig;
 
 /// AWS AppSync 기반 실시간 채팅 서비스
 /// GraphQL Subscriptions를 통한 실시간 메시지 송수신
@@ -23,6 +26,11 @@ class AWSChatService {
   // 메시지 상태 관리
   final Map<String, MessageModel> _pendingMessages = {};
   Timer? _retryTimer;
+  
+  // 폴링 기반 실시간 메시지 확인
+  final Map<String, Timer> _pollingTimers = {};
+  final Map<String, DateTime> _lastMessageCheck = {};
+  final Map<String, String> _activeChats = {}; // matchId -> currentUserId
 
   /// 서비스 초기화
   Future<void> initialize() async {
@@ -41,7 +49,7 @@ class AWSChatService {
     }
   }
 
-  /// 특정 매칭의 메시지 목록 조회
+  /// 특정 매칭의 메시지 목록 조회 (REST API 사용)
   Future<List<MessageModel>> getMessages({
     required String matchId,
     required String currentUserId,
@@ -49,81 +57,80 @@ class AWSChatService {
     String? nextToken,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetMessages(\$matchId: String!, \$limit: Int, \$nextToken: String) {
-            messagesByMatchId(
-              matchId: \$matchId,
-              limit: \$limit,
-              nextToken: \$nextToken,
-              sortDirection: DESC
-            ) {
-              items {
-                messageId
-                matchId
-                senderId
-                receiverId
-                content
-                messageType
-                status
-                createdAt
-                readAt
-                deliveredAt
-                metadata
-                imageUrl
-                thumbnailUrl
-                superchatPoints
-                stickerPackId
-                stickerId
-              }
-              nextToken
-            }
-          }
-        ''',
-        variables: {
-          'matchId': matchId,
-          'limit': limit,
-          'nextToken': nextToken,
-        },
+      // JWT 토큰 가져오기
+      final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+      final token = session.userPoolTokensResult.value.accessToken.raw;
+
+      // REST API로 메시지 조회
+      final dio = Dio();
+      
+      // Query parameters
+      final queryParams = {
+        'limit': limit,
+        if (nextToken != null) 'nextToken': nextToken,
+      };
+
+      Logger.log('📥 메시지 조회 중: ${AppApiConfig.ApiConfig.baseUrl}/messages/match/$matchId', name: 'AWSChatService');
+
+      final response = await dio.get(
+        '${AppApiConfig.ApiConfig.baseUrl}/messages/match/$matchId',
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
       );
 
-      final response = await Amplify.API.query(request: request).response;
-      
-      if (response.errors.isNotEmpty) {
-        throw Exception('메시지 조회 실패: ${response.errors.first.message}');
-      }
+      Logger.log('📥 메시지 조회 응답: ${response.statusCode}', name: 'AWSChatService');
 
-      final messages = <MessageModel>[];
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['messagesByMatchId']?['items'] as List?;
+      if (response.statusCode == 200) {
+        final responseData = response.data['data'];
+        final messages = <MessageModel>[];
         
-        if (items != null) {
+        if (responseData['messages'] != null) {
+          final items = responseData['messages'] as List;
+          
           for (final item in items) {
-            final messageData = item as Map<String, dynamic>;
-            final message = MessageModel.fromJson(messageData).copyWith(
-              isFromCurrentUser: messageData['senderId'] == currentUserId,
+            final message = MessageModel(
+              messageId: item['id'] ?? item['messageId'] ?? '',
+              matchId: item['chatRoomId'] ?? item['matchId'] ?? matchId,
+              senderId: item['senderId'] ?? '',
+              receiverId: item['receiverId'] ?? '',
+              content: item['content'] ?? '',
+              messageType: _parseMessageType(item['messageType']),
+              status: _parseMessageStatus(item['status']),
+              createdAt: DateTime.parse(item['createdAt'] ?? DateTime.now().toIso8601String()),
+              readAt: item['readAt'] != null ? DateTime.parse(item['readAt']) : null,
+              imageUrl: item['imageUrl'],
+              thumbnailUrl: item['thumbnailUrl'],
+              superchatPoints: item['superchatPoints'],
+              isFromCurrentUser: item['senderId'] == currentUserId,
             );
             messages.add(message);
           }
         }
-      }
 
-      // 최신순으로 정렬 (UI에서 표시하기 위해 역순으로)
-      messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      
-      // 캐시에 저장
-      _messageCache[matchId] = messages;
-      
-      Logger.log('메시지 ${messages.length}개 조회: $matchId', name: 'AWSChatService');
-      return messages;
+        // 최신순으로 정렬 (UI에서 표시하기 위해 역순으로)
+        messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        
+        // 캐시에 저장
+        _messageCache[matchId] = messages;
+        
+        Logger.log('✅ 메시지 ${messages.length}개 조회 성공: $matchId', name: 'AWSChatService');
+        return messages;
+      } else {
+        throw Exception('메시지 조회 실패: ${response.data['message'] ?? response.statusCode}');
+      }
     } catch (e) {
-      Logger.error('메시지 조회 오류', error: e, name: 'AWSChatService');
+      Logger.error('❌ 메시지 조회 오류', error: e, name: 'AWSChatService');
       return _messageCache[matchId] ?? [];
     }
   }
 
-  /// 메시지 전송
+  /// 메시지 전송 (REST API 사용)
   Future<MessageModel?> sendMessage({
     required String matchId,
     required String senderId,
@@ -162,91 +169,76 @@ class AWSChatService {
       // 전송 대기 목록에 추가
       _pendingMessages[localId] = tempMessage;
 
-      // 서버로 전송
+      // JWT 토큰 가져오기
+      final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+      final token = session.userPoolTokensResult.value.accessToken.raw;
+
+      // REST API로 메시지 전송
+      final dio = Dio();
       final messageData = {
         'matchId': matchId,
-        'senderId': senderId,
         'receiverId': receiverId,
         'content': content,
-        'messageType': type.name.toUpperCase(),
-        'status': 'SENT',
-        'createdAt': DateTime.now().toIso8601String(),
-        'metadata': metadata,
+        'messageType': type.name.toLowerCase(),
       };
 
       // 타입별 추가 데이터
       if (type == MessageType.image) {
-        messageData['imageUrl'] = imageUrl;
-        messageData['thumbnailUrl'] = thumbnailUrl;
+        if (imageUrl != null) messageData['imageUrl'] = imageUrl;
+        if (thumbnailUrl != null) messageData['thumbnailUrl'] = thumbnailUrl;
       } else if (type == MessageType.superchat) {
-        messageData['superchatPoints'] = superchatPoints;
+        if (superchatPoints != null) messageData['superchatPoints'] = superchatPoints.toString();
       }
 
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation CreateMessage(\$input: CreateMessageInput!) {
-            createMessage(input: \$input) {
-              messageId
-              matchId
-              senderId
-              receiverId
-              content
-              messageType
-              status
-              createdAt
-              readAt
-              deliveredAt
-              metadata
-              imageUrl
-              thumbnailUrl
-              superchatPoints
-              stickerPackId
-              stickerId
-            }
-          }
-        ''',
-        variables: {'input': messageData},
+      Logger.log('📤 메시지 전송 중: ${AppApiConfig.ApiConfig.messagesUrl}', name: 'AWSChatService');
+      Logger.log('📤 메시지 데이터: $messageData', name: 'AWSChatService');
+
+      final response = await dio.post(
+        '${AppApiConfig.ApiConfig.baseUrl}/messages',
+        data: messageData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
       );
 
-      final response = await Amplify.API.mutate(request: request).response;
-      
-      if (response.errors.isNotEmpty) {
-        // 전송 실패 처리
-        final failedMessage = tempMessage.copyWith(status: MessageStatus.failed);
-        _updateMessageInCache(matchId, localId, failedMessage);
-        _notifyMessageUpdate(matchId, failedMessage);
+      Logger.log('📥 메시지 전송 응답: ${response.statusCode}', name: 'AWSChatService');
+      Logger.log('📥 응답 데이터: ${response.data}', name: 'AWSChatService');
+
+      if (response.statusCode == 201) {
+        final responseData = response.data['data'];
+        
+        final serverMessage = MessageModel(
+          messageId: responseData['id'] ?? responseData['messageId'] ?? '',
+          matchId: responseData['chatRoomId'] ?? responseData['matchId'] ?? matchId,
+          senderId: responseData['senderId'] ?? '',
+          receiverId: responseData['receiverId'] ?? '',
+          content: responseData['content'] ?? '',
+          messageType: _parseMessageType(responseData['messageType']),
+          status: _parseMessageStatus(responseData['status']),
+          createdAt: DateTime.parse(responseData['createdAt'] ?? DateTime.now().toIso8601String()),
+          imageUrl: responseData['imageUrl'],
+          thumbnailUrl: responseData['thumbnailUrl'],
+          superchatPoints: responseData['superchatPoints'],
+          isFromCurrentUser: true,
+          localId: localId,
+        );
+        
+        // 로컬 메시지를 서버 메시지로 교체
+        _updateMessageInCache(matchId, localId, serverMessage);
+        _notifyMessageUpdate(matchId, serverMessage);
         _pendingMessages.remove(localId);
-        
-        throw Exception('메시지 전송 실패: ${response.errors.first.message}');
+
+        Logger.log('✅ 메시지 전송 성공: ${serverMessage.messageId}', name: 'AWSChatService');
+        return serverMessage;
+      } else {
+        throw Exception('메시지 전송 실패: ${response.data['message'] ?? response.statusCode}');
       }
-
-      // 전송 성공 처리
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final createdMessage = data['createMessage'];
-        
-        if (createdMessage != null) {
-          final serverMessage = MessageModel.fromJson(createdMessage).copyWith(
-            isFromCurrentUser: true,
-            localId: localId,
-          );
-          
-          // 로컬 메시지를 서버 메시지로 교체
-          _updateMessageInCache(matchId, localId, serverMessage);
-          _notifyMessageUpdate(matchId, serverMessage);
-          _pendingMessages.remove(localId);
-
-          // 매칭의 마지막 메시지 정보 업데이트
-          await _updateMatchLastMessage(matchId, serverMessage);
-
-          Logger.log('메시지 전송 성공: ${serverMessage.messageId}', name: 'AWSChatService');
-          return serverMessage;
-        }
-      }
-
-      return null;
     } catch (e) {
-      Logger.error('메시지 전송 오류', error: e, name: 'AWSChatService');
+      Logger.error('❌ 메시지 전송 오류', error: e, name: 'AWSChatService');
       
       // 전송 실패한 메시지 상태 업데이트
       final localId = tempMessage.localId;
@@ -261,7 +253,43 @@ class AWSChatService {
     }
   }
 
-  /// 실시간 메시지 구독 시작
+  MessageType _parseMessageType(String? type) {
+    if (type == null) return MessageType.text;
+    switch (type.toLowerCase()) {
+      case 'text':
+        return MessageType.text;
+      case 'image':
+        return MessageType.image;
+      case 'superchat':
+        return MessageType.superchat;
+      case 'system':
+        return MessageType.system;
+      case 'sticker':
+        return MessageType.sticker;
+      default:
+        return MessageType.text;
+    }
+  }
+
+  MessageStatus _parseMessageStatus(String? status) {
+    if (status == null) return MessageStatus.sent;
+    switch (status.toLowerCase()) {
+      case 'sending':
+        return MessageStatus.sending;
+      case 'sent':
+        return MessageStatus.sent;
+      case 'delivered':
+        return MessageStatus.delivered;
+      case 'read':
+        return MessageStatus.read;
+      case 'failed':
+        return MessageStatus.failed;
+      default:
+        return MessageStatus.sent;
+    }
+  }
+
+  /// 실시간 메시지 구독 시작 (폴링 방식)
   Stream<MessageModel> subscribeToMessages(String matchId, String currentUserId) {
     // 기존 구독이 있으면 해제
     unsubscribeFromMessages(matchId);
@@ -269,7 +297,21 @@ class AWSChatService {
     // 새 스트림 컨트롤러 생성
     final controller = StreamController<MessageModel>.broadcast();
     _messageControllers[matchId] = controller;
+    
+    // 활성 채팅으로 등록
+    _activeChats[matchId] = currentUserId;
+    _lastMessageCheck[matchId] = DateTime.now();
 
+    // 폴링 시작 (3초마다 새 메시지 확인)
+    _pollingTimers[matchId] = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      await _checkForNewMessages(matchId, currentUserId, controller);
+    });
+    
+    Logger.log('✅ 실시간 메시지 구독 시작 (폴링 방식): $matchId', name: 'AWSChatService');
+    
+    return controller.stream;
+    
+    /* WebSocket 구독 코드 (설정 완료 후 활성화)
     try {
       final subscription = Amplify.API.subscribe(
         GraphQLRequest<String>(
@@ -337,6 +379,7 @@ class AWSChatService {
     }
 
     return controller.stream;
+    */
   }
 
   /// 실시간 메시지 구독 해제
@@ -344,10 +387,55 @@ class AWSChatService {
     _subscriptions[matchId]?.cancel();
     _subscriptions.remove(matchId);
     
+    _pollingTimers[matchId]?.cancel();
+    _pollingTimers.remove(matchId);
+    
     _messageControllers[matchId]?.close();
     _messageControllers.remove(matchId);
     
+    _activeChats.remove(matchId);
+    _lastMessageCheck.remove(matchId);
+    
     Logger.log('실시간 메시지 구독 해제: $matchId', name: 'AWSChatService');
+  }
+
+  /// 새 메시지 확인 (폴링용)
+  Future<void> _checkForNewMessages(String matchId, String currentUserId, StreamController<MessageModel> controller) async {
+    try {
+      final lastCheck = _lastMessageCheck[matchId];
+      if (lastCheck == null) return;
+
+      // 캐시된 메시지 개수 확인
+      final cachedMessages = _messageCache[matchId] ?? [];
+      final previousCount = cachedMessages.length;
+
+      // 최신 메시지 조회
+      final messages = await getMessages(
+        matchId: matchId,
+        currentUserId: currentUserId,
+        limit: 50,
+      );
+
+      // 새 메시지가 있는지 확인
+      if (messages.length > previousCount) {
+        final newMessages = messages.skip(previousCount).toList();
+        
+        for (final message in newMessages) {
+          // 자신이 보낸 메시지가 아닌 경우에만 스트림에 추가
+          if (message.senderId != currentUserId) {
+            controller.add(message);
+            Logger.log('📥 새 메시지 수신: ${message.content}', name: 'AWSChatService');
+            
+            // 자동 읽음 처리
+            await _markMessageAsRead(message.messageId, currentUserId);
+          }
+        }
+      }
+
+      _lastMessageCheck[matchId] = DateTime.now();
+    } catch (e) {
+      Logger.error('새 메시지 확인 오류', error: e, name: 'AWSChatService');
+    }
   }
 
   /// 메시지 읽음 처리
@@ -355,39 +443,44 @@ class AWSChatService {
     return await _markMessageAsRead(messageId, userId);
   }
 
-  /// 메시지 읽음 처리 (내부)
+  /// 메시지 읽음 처리 (내부 - REST API 사용)
   Future<bool> _markMessageAsRead(String messageId, String userId) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation MarkMessageAsRead(\$input: UpdateMessageInput!) {
-            updateMessage(input: \$input) {
-              messageId
-              status
-              readAt
-            }
-          }
-        ''',
-        variables: {
-          'input': {
-            'messageId': messageId,
-            'status': 'READ',
-            'readAt': DateTime.now().toIso8601String(),
-          }
+      // JWT 토큰 가져오기
+      final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+      final token = session.userPoolTokensResult.value.accessToken.raw;
+
+      // REST API로 메시지 읽음 처리
+      final dio = Dio();
+      
+      Logger.log('📝 메시지 읽음 처리 중: ${AppApiConfig.ApiConfig.baseUrl}/messages/read/$messageId', name: 'AWSChatService');
+
+      final response = await dio.put(
+        '${AppApiConfig.ApiConfig.baseUrl}/messages/read/$messageId',
+        data: {
+          'status': 'read',
+          'readAt': DateTime.now().toIso8601String(),
         },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
       );
 
-      final response = await Amplify.API.mutate(request: request).response;
-      
-      if (response.errors.isNotEmpty) {
-        Logger.error('메시지 읽음 처리 실패: ${response.errors.first.message}', name: 'AWSChatService');
+      Logger.log('📥 메시지 읽음 처리 응답: ${response.statusCode}', name: 'AWSChatService');
+
+      if (response.statusCode == 200) {
+        Logger.log('✅ 메시지 읽음 처리 성공: $messageId', name: 'AWSChatService');
+        return true;
+      } else {
+        Logger.error('❌ 메시지 읽음 처리 실패: ${response.data['message'] ?? response.statusCode}', name: 'AWSChatService');
         return false;
       }
-
-      Logger.log('메시지 읽음 처리: $messageId', name: 'AWSChatService');
-      return true;
     } catch (e) {
-      Logger.error('메시지 읽음 처리 오류', error: e, name: 'AWSChatService');
+      Logger.error('❌ 메시지 읽음 처리 오류', error: e, name: 'AWSChatService');
       return false;
     }
   }
@@ -752,4 +845,5 @@ class AWSChatService {
       Logger.error('온라인 상태 업데이트 오류', error: e, name: 'AWSChatService');
     }
   }
+
 }

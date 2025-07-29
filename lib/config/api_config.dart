@@ -1,6 +1,6 @@
 class ApiConfig {
   // AWS API Gateway 기본 URL
-  static const String baseUrl = 'https://ek5h8mq0mf.execute-api.ap-northeast-2.amazonaws.com/prod';
+  static const String baseUrl = 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod';
   
   // API 엔드포인트들
   static const String likesEndpoint = '/likes';
@@ -8,6 +8,10 @@ class ApiConfig {
   static const String notificationsEndpoint = '/notifications';
   static const String profilesEndpoint = '/profiles';
   static const String matchesEndpoint = '/matches';
+  static const String messagesEndpoint = '/messages';
+  
+  // 전체 URL들
+  static const String messagesUrl = baseUrl;
   
   // 타임아웃 설정
   static const Duration connectTimeout = Duration(seconds: 10);

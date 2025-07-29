@@ -8,6 +8,7 @@ import '../services/aws_chat_service.dart';
 import '../services/offline_sync_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
+import 'matches_provider.dart';
 
 /// 채팅 상태
 class ChatState {
@@ -116,15 +117,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
       // 기존 메시지 로드
       await loadMessages(matchId);
 
-      // 실시간 구독 시작
+      // 실시간 구독 시작 (폴링 방식)
       await _subscribeToMessages(matchId, currentUserId);
 
       // 모든 읽지 않은 메시지 읽음 처리
       await markAllMessagesAsRead(matchId);
 
-      developer.log('채팅방 입장: $matchId', name: 'ChatProvider');
+      developer.log('✅ 채팅방 입장 완료 (실시간 구독 활성화): $matchId', name: 'ChatProvider');
     } catch (e) {
-      developer.log('채팅방 입장 오류', error: e, name: 'ChatProvider');
+      developer.log('❌ 채팅방 입장 오류', error: e, name: 'ChatProvider');
       _setError(matchId, '채팅방 입장에 실패했습니다.');
     }
   }
@@ -611,6 +612,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   bool get isOffline => !_syncService.isOnline;
   
   
+
+
   /// 채팅방 보관 (호환성을 위해 추가)
   Future<void> archiveChat(String chatId) async {
     try {
@@ -723,13 +726,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _addMessageToState(chatId, message);
 
       // Send via service
-      await _chatService.sendMessage(
+      final result = await _chatService.sendMessage(
         matchId: message.matchId,
         senderId: message.senderId,
-        receiverId: message.receiverId,
+        receiverId: receiverId ?? message.receiverId,
         content: message.content,
         type: message.messageType,
       );
+      
+      if (result == null) {
+        throw Exception('메시지 전송에 실패했습니다');
+      }
+      
+      developer.log('✅ 메시지 AWS 전송 성공: ${result.messageId}', name: 'ChatProvider');
+      
+      // Update last message in matches provider  
+      try {
+        ref.read(matchesProvider.notifier).updateLastMessage(chatId, content);
+        developer.log('📝 매칭 마지막 메시지 업데이트: $chatId', name: 'ChatProvider');
+      } catch (e) {
+        developer.log('⚠️  매칭 마지막 메시지 업데이트 실패: $e', name: 'ChatProvider');
+      }
       
       state = state.copyWith(isSending: false);
       return true;

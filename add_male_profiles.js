@@ -39,6 +39,7 @@ export const handler = async (event) => {
             updatedAt: new Date().toISOString(),
             meetingType: "",
             incomeCode: ""
+            
         },
         {
             id: "male-2-" + Date.now(),

@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../models/profile_model.dart';
 import '../../models/match_model.dart';
 import '../../providers/point_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/likes_provider.dart';
+import '../../providers/matches_provider.dart';
 import '../../services/aws_likes_service.dart';
 import '../../services/aws_superchat_service.dart';
 import '../../utils/app_colors.dart';
@@ -17,7 +17,7 @@ import '../../utils/app_dimensions.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/logger.dart';
 import '../../widgets/sheets/super_chat_bottom_sheet.dart';
-import '../../routes/route_names.dart';
+import '../chat/chat_room_screen.dart';
 
 class OtherProfileScreen extends ConsumerStatefulWidget {
   final ProfileModel profile;
@@ -514,6 +514,10 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
             type: MatchType.regular,
           );
           
+          // Add match to matches provider so it appears in chat list
+          ref.read(matchesProvider.notifier).addNewMatch(simpleMatch);
+          Logger.log('💾 매칭을 matchesProvider에 추가했습니다', name: 'ProfileMatch');
+          
           if (mounted) {
             Logger.log('🎉 매칭 성공! 채팅방으로 이동합니다.', name: 'ProfileMatch');
             Logger.log('매치 ID: $matchId', name: 'ProfileMatch');
@@ -538,14 +542,21 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
             Future.delayed(const Duration(milliseconds: 300), () {
               if (mounted) {
                 try {
-                  final chatRoomPath = RouteNames.getChatRoomPath(matchId);
-                  Logger.log('🚀 GoRouter 네비게이션 시작', name: 'ProfileMatch');
-                  Logger.log('   경로: $chatRoomPath', name: 'ProfileMatch');
+                  Logger.log('🚀 채팅방 네비게이션 시작', name: 'ProfileMatch');
+                  Logger.log('   매치 ID: $matchId', name: 'ProfileMatch');
                   Logger.log('   매치 데이터: ID=${simpleMatch.id}, 프로필=${simpleMatch.profile.name}', name: 'ProfileMatch');
                   
-                  // Use GoRouter to navigate to chat room
-                  context.go(chatRoomPath, extra: simpleMatch);
-                  Logger.log('✅ 채팅방 네비게이션 완료 (GoRouter)', name: 'ProfileMatch');
+                  // Use direct Navigator.push instead of GoRouter
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatRoomScreen(
+                        match: simpleMatch,
+                        chatId: matchId,
+                      ),
+                    ),
+                  );
+                  Logger.log('✅ 채팅방 네비게이션 완료 (Navigator.push)', name: 'ProfileMatch');
                 } catch (e) {
                   Logger.error('❌ 채팅방 네비게이션 실패: $e', name: 'ProfileMatch');
                   if (mounted) {

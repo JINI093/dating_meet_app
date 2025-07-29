@@ -239,8 +239,8 @@ class AWSLikesService {
             mappedItem['likeType'] = mappedItem['actionType'];
           }
           
-          // 프로필 정보 가져오기 (슈퍼챗인 경우에만)
-          if (mappedItem['actionType'] == 'SUPERCHAT' && mappedItem['fromUserId'] != null) {
+          // 프로필 정보 가져오기 (모든 좋아요에 대해)
+          if (mappedItem['fromUserId'] != null) {
             try {
               final profile = await _profileService.getProfile(mappedItem['fromUserId']);
               if (profile != null) {
@@ -328,8 +328,8 @@ class AWSLikesService {
             mappedItem['likeType'] = mappedItem['actionType'];
           }
           
-          // 프로필 정보 가져오기 (슈퍼챗인 경우에만, toProfileId 기준)
-          if (mappedItem['actionType'] == 'SUPERCHAT' && mappedItem['toProfileId'] != null) {
+          // 프로필 정보 가져오기 (모든 좋아요에 대해, toProfileId 기준)
+          if (mappedItem['toProfileId'] != null) {
             try {
               final profile = await _profileService.getProfile(mappedItem['toProfileId']);
               if (profile != null) {

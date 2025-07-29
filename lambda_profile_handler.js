@@ -1,7 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
     console.log('=== Lambda Event Debug ===');
     console.log('Full event:', JSON.stringify(event, null, 2));
     console.log('HTTP Method:', event.httpMethod);

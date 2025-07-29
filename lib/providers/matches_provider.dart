@@ -6,6 +6,7 @@ import '../models/match_model.dart';
 import '../services/aws_match_service.dart';
 import '../services/aws_chat_service.dart';
 import '../utils/logger.dart';
+import 'enhanced_auth_provider.dart';
 
 // Matches State
 class MatchesState {
@@ -45,7 +46,7 @@ class MatchesState {
       allMatches.where((match) => match.status == MatchStatus.active).toList();
   
   List<MatchModel> get matchesWithMessages => 
-      matches.where((match) => match.lastMessage != null).toList();
+      allMatches.where((match) => match.lastMessage != null).toList();
   
   List<MatchModel> get unreadMatches => 
       allMatches.where((match) => match.hasUnreadMessages).toList();
@@ -53,10 +54,11 @@ class MatchesState {
 
 // Matches Provider
 class MatchesNotifier extends StateNotifier<MatchesState> {
+  final Ref ref;
   final AWSMatchService _matchService = AWSMatchService();
   Timer? _pollingTimer;
 
-  MatchesNotifier() : super(const MatchesState(
+  MatchesNotifier(this.ref) : super(const MatchesState(
     matches: [],
     newMatches: [],
     isLoading: false,
@@ -79,14 +81,15 @@ class MatchesNotifier extends StateNotifier<MatchesState> {
   /// 매칭 목록 로드
   Future<void> _loadMatches() async {
     try {
-      final authState = await _getCurrentUser();
-      if (authState?.userId == null) {
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        Logger.error('사용자가 로그인되지 않음', name: 'MatchesProvider');
         return;
       }
 
       state = state.copyWith(isLoading: true, error: null);
       
-      final userId = authState!.userId!;
+      final userId = authState.currentUser!.user!.userId;
       final allMatches = await _matchService.getUserMatches(userId: userId);
       
       // 새로운 매칭과 기존 매칭 분리
@@ -210,6 +213,7 @@ class MatchesNotifier extends StateNotifier<MatchesState> {
     try {
       final now = DateTime.now();
       
+      // 먼저 로컬 상태 업데이트 (즉시 UI 반영)
       final updatedMatches = state.matches.map((match) {
         if (match.id == matchId) {
           return match.copyWith(
@@ -234,6 +238,10 @@ class MatchesNotifier extends StateNotifier<MatchesState> {
         matches: updatedMatches,
         newMatches: updatedNewMatches,
       );
+      
+      // 그 다음 서버에서 최신 데이터 새로고침 (백그라운드)
+      await refreshMatches();
+      Logger.log('매칭 목록 새로고침 완료', name: 'MatchesProvider');
     } catch (e) {
       Logger.error('마지막 메시지 업데이트 오류', error: e, name: 'MatchesProvider');
       state = state.copyWith(error: '메시지 업데이트에 실패했습니다.');
@@ -561,7 +569,7 @@ class MockUser {
 
 // Provider instances
 final matchesProvider = StateNotifierProvider<MatchesNotifier, MatchesState>((ref) {
-  return MatchesNotifier();
+  return MatchesNotifier(ref);
 });
 
 // Helper providers

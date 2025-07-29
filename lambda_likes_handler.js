@@ -4,8 +4,8 @@ const { DynamoDBDocumentClient, QueryCommand, ScanCommand, PutCommand } = requir
 const dynamoClient = new DynamoDBClient({ region: 'ap-northeast-2' });
 const dynamoDb = DynamoDBDocumentClient.from(dynamoClient);
 
-const LIKES_TABLE = 'Likes';
-const MATCHES_TABLE = 'Matches';
+const LIKES_TABLE = 'DatingMeet-Likes-dev';
+const MATCHES_TABLE = 'DatingMeet-Matches-dev';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
@@ -84,16 +84,18 @@ async function getSentLikes(userId) {
   console.log('Getting sent likes for user:', userId);
   
   try {
-    // fromUserId로 조회
+    // GSI를 사용하여 fromUserId로 쿼리
     const params = {
       TableName: LIKES_TABLE,
-      FilterExpression: 'fromUserId = :userId',
+      IndexName: 'fromUserId-createdAt-index',
+      KeyConditionExpression: 'fromUserId = :userId',
       ExpressionAttributeValues: {
         ':userId': userId
-      }
+      },
+      ScanIndexForward: false // 최신순 정렬
     };
     
-    const response = await dynamoDb.send(new ScanCommand(params));
+    const response = await dynamoDb.send(new QueryCommand(params));
     console.log('Sent likes response:', response);
     
     const items = response.Items || [];
@@ -117,16 +119,18 @@ async function getReceivedLikes(userId) {
   console.log('Getting received likes for user:', userId);
   
   try {
-    // toProfileId로 조회
+    // GSI를 사용하여 toProfileId로 쿼리
     const params = {
       TableName: LIKES_TABLE,
-      FilterExpression: 'toProfileId = :userId',
+      IndexName: 'toProfileId-createdAt-index',
+      KeyConditionExpression: 'toProfileId = :userId',
       ExpressionAttributeValues: {
         ':userId': userId
-      }
+      },
+      ScanIndexForward: false // 최신순 정렬
     };
     
-    const response = await dynamoDb.send(new ScanCommand(params));
+    const response = await dynamoDb.send(new QueryCommand(params));
     console.log('Received likes response:', response);
     
     const items = response.Items || [];

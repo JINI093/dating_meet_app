@@ -7,10 +7,12 @@ import '../services/aws_profile_service.dart';
 import '../services/aws_likes_service.dart';
 import '../services/enhanced_superchat_service.dart';
 import '../services/aws_match_service.dart';
+import '../utils/logger.dart';
 import 'notification_provider.dart';
 import 'matches_provider.dart';
 import 'likes_provider.dart';
 import 'enhanced_auth_provider.dart';
+import 'discover_profiles_provider.dart';
 
 // Match Result Model
 class MatchResult {
@@ -18,23 +20,27 @@ class MatchResult {
   final String message;
   final ProfileModel? matchedProfile;
   final DateTime? matchedAt;
+  final MatchModel? matchModel; // Added to store complete match data
 
   const MatchResult({
     required this.isMatch,
     required this.message,
     this.matchedProfile,
     this.matchedAt,
+    this.matchModel,
   });
 
   factory MatchResult.success({
     required ProfileModel profile,
     required String message,
+    MatchModel? matchModel,
   }) {
     return MatchResult(
       isMatch: true,
       message: message,
       matchedProfile: profile,
       matchedAt: DateTime.now(),
+      matchModel: matchModel,
     );
   }
 
@@ -351,7 +357,11 @@ class MatchNotifier extends StateNotifier<MatchState> {
       if (sentLike != null) {
         if (sentLike.isMatched) {
           // 서버에서 자동으로 매칭 처리됨
-          final matchId = 'match_${DateTime.now().millisecondsSinceEpoch}';
+          final matchId = sentLike.matchId ?? 'match_${DateTime.now().millisecondsSinceEpoch}';
+          
+          Logger.log('🎉 매칭 화면에서 매칭 성공!', name: 'MatchProvider');
+          Logger.log('   프로필: ${currentProfile.name}', name: 'MatchProvider');
+          Logger.log('   매치 ID: $matchId', name: 'MatchProvider');
           
           // 알림 추가
           ref.read(notificationProvider.notifier).addMatchNotification(
@@ -377,10 +387,14 @@ class MatchNotifier extends StateNotifier<MatchState> {
           
           ref.read(matchesProvider.notifier).addNewMatch(newMatch);
           
+          // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+          ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(currentProfile.id);
+          
           _moveToNextProfile();
           return MatchResult.success(
             profile: currentProfile,
             message: '🎉 ${currentProfile.name}님과 매칭되었습니다!',
+            matchModel: newMatch,
           );
         } else {
           // 좋아요 전송 성공 (매칭은 아님)
@@ -389,6 +403,9 @@ class MatchNotifier extends StateNotifier<MatchState> {
           ref.read(likesProvider.notifier).state = ref.read(likesProvider).copyWith(
             sentLikes: [...currentSentLikes, likeWithProfile],
           );
+          
+          // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+          ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(currentProfile.id);
           
           _moveToNextProfile();
           return MatchResult.like();
@@ -423,6 +440,9 @@ class MatchNotifier extends StateNotifier<MatchState> {
       );
       
       if (passResult != null) {
+        // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+        ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(currentProfile.id);
+        
         _moveToNextProfile();
         return MatchResult.pass();
       } else {
@@ -487,6 +507,9 @@ class MatchNotifier extends StateNotifier<MatchState> {
               : '',
           message: message,
         );
+        
+        // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+        ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(currentProfile.id);
         
         _moveToNextProfile();
         return MatchResult.superChat();

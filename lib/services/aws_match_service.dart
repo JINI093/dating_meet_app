@@ -1,12 +1,15 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_api/amplify_api.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
+import 'dart:convert';
 
 import '../models/like_model.dart';
 import '../models/match_model.dart';
 import '../models/profile_model.dart';
 import '../utils/logger.dart';
 import 'notification_service.dart';
+import 'aws_profile_service.dart';
 
 /// AWS 기반 매칭 서비스
 /// 상호 호감 시 매칭 생성 및 관리
@@ -16,6 +19,7 @@ class AWSMatchService {
   AWSMatchService._internal();
 
   final NotificationService _notificationService = NotificationService();
+  final AWSProfileService _profileService = AWSProfileService();
   static const String _lastMatchCheckKey = 'last_match_check';
 
   /// 서비스 초기화
@@ -72,81 +76,72 @@ class AWSMatchService {
     String? nextToken,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetUserMatches(\$userId: String!, \$limit: Int, \$nextToken: String) {
-            matchesByUserId(
-              userId: \$userId, 
-              limit: \$limit, 
-              nextToken: \$nextToken,
-              sortDirection: DESC
-            ) {
-              items {
-                id
-                user1Id
-                user2Id
-                createdAt
-                lastMessageAt
-                lastMessage
-                lastMessageSenderId
-                status
-                unreadCount1
-                unreadCount2
-                metadata
-                # 프로필 정보는 별도 조회 필요
-              }
-              nextToken
-            }
-          }
-        ''',
-        variables: {
-          'userId': userId,
-          'limit': limit,
-          'nextToken': nextToken,
-        },
-      );
-
-      final response = await Amplify.API.query(request: request).response;
+      Logger.log('🔍 매칭 목록 조회 시작: $userId', name: 'AWSMatchService');
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('매칭 목록 조회 실패: ${response.errors.first.message}');
+      // REST API를 통한 매칭 목록 조회
+      final matchesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            matchesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('매칭 API 토큰 추가 실패: $e', name: 'AWSMatchService');
       }
-
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['matchesByUserId']?['items'] as List?;
-        if (items != null) {
-          final matches = <MatchModel>[];
+      
+      final response = await matchesApiService.get('/matches/user/$userId');
+      Logger.log('매칭 API 응답 상태: ${response.statusCode}', name: 'AWSMatchService');
+      Logger.log('매칭 API 응답 데이터: ${response.data}', name: 'AWSMatchService');
+      
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final List<dynamic> items = response.data['data'] ?? [];
+        final matches = <MatchModel>[];
+        
+        for (final item in items) {
+          final matchData = Map<String, dynamic>.from(item);
           
-          for (final item in items) {
-            final matchData = item as Map<String, dynamic>;
-            
-            // 상대방 프로필 정보 조회
-            final otherUserId = matchData['user1Id'] == userId 
-                ? matchData['user2Id'] 
-                : matchData['user1Id'];
-            final otherProfile = await _getUserProfile(otherUserId);
-            
-            // 매칭 모델 생성 (기존 구조에 맞게 변환)
-            final match = MatchModel(
-              id: matchData['id'] ?? '',
-              profile: otherProfile ?? ProfileModel.empty(),
-              matchedAt: DateTime.tryParse(matchData['createdAt'] ?? '') ?? DateTime.now(),
-              lastMessage: matchData['lastMessage'],
-              lastMessageTime: DateTime.tryParse(matchData['lastMessageAt'] ?? ''),
-              hasUnreadMessages: _getUnreadCount(matchData, userId) > 0,
-              unreadCount: _getUnreadCount(matchData, userId),
-              status: _parseMatchStatus(matchData['status']),
-              type: _parseMatchType(matchData['metadata']),
-            );
-            
-            matches.add(match);
+          // 상대방 프로필 정보 조회
+          final otherUserId = matchData['user1Id'] == userId 
+              ? matchData['user2Id'] 
+              : matchData['user1Id'];
+          
+          ProfileModel? otherProfile;
+          try {
+            otherProfile = await _profileService.getProfile(otherUserId);
+          } catch (e) {
+            Logger.error('프로필 정보 가져오기 실패: $otherUserId', error: e, name: 'AWSMatchService');
+            otherProfile = ProfileModel.empty();
           }
           
-          return matches;
+          // 매칭 모델 생성
+          final match = MatchModel(
+            id: matchData['id'] ?? '',
+            profile: otherProfile ?? ProfileModel.empty(),
+            matchedAt: DateTime.tryParse(matchData['createdAt'] ?? '') ?? DateTime.now(),
+            lastMessage: matchData['lastMessage'],
+            lastMessageTime: DateTime.tryParse(matchData['lastMessageTime'] ?? matchData['lastMessageAt'] ?? ''),
+            hasUnreadMessages: _getUnreadCount(matchData, userId) > 0,
+            unreadCount: _getUnreadCount(matchData, userId),
+            status: _parseMatchStatus(matchData['status']),
+            type: MatchType.regular, // 단순화
+          );
+          
+          matches.add(match);
         }
+        
+        Logger.log('✅ 매칭 목록 ${matches.length}개 조회 성공', name: 'AWSMatchService');
+        return matches;
       }
-
+      
+      Logger.log('⚠️  매칭 목록 데이터 없음', name: 'AWSMatchService');
       return [];
     } catch (e) {
       Logger.error('매칭 목록 조회 오류', error: e, name: 'AWSMatchService');
@@ -160,55 +155,60 @@ class AWSMatchService {
     required String currentUserId,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetMatch(\$matchId: ID!) {
-            getMatch(id: \$matchId) {
-              id
-              user1Id
-              user2Id
-              createdAt
-              lastMessageAt
-              lastMessage
-              lastMessageSenderId
-              status
-              unreadCount1
-              unreadCount2
-              metadata
-            }
-          }
-        ''',
-        variables: {'matchId': matchId},
-      );
-
-      final response = await Amplify.API.query(request: request).response;
+      Logger.log('🔍 매칭 상세 조회 시작: $matchId', name: 'AWSMatchService');
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('매칭 조회 실패: ${response.errors.first.message}');
-      }
-
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final matchData = data['getMatch'];
-        if (matchData != null) {
-          // 상대방 프로필 정보 조회
-          final otherUserId = matchData['user1Id'] == currentUserId 
-              ? matchData['user2Id'] 
-              : matchData['user1Id'];
-          final otherProfile = await _getUserProfile(otherUserId);
-          
-          return MatchModel(
-            id: matchData['id'] ?? '',
-            profile: otherProfile ?? ProfileModel.empty(),
-            matchedAt: DateTime.tryParse(matchData['createdAt'] ?? '') ?? DateTime.now(),
-            lastMessage: matchData['lastMessage'],
-            lastMessageTime: DateTime.tryParse(matchData['lastMessageAt'] ?? ''),
-            hasUnreadMessages: _getUnreadCount(matchData, currentUserId) > 0,
-            unreadCount: _getUnreadCount(matchData, currentUserId),
-            status: _parseMatchStatus(matchData['status']),
-            type: _parseMatchType(matchData['metadata']),
-          );
+      // REST API를 통한 매칭 상세 조회
+      final matchesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            matchesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
         }
+      } catch (e) {
+        Logger.error('매칭 상세 API 토큰 추가 실패: $e', name: 'AWSMatchService');
+      }
+      
+      final response = await matchesApiService.get('/matches/$matchId');
+      Logger.log('매칭 상세 API 응답 상태: ${response.statusCode}', name: 'AWSMatchService');
+      
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final matchData = Map<String, dynamic>.from(response.data['data']);
+        
+        // 상대방 프로필 정보 조회
+        final otherUserId = matchData['user1Id'] == currentUserId 
+            ? matchData['user2Id'] 
+            : matchData['user1Id'];
+        
+        ProfileModel? otherProfile;
+        try {
+          otherProfile = await _profileService.getProfile(otherUserId);
+        } catch (e) {
+          Logger.error('프로필 정보 가져오기 실패: $otherUserId', error: e, name: 'AWSMatchService');
+          otherProfile = ProfileModel.empty();
+        }
+        
+        final match = MatchModel(
+          id: matchData['id'] ?? '',
+          profile: otherProfile ?? ProfileModel.empty(),
+          matchedAt: DateTime.tryParse(matchData['createdAt'] ?? '') ?? DateTime.now(),
+          lastMessage: matchData['lastMessage'],
+          lastMessageTime: DateTime.tryParse(matchData['lastMessageTime'] ?? matchData['lastMessageAt'] ?? ''),
+          hasUnreadMessages: _getUnreadCount(matchData, currentUserId) > 0,
+          unreadCount: _getUnreadCount(matchData, currentUserId),
+          status: _parseMatchStatus(matchData['status']),
+          type: MatchType.regular,
+        );
+        
+        Logger.log('✅ 매칭 상세 조회 성공: $matchId', name: 'AWSMatchService');
+        return match;
       }
 
       return null;

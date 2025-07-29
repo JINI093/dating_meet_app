@@ -12,6 +12,7 @@ import '../services/location_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 import 'current_user_profile_provider.dart';
+import 'matches_provider.dart';
 
 /// 프로필 필터 설정
 class ProfileFilter {
@@ -228,12 +229,30 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
 
       // 4. 필터 적용
       final filteredProfiles = _applyLocalFilters(normalizedProfiles);
+      Logger.log('로컬 필터 적용 후 프로필 수: ${filteredProfiles.length}', name: 'DiscoverProfilesProvider');
 
       // 5. 이미 본 프로필 및 평가한 프로필 제외
+      Logger.log('중복 체크 시작 - 제외할 프로필: 본 프로필 ${state.viewedProfileIds.length}개, 평가한 프로필 ${_evaluatedProfileIds.length}개', 
+                 name: 'DiscoverProfilesProvider');
+                 
       final availableProfiles = filteredProfiles
           .where((p) => !state.viewedProfileIds.contains(p.id) && 
                        !_evaluatedProfileIds.contains(p.id))
           .toList();
+          
+      Logger.log('중복 제거 후 사용 가능한 프로필 수: ${availableProfiles.length}', name: 'DiscoverProfilesProvider');
+      
+      // 제외된 프로필이 있다면 어떤 것들인지 로그
+      final excludedCount = filteredProfiles.length - availableProfiles.length;
+      if (excludedCount > 0) {
+        Logger.log('제외된 프로필 ${excludedCount}개:', name: 'DiscoverProfilesProvider');
+        final excludedProfiles = filteredProfiles.where((p) => 
+          state.viewedProfileIds.contains(p.id) || _evaluatedProfileIds.contains(p.id)).take(5);
+        for (final profile in excludedProfiles) {
+          final reason = state.viewedProfileIds.contains(profile.id) ? '이미 본 프로필' : '평가한 프로필';
+          Logger.log('  - ${profile.name} (ID: ${profile.id}): $reason', name: 'DiscoverProfilesProvider');
+        }
+      }
       
       // 6. 지능형 매칭 점수로 정렬
       final sortedProfiles = _sortByMatchingScore(availableProfiles);
@@ -499,10 +518,13 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
     try {
       final authState = ref.read(enhancedAuthProvider);
       if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        Logger.log('사용자가 로그인되지 않음', name: 'DiscoverProfilesProvider');
         return;
       }
 
       final currentUserId = authState.currentUser!.user!.userId;
+      
+      Logger.log('평가한 프로필 목록 로드 시작: $currentUserId', name: 'DiscoverProfilesProvider');
       
       // 보낸 좋아요/패스 목록 조회
       final sentLikes = await _likesService.getSentLikes(userId: currentUserId);
@@ -510,7 +532,16 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
       // 평가한 프로필 ID 추출
       _evaluatedProfileIds = sentLikes.map((like) => like.toProfileId).toSet();
       
-      Logger.log('이미 평가한 프로필 ${_evaluatedProfileIds.length}개 로드', 
+      Logger.log('이미 평가한 프로필 ${_evaluatedProfileIds.length}개 로드: $_evaluatedProfileIds', 
+                 name: 'DiscoverProfilesProvider');
+                 
+      // 매칭된 프로필도 제외 목록에 추가
+      final matchesState = ref.read(matchesProvider);
+      final matchedProfileIds = matchesState.allMatches.map((match) => match.profile.id).toSet();
+      
+      _evaluatedProfileIds.addAll(matchedProfileIds);
+      
+      Logger.log('매칭된 프로필 ${matchedProfileIds.length}개 추가, 총 제외 프로필: ${_evaluatedProfileIds.length}개', 
                  name: 'DiscoverProfilesProvider');
     } catch (e) {
       Logger.error('평가한 프로필 로드 오류', error: e, name: 'DiscoverProfilesProvider');
@@ -522,14 +553,20 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
     _evaluatedProfileIds.add(profileId);
     markProfileAsViewed(profileId);
     
+    Logger.log('프로필 평가 완료: $profileId (총 평가한 프로필: ${_evaluatedProfileIds.length}개)', 
+               name: 'DiscoverProfilesProvider');
+    
     // 남은 프로필 수 확인
     final remainingCount = getRemainingProfilesCount();
+    Logger.log('남은 프로필 수: $remainingCount개', name: 'DiscoverProfilesProvider');
     
     // 매칭 풀이 부족하면 자동 갱신
     if (remainingCount < 3 && state.hasMore) {
+      Logger.log('프로필 부족으로 자동 로드 중...', name: 'DiscoverProfilesProvider');
       loadMoreProfiles();
     } else if (remainingCount == 0 && !state.hasMore) {
       // 모든 프로필을 소진했으면 풀 확장 시도
+      Logger.log('모든 프로필 소진 - 매칭 풀 확장 시도', name: 'DiscoverProfilesProvider');
       _expandMatchingPool();
     }
   }

@@ -50,8 +50,15 @@ cp -r node_modules notifications-lambda/
 cp ../lambda_notifications_dynamodb.js notifications-lambda/index.js
 cd notifications-lambda && zip -r ../../notifications-lambda-dynamodb.zip . -x "*.git*" "*.DS_Store*" && cd ..
 
+# Messages Lambda 패키지 생성
+echo "💬 Messages DynamoDB Lambda 패키지 생성..."
+mkdir -p messages-lambda
+cp -r node_modules messages-lambda/
+cp ../lambda_messages_handler.js messages-lambda/index.js
+cd messages-lambda && zip -r ../../messages-lambda-dynamodb.zip . -x "*.git*" "*.DS_Store*" && cd ..
+
 # 정리
-rm -rf superchat-lambda likes-lambda notifications-lambda
+rm -rf superchat-lambda likes-lambda notifications-lambda messages-lambda
 
 cd ..
 rm -rf $DEPLOY_DIR
@@ -60,6 +67,7 @@ echo "✅ 배포 패키지 생성 완료!"
 echo "   - superchat-lambda-dynamodb.zip"
 echo "   - likes-lambda-dynamodb.zip"
 echo "   - notifications-lambda-dynamodb.zip"
+echo "   - messages-lambda-dynamodb.zip"
 echo ""
 echo "🔧 AWS Lambda 함수 업데이트 방법:"
 echo ""
@@ -85,11 +93,22 @@ echo "   - notifications-lambda-dynamodb.zip 선택"
 echo "   - 핸들러를 'index.handler'로 설정"
 echo "   - Deploy 클릭"
 echo ""
-echo "4. API Gateway 경로 설정:"
+echo "4. messages-handler 생성/업데이트:"
+echo "   - AWS Lambda 콘솔에서 messages-handler 함수 생성/선택"
+echo "   - 런타임: Node.js 18.x"
+echo "   - 코드 탭에서 '업로드' → '.zip 파일 업로드'"
+echo "   - messages-lambda-dynamodb.zip 선택"
+echo "   - 핸들러를 'index.handler'로 설정"
+echo "   - Deploy 클릭"
+echo ""
+echo "5. API Gateway 경로 설정:"
 echo "   - /notifications/user/{userId} → GET"
 echo "   - /notifications/unread-count/{userId} → GET"
 echo "   - /notifications/recent/{userId} → GET"
 echo "   - /notifications/{notificationId}/read → PUT"
 echo "   - /notifications/read-all → PUT"
+echo "   - /messages → POST (메시지 전송)"
+echo "   - /messages/{matchId} → GET (메시지 조회)"
+echo "   - /messages/{messageId} → PUT (메시지 읽음 처리)"
 echo ""
 echo "💡 중요: 각 Lambda 함수의 실행 역할에 DynamoDB 권한이 있는지 확인하세요!"
