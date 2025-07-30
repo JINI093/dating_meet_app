@@ -55,6 +55,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final matchState = ref.watch(matchProvider);
     final profiles = matchState.profiles;
     final isLoading = matchState.isLoading;
+    final error = matchState.error;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -80,6 +81,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             if (isLoading)
               SliverFillRemaining(
                 child: _buildLoadingState(),
+              )
+            else if (error != null)
+              SliverFillRemaining(
+                child: _buildErrorState(error),
               )
             else
               SliverFillRemaining(
@@ -446,6 +451,86 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textHint,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    // "오늘의 매칭이 모두 끝났습니다" 메시지인 경우 특별한 UI 표시
+    if (error.contains('오늘의 매칭이 모두 끝났습니다')) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.checkmark_circle,
+              size: AppDimensions.emptyStateImageSize,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: AppDimensions.emptyStateSpacing),
+            Text(
+              '오늘의 매칭이 끝났어요!',
+              style: AppTextStyles.h6.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppDimensions.spacing8),
+            Text(
+              '내일 더 많은 새로운 인연을 만나보세요',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textHint,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // 일반적인 에러 상태
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.exclamationmark_triangle,
+            size: AppDimensions.emptyStateImageSize,
+            color: AppColors.error,
+          ),
+          const SizedBox(height: AppDimensions.emptyStateSpacing),
+          Text(
+            '프로필을 불러올 수 없어요',
+            style: AppTextStyles.h6.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spacing8),
+          Text(
+            error,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textHint,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppDimensions.spacing24),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(matchProvider.notifier).refreshProfiles();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 12,
+              ),
+            ),
+            child: const Text('다시 시도'),
           ),
         ],
       ),

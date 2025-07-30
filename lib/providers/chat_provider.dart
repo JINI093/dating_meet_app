@@ -453,6 +453,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final subscription = _chatService.subscribeToMessages(matchId, currentUserId).listen(
         (message) {
+          // 내가 보낸 메시지인 경우, 이미 로컬 상태에 추가했으므로 중복 체크가 더 중요
+          if (message.senderId == currentUserId) {
+            developer.log('📤 내가 보낸 메시지 실시간 수신 - 중복 체크: ${message.content}', name: 'ChatProvider');
+          }
+          
           _addMessageToState(matchId, message);
           
           // 현재 활성 채팅방이면 자동으로 읽음 처리
@@ -497,16 +502,39 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final updatedMessages = Map<String, List<MessageModel>>.from(state.messagesByMatch);
     final messages = List<MessageModel>.from(updatedMessages[matchId] ?? []);
 
-    // 중복 확인
-    final existingIndex = messages.indexWhere((msg) => 
-        msg.messageId == message.messageId || 
-        (msg.localId != null && msg.localId == message.localId));
+    // 중복 확인 개선
+    final existingIndex = messages.indexWhere((msg) {
+      // 1. 같은 messageId가 있는 경우
+      if (message.messageId.isNotEmpty && msg.messageId == message.messageId) {
+        return true;
+      }
+      
+      // 2. 같은 localId가 있는 경우
+      if (message.localId != null && msg.localId != null && 
+          msg.localId == message.localId) {
+        return true;
+      }
+      
+      // 3. 내용, 발송자, 시간이 매우 유사한 경우 (1초 이내)
+      if (msg.senderId == message.senderId && 
+          msg.content == message.content &&
+          msg.createdAt.difference(message.createdAt).abs().inSeconds <= 1) {
+        developer.log('⚠️  유사한 메시지 발견 - 중복으로 판단: ${message.content}', name: 'ChatProvider');
+        return true;
+      }
+      
+      return false;
+    });
 
     if (existingIndex != -1) {
+      // 기존 메시지를 새로운 메시지로 교체 (서버 ID 업데이트 등)
       messages[existingIndex] = message;
+      developer.log('🔄 기존 메시지 업데이트: ${message.messageId}', name: 'ChatProvider');
     } else {
+      // 새로운 메시지 추가
       messages.add(message);
       messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      developer.log('➕ 새 메시지 추가: ${message.messageId}', name: 'ChatProvider');
     }
 
     updatedMessages[matchId] = messages;
@@ -712,26 +740,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       state = state.copyWith(isSending: true);
       
-      final message = MessageModel(
-        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+      // 고유한 로컬 ID 생성 (중복 방지용)
+      final localId = 'local_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+      
+      final tempMessage = MessageModel(
+        messageId: '', // 서버에서 할당될 때까지 비워둠
+        localId: localId, // 중복 체크용 로컬 ID
         matchId: chatId,
         senderId: authState.currentUser!.user!.userId,
         receiverId: receiverId ?? chatId,
         content: content,
         createdAt: DateTime.now(),
         messageType: MessageType.text,
+        status: MessageStatus.sending, // 전송 중 상태
       );
 
-      // Add to local state immediately for better UX
-      _addMessageToState(chatId, message);
+      // 임시 메시지를 로컬 상태에 추가 (UX 개선용)
+      _addMessageToState(chatId, tempMessage);
 
       // Send via service
       final result = await _chatService.sendMessage(
-        matchId: message.matchId,
-        senderId: message.senderId,
-        receiverId: receiverId ?? message.receiverId,
-        content: message.content,
-        type: message.messageType,
+        matchId: tempMessage.matchId,
+        senderId: tempMessage.senderId,
+        receiverId: receiverId ?? tempMessage.receiverId,
+        content: tempMessage.content,
+        type: tempMessage.messageType,
       );
       
       if (result == null) {
@@ -739,6 +772,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
       
       developer.log('✅ 메시지 AWS 전송 성공: ${result.messageId}', name: 'ChatProvider');
+      
+      // 임시 메시지를 서버 응답으로 업데이트
+      final finalMessage = result.copyWith(localId: localId);
+      _addMessageToState(chatId, finalMessage);
       
       // Update last message in matches provider  
       try {

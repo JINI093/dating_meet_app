@@ -5,11 +5,10 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/profile_model.dart';
-import '../../models/match_model.dart';
 import '../../providers/point_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/likes_provider.dart';
-import '../../providers/matches_provider.dart';
+import '../../providers/discover_profiles_provider.dart';
 import '../../services/aws_likes_service.dart';
 import '../../services/aws_superchat_service.dart';
 import '../../utils/app_colors.dart';
@@ -17,7 +16,6 @@ import '../../utils/app_dimensions.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/logger.dart';
 import '../../widgets/sheets/super_chat_bottom_sheet.dart';
-import '../chat/chat_room_screen.dart';
 
 class OtherProfileScreen extends ConsumerStatefulWidget {
   final ProfileModel profile;
@@ -290,7 +288,7 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
           _buildActionButton(
             icon: Icons.close,
             color: AppColors.pass,
-            onPressed: () => Navigator.pop(context),
+            onPressed: widget.isLocked ? _handleUnlockProfile : _handlePass,
           ),
           
           // Like button
@@ -470,7 +468,7 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
     setState(() => _showUnlockDialog = true);
   }
 
-  Future<void> _handleLike() async {
+  Future<void> _handlePass() async {
     try {
       final authState = ref.read(enhancedAuthProvider);
       if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
@@ -485,109 +483,91 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       final fromUserId = authState.currentUser!.user!.userId;
       final toProfileId = widget.profile.id;
 
-      // Send like
+      // Send pass
       final likesService = AWSLikesService();
-      Logger.log('좋아요 전송 시작 - From: $fromUserId, To: $toProfileId', name: 'ProfileMatch');
+      Logger.log('패스 전송 시작 - From: $fromUserId, To: $toProfileId', name: 'ProfilePass');
       
-      final like = await likesService.sendLike(
+      final passResult = await likesService.sendPass(
         fromUserId: fromUserId,
         toProfileId: toProfileId,
       );
 
-      if (like != null) {
-        Logger.log('좋아요 전송 성공! Like ID: ${like.id}', name: 'ProfileMatch');
-        Logger.log('매칭 여부: ${like.isMatched}', name: 'ProfileMatch');
-        Logger.log('매치 ID: ${like.matchId}', name: 'ProfileMatch');
+      if (passResult != null) {
+        Logger.log('패스 전송 성공! Pass ID: ${passResult.id}', name: 'ProfilePass');
         
-        // Check if it's a mutual match (Lambda already detected this)
-        final isMatch = like.isMatched;
+        // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+        ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
         
-        if (isMatch) {
-          // Mutual match detected! Create simple match and navigate to chat room
-          // Use match ID from Lambda response or generate a unique one
-          final matchId = like.matchId ?? 'match_${fromUserId}_${toProfileId}_${DateTime.now().millisecondsSinceEpoch}';
-          final simpleMatch = MatchModel(
-            id: matchId,
-            profile: widget.profile,
-            matchedAt: DateTime.now(),
-            status: MatchStatus.active,
-            type: MatchType.regular,
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.profile.name}님을 패스했습니다.'),
+              backgroundColor: AppColors.pass,
+            ),
           );
-          
-          // Add match to matches provider so it appears in chat list
-          ref.read(matchesProvider.notifier).addNewMatch(simpleMatch);
-          Logger.log('💾 매칭을 matchesProvider에 추가했습니다', name: 'ProfileMatch');
-          
-          if (mounted) {
-            Logger.log('🎉 매칭 성공! 채팅방으로 이동합니다.', name: 'ProfileMatch');
-            Logger.log('매치 ID: $matchId', name: 'ProfileMatch');
-            Logger.log('상대방: ${widget.profile.name}', name: 'ProfileMatch');
-            
-            // Show match notification immediately with additional logging
-            Logger.log('💫 SnackBar 표시: 매칭 성공 알림', name: 'ProfileMatch');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('🎉 ${widget.profile.name}님과 매칭되었습니다! 채팅방으로 이동합니다.'),
-                backgroundColor: AppColors.primary,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-            
-            // Close profile screen and navigate to chat room directly
-            Logger.log('📱 프로필 화면 닫기', name: 'ProfileMatch');
-            Navigator.pop(context);
-            
-            // Navigate to chat room using GoRouter after a brief delay
-            Logger.log('⏱️  300ms 지연 후 채팅방 네비게이션 시작', name: 'ProfileMatch');
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (mounted) {
-                try {
-                  Logger.log('🚀 채팅방 네비게이션 시작', name: 'ProfileMatch');
-                  Logger.log('   매치 ID: $matchId', name: 'ProfileMatch');
-                  Logger.log('   매치 데이터: ID=${simpleMatch.id}, 프로필=${simpleMatch.profile.name}', name: 'ProfileMatch');
-                  
-                  // Use direct Navigator.push instead of GoRouter
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatRoomScreen(
-                        match: simpleMatch,
-                        chatId: matchId,
-                      ),
-                    ),
-                  );
-                  Logger.log('✅ 채팅방 네비게이션 완료 (Navigator.push)', name: 'ProfileMatch');
-                } catch (e) {
-                  Logger.error('❌ 채팅방 네비게이션 실패: $e', name: 'ProfileMatch');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('채팅방 이동에 실패했습니다: ${e.toString()}'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
-                }
-              } else {
-                Logger.log('⚠️  위젯이 마운트되지 않아 네비게이션 취소', name: 'ProfileMatch');
-              }
-            });
-          }
-        } else {
-          Logger.log('매칭되지 않음 - 단방향 좋아요', name: 'ProfileMatch');
-          if (mounted) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${widget.profile.name}님에게 좋아요를 보냈습니다!'),
-                backgroundColor: AppColors.like,
-              ),
-            );
-          }
         }
 
         // Refresh likes data
         ref.read(likesProvider.notifier).loadAllLikes();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('패스 처리에 실패했습니다: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleLike() async {
+    try {
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('로그인이 필요합니다.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Send like using likes provider
+      final success = await ref.read(likesProvider.notifier).sendLike(
+        toProfileId: widget.profile.id,
+      );
+
+      if (success) {
+        // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+        ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
+        
+        if (mounted) {
+          Navigator.pop(context); // Close profile screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.profile.name}님에게 좋아요를 보냈습니다!'),
+              backgroundColor: AppColors.like,
+            ),
+          );
+        }
+
+        // Refresh likes data
+        ref.read(likesProvider.notifier).loadAllLikes();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('좋아요 전송에 실패했습니다.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -676,6 +656,9 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       );
 
       if (superchat != null) {
+        // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
+        ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
+        
         if (mounted) {
           Navigator.pop(context); // Close bottom sheet
           Navigator.pop(context); // Close profile screen

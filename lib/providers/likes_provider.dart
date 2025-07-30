@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/like_model.dart';
 import '../services/aws_likes_service.dart';
+import '../services/aws_match_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 
@@ -18,6 +19,7 @@ class LikesState {
   final String? error;
   final int remainingDailyLikes;
   final int totalUnreadLikes;
+  final Set<String> unlockedProfileIds; // 해제된 프로필 ID 목록
 
   // 이전 버전과의 호환성을 위한 getter
   List<LikeModel> get likes => receivedLikes;
@@ -34,6 +36,7 @@ class LikesState {
     this.error,
     this.remainingDailyLikes = 10,
     this.totalUnreadLikes = 0,
+    this.unlockedProfileIds = const {},
   });
 
   LikesState copyWith({
@@ -47,6 +50,7 @@ class LikesState {
     String? error,
     int? remainingDailyLikes,
     int? totalUnreadLikes,
+    Set<String>? unlockedProfileIds,
     // 이전 버전 호환성
     List<LikeModel>? likes,
     int? unreadCount,
@@ -62,6 +66,7 @@ class LikesState {
       error: error,
       remainingDailyLikes: remainingDailyLikes ?? this.remainingDailyLikes,
       totalUnreadLikes: totalUnreadLikes ?? unreadCount ?? this.totalUnreadLikes,
+      unlockedProfileIds: unlockedProfileIds ?? this.unlockedProfileIds,
     );
   }
 }
@@ -70,6 +75,7 @@ class LikesState {
 class LikesNotifier extends StateNotifier<LikesState> {
   final Ref ref;
   final AWSLikesService _likesService = AWSLikesService();
+  final AWSMatchService _matchService = AWSMatchService();
 
   LikesNotifier(this.ref) : super(const LikesState());
 
@@ -79,6 +85,8 @@ class LikesNotifier extends StateNotifier<LikesState> {
 
     try {
       await _likesService.initialize();
+      await _matchService.initialize();
+      await loadUnlockedProfiles(); // 해제된 프로필 로드
       await loadAllLikes();
       state = state.copyWith(isLoading: false);
     } catch (e) {
@@ -120,10 +128,15 @@ class LikesNotifier extends StateNotifier<LikesState> {
 
     try {
       final likes = await _likesService.getReceivedLikes(userId: userId);
-      final unreadCount = likes.where((like) => !like.isRead).length;
+      
+      // 매칭된 프로필 제외하기
+      final filteredLikes = await _filterMatchedProfiles(likes, userId);
+      Logger.log('📥 받은 호감 매칭된 프로필 제외 후: ${filteredLikes.length}개', name: 'LikesProvider');
+      
+      final unreadCount = filteredLikes.where((like) => !like.isRead).length;
       
       state = state.copyWith(
-        receivedLikes: likes,
+        receivedLikes: filteredLikes,
         isLoadingReceived: false,
         totalUnreadLikes: unreadCount,
       );
@@ -145,8 +158,12 @@ class LikesNotifier extends StateNotifier<LikesState> {
       final likes = await _likesService.getSentLikes(userId: userId);
       Logger.log('📤 보낸 호감 로드 결과: ${likes.length}개', name: 'LikesProvider');
       
+      // 매칭된 프로필 제외하기
+      final filteredLikes = await _filterMatchedProfiles(likes, userId);
+      Logger.log('📤 매칭된 프로필 제외 후: ${filteredLikes.length}개', name: 'LikesProvider');
+      
       state = state.copyWith(
-        sentLikes: likes,
+        sentLikes: filteredLikes,
         isLoadingSent: false,
       );
     } catch (e) {
@@ -383,6 +400,93 @@ class LikesNotifier extends StateNotifier<LikesState> {
   /// 상태 초기화
   void reset() {
     state = const LikesState();
+  }
+  
+  /// 프로필 해제 상태 로드
+  Future<void> loadUnlockedProfiles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final unlockedIds = prefs.getStringList('unlocked_profiles') ?? [];
+      state = state.copyWith(unlockedProfileIds: unlockedIds.toSet());
+      Logger.log('해제된 프로필 ${unlockedIds.length}개 로드', name: 'LikesProvider');
+    } catch (e) {
+      Logger.error('해제된 프로필 로드 오류', error: e, name: 'LikesProvider');
+      // 에러 발생 시 빈 Set으로 설정
+      state = state.copyWith(unlockedProfileIds: <String>{});
+    }
+  }
+  
+  /// 프로필 해제 추가
+  Future<void> addUnlockedProfile(String profileId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentSet = state.unlockedProfileIds;
+      final updatedSet = {...currentSet, profileId};
+      await prefs.setStringList('unlocked_profiles', updatedSet.toList());
+      state = state.copyWith(unlockedProfileIds: updatedSet);
+      Logger.log('프로필 해제 추가: $profileId', name: 'LikesProvider');
+    } catch (e) {
+      Logger.error('프로필 해제 추가 오류', error: e, name: 'LikesProvider');
+      // 에러 발생 시에도 현재 상태 유지
+      state = state.copyWith(unlockedProfileIds: state.unlockedProfileIds);
+    }
+  }
+  
+  /// 프로필이 해제되었는지 확인
+  bool isProfileUnlocked(String profileId) {
+    try {
+      final unlockedIds = state.unlockedProfileIds;
+      return unlockedIds.contains(profileId);
+    } catch (e) {
+      Logger.error('프로필 해제 확인 오류: $e', name: 'LikesProvider');
+      // 에러 발생 시 false 반환 (해제되지 않은 것으로 간주)
+      return false;
+    }
+  }
+  
+  /// 매칭된 프로필을 좋아요 목록에서 제외
+  Future<List<LikeModel>> _filterMatchedProfiles(List<LikeModel> likes, String currentUserId) async {
+    try {
+      // 매칭된 프로필 ID 조회
+      final matches = await _matchService.getUserMatches(userId: currentUserId);
+      final matchedProfileIds = matches.map((match) => match.profile.id).toSet();
+      
+      Logger.log('매칭된 프로필 ID: ${matchedProfileIds.length}개', name: 'LikesProvider');
+      Logger.log('필터링 전 좋아요: ${likes.length}개', name: 'LikesProvider');
+      
+      // 매칭된 프로필이 아닌 좋아요만 필터링
+      final filteredLikes = likes.where((like) {
+        // 보낸 좋아요의 경우 toProfileId, 받은 좋아요의 경우 fromUserId 확인
+        String targetProfileId;
+        if (like.toProfileId.isNotEmpty) {
+          // 보낸 좋아요 - 상대방 ID
+          targetProfileId = like.toProfileId;
+        } else if (like.fromUserId.isNotEmpty && like.fromUserId != currentUserId) {
+          // 받은 좋아요 - 보낸 사람 ID (현재 사용자가 아닌 경우)
+          targetProfileId = like.fromUserId;
+        } else if (like.profile != null) {
+          // 프로필 정보가 있는 경우 프로필 ID 사용
+          targetProfileId = like.profile!.id;
+        } else {
+          // 식별할 수 없는 경우 유지
+          return true;
+        }
+        
+        final isMatched = matchedProfileIds.contains(targetProfileId);
+        if (isMatched) {
+          Logger.log('매칭된 프로필 제외: $targetProfileId', name: 'LikesProvider');
+        }
+        
+        return !isMatched;
+      }).toList();
+      
+      Logger.log('필터링 후 좋아요: ${filteredLikes.length}개', name: 'LikesProvider');
+      return filteredLikes;
+    } catch (e) {
+      Logger.error('매칭된 프로필 필터링 오류: $e', name: 'LikesProvider');
+      // 오류 발생 시 원래 좋아요 목록 반환
+      return likes;
+    }
   }
 }
 

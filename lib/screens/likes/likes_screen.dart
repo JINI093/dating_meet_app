@@ -14,6 +14,7 @@ import '../../providers/likes_provider.dart';
 import '../../providers/superchat_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import 'received_likes_screen.dart';
+import '../profile/other_profile_screen.dart';
 
 class LikesScreen extends ConsumerStatefulWidget {
   const LikesScreen({super.key});
@@ -209,7 +210,7 @@ class _SuperChatTab extends ConsumerWidget {
               ],
             ),
           ),
-          _buildCardGrid(receivedSuperchat, false, true),
+          _buildCardGrid(receivedSuperchat, false, true, ref),
           
           // 구분선
           Divider(height: 32, thickness: 8, color: Colors.grey[100]),
@@ -225,7 +226,7 @@ class _SuperChatTab extends ConsumerWidget {
               ],
             ),
           ),
-          _buildCardGrid(sentSuperchat, false, false),
+          _buildCardGrid(sentSuperchat, false, false, ref),
           
           // 하단 여백
           SizedBox(height: 24),
@@ -234,7 +235,7 @@ class _SuperChatTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardGrid(List<LikeModel> items, bool shouldBlur, bool isReceived) {
+  Widget _buildCardGrid(List<LikeModel> items, bool shouldBlur, bool isReceived, WidgetRef ref) {
     if (items.isEmpty) {
       return SizedBox(
         height: 200,
@@ -264,7 +265,7 @@ class _SuperChatTab extends ConsumerWidget {
           shouldBlur: shouldBlur,
           onTap: isReceived 
             ? () => _showReceivedSuperchatBottomSheet(context, items[index])
-            : () => _showSentActionBottomSheet(context, items[index]),
+            : () => _showSentActionBottomSheet(context, items[index], ref),
         );
       },
     );
@@ -279,13 +280,30 @@ class _SuperChatTab extends ConsumerWidget {
     );
   }
   
-  void _showSentActionBottomSheet(BuildContext context, LikeModel like) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => SentActionBottomSheet(like: like),
-    );
+  void _showSentActionBottomSheet(BuildContext context, LikeModel like, WidgetRef ref) {
+    // 프로필이 이미 해제되었는지 확인
+    final isUnlocked = ref.read(likesProvider.notifier).isProfileUnlocked(like.toProfileId);
+    
+    if (isUnlocked && like.profile != null) {
+      // 이미 해제된 프로필은 바로 상세 프로필 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherProfileScreen(
+            profile: like.profile!,
+            isLocked: false,
+          ),
+        ),
+      );
+    } else {
+      // 해제되지 않은 프로필은 바텀시트 표시
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => SentActionBottomSheet(like: like),
+      );
+    }
   }
 }
 
@@ -318,7 +336,7 @@ class _LikeTab extends ConsumerWidget {
               ],
             ),
           ),
-          _buildCardGrid(receivedLikes, true, true), // 받은 좋아요 블러 처리
+          _buildCardGrid(receivedLikes, true, true, ref), // 받은 좋아요 블러 처리
           
           // 구분선
           Divider(height: 32, thickness: 8, color: Colors.grey[100]),
@@ -334,7 +352,7 @@ class _LikeTab extends ConsumerWidget {
               ],
             ),
           ),
-          _buildCardGrid(sentLikes, false, false), // 보낸 좋아요는 블러 처리 안함
+          _buildCardGrid(sentLikes, false, false, ref), // 보낸 좋아요는 블러 처리 안함
           
           // 하단 여백
           SizedBox(height: 24),
@@ -343,7 +361,7 @@ class _LikeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardGrid(List<LikeModel> items, bool shouldBlur, bool isReceived) {
+  Widget _buildCardGrid(List<LikeModel> items, bool shouldBlur, bool isReceived, WidgetRef ref) {
     if (items.isEmpty) {
       return SizedBox(
         height: 200,
@@ -371,19 +389,36 @@ class _LikeTab extends ConsumerWidget {
         return _LikeCard(
           like: items[index],
           shouldBlur: shouldBlur,
-          onTap: shouldBlur ? null : () => _showSentActionBottomSheet(context, items[index]),
+          onTap: shouldBlur ? null : () => _showSentActionBottomSheet(context, items[index], ref),
         );
       },
     );
   }
   
-  void _showSentActionBottomSheet(BuildContext context, LikeModel like) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => SentActionBottomSheet(like: like),
-    );
+  void _showSentActionBottomSheet(BuildContext context, LikeModel like, WidgetRef ref) {
+    // 프로필이 이미 해제되었는지 확인
+    final isUnlocked = ref.read(likesProvider.notifier).isProfileUnlocked(like.toProfileId);
+    
+    if (isUnlocked && like.profile != null) {
+      // 이미 해제된 프로필은 바로 상세 프로필 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherProfileScreen(
+            profile: like.profile!,
+            isLocked: false,
+          ),
+        ),
+      );
+    } else {
+      // 해제되지 않은 프로필은 바텀시트 표시
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => SentActionBottomSheet(like: like),
+      );
+    }
   }
 }
 

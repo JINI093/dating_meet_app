@@ -116,6 +116,10 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
   // 이미 평가한 프로필 ID 캐시
   Set<String> _evaluatedProfileIds = <String>{};
   
+  // 자동 로드 실패 카운터
+  int _autoLoadFailureCount = 0;
+  static const int _maxAutoLoadFailures = 2;
+  
   DiscoverProfilesNotifier(this.ref) : super(const DiscoverProfilesState()) {
     // 실시간 프로필 업데이트 구독 시작
     _initializeRealtimeSubscriptions();
@@ -266,6 +270,7 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
       Logger.error('프로필 로드 오류', error: e, name: 'DiscoverProfilesProvider');
       state = state.copyWith(
         isLoading: false,
+        hasMore: false, // 로딩 실패 시 더 이상 로드하지 않음
         error: '프로필을 불러오는데 실패했습니다.',
       );
     }
@@ -275,8 +280,33 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
   Future<void> loadMoreProfiles() async {
     if (state.isLoadingMore || !state.hasMore) return;
 
+    Logger.log('추가 프로필 로드 시작', name: 'DiscoverProfilesProvider');
     state = state.copyWith(isLoadingMore: true, error: null);
 
+    try {
+      // 타임아웃 설정 (30초)
+      await Future.any([
+        _performLoadMoreProfiles(),
+        Future.delayed(const Duration(seconds: 30), () {
+          throw TimeoutException('프로필 로드 타임아웃', const Duration(seconds: 30));
+        }),
+      ]);
+    } catch (e) {
+      Logger.error('추가 프로필 로드 최종 오류', error: e, name: 'DiscoverProfilesProvider');
+      _autoLoadFailureCount++;
+      
+      state = state.copyWith(
+        isLoadingMore: false,
+        hasMore: _autoLoadFailureCount < _maxAutoLoadFailures, // 실패 횟수에 따라 더 로드할지 결정
+        error: _autoLoadFailureCount >= _maxAutoLoadFailures 
+            ? '오늘의 매칭이 모두 끝났습니다.'
+            : '더 이상 새로운 프로필이 없습니다.',
+      );
+    }
+  }
+
+  /// 실제 프로필 로드 수행
+  Future<void> _performLoadMoreProfiles() async {
     try {
       final authState = ref.read(enhancedAuthProvider);
       if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
@@ -314,17 +344,22 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
       // 지능형 매칭 점수로 정렬
       final sortedProfiles = _sortByMatchingScore(availableProfiles);
 
+      Logger.log('추가 프로필 로드 성공: ${sortedProfiles.length}개', name: 'DiscoverProfilesProvider');
+      
+      // 성공 시 실패 카운터 리셋
+      if (sortedProfiles.isNotEmpty) {
+        _autoLoadFailureCount = 0;
+      }
+      
       state = state.copyWith(
         profiles: [...state.profiles, ...sortedProfiles],
         isLoadingMore: false,
-        hasMore: profiles.length >= 20,
+        hasMore: profiles.length >= 20 && sortedProfiles.isNotEmpty,
       );
+      
     } catch (e) {
-      Logger.error('추가 프로필 로드 오류', error: e, name: 'DiscoverProfilesProvider');
-      state = state.copyWith(
-        isLoadingMore: false,
-        error: '추가 프로필을 불러오는데 실패했습니다.',
-      );
+      Logger.error('프로필 로드 수행 오류', error: e, name: 'DiscoverProfilesProvider');
+      rethrow; // 상위 메서드에서 처리하도록 다시 throw
     }
   }
 
@@ -555,19 +590,48 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
     
     Logger.log('프로필 평가 완료: $profileId (총 평가한 프로필: ${_evaluatedProfileIds.length}개)', 
                name: 'DiscoverProfilesProvider');
+    Logger.log('현재 상태: hasMore=${state.hasMore}, isLoadingMore=${state.isLoadingMore}, error=${state.error}, 실패횟수=$_autoLoadFailureCount', 
+               name: 'DiscoverProfilesProvider');
+    
+    // 최신 평가한 프로필 목록을 다시 로드하여 동기화
+    _loadEvaluatedProfiles();
     
     // 남은 프로필 수 확인
     final remainingCount = getRemainingProfilesCount();
     Logger.log('남은 프로필 수: $remainingCount개', name: 'DiscoverProfilesProvider');
     
-    // 매칭 풀이 부족하면 자동 갱신
-    if (remainingCount < 3 && state.hasMore) {
-      Logger.log('프로필 부족으로 자동 로드 중...', name: 'DiscoverProfilesProvider');
+    // 매칭 풀이 부족하면 자동 갱신 (안전 조건들 모두 체크)
+    if (remainingCount < 3 && 
+        state.hasMore && 
+        !state.isLoadingMore && 
+        state.error == null &&
+        _autoLoadFailureCount < _maxAutoLoadFailures) {
+      Logger.log('프로필 부족으로 자동 로드 중... (실패 횟수: $_autoLoadFailureCount/$_maxAutoLoadFailures)', 
+                 name: 'DiscoverProfilesProvider');
       loadMoreProfiles();
-    } else if (remainingCount == 0 && !state.hasMore) {
-      // 모든 프로필을 소진했으면 풀 확장 시도
-      Logger.log('모든 프로필 소진 - 매칭 풀 확장 시도', name: 'DiscoverProfilesProvider');
-      _expandMatchingPool();
+    } else {
+      // 자동 로드를 하지 않는 이유 로깅
+      if (remainingCount >= 3) {
+        Logger.log('자동 로드 생략: 충분한 프로필 있음 ($remainingCount개)', name: 'DiscoverProfilesProvider');
+      } else if (!state.hasMore) {
+        Logger.log('자동 로드 생략: 더 이상 로드할 프로필 없음', name: 'DiscoverProfilesProvider');
+      } else if (state.isLoadingMore) {
+        Logger.log('자동 로드 생략: 이미 로딩 중', name: 'DiscoverProfilesProvider');
+      } else if (state.error != null) {
+        Logger.log('자동 로드 생략: 에러 상태 (${state.error})', name: 'DiscoverProfilesProvider');
+      } else if (_autoLoadFailureCount >= _maxAutoLoadFailures) {
+        Logger.log('자동 로드 생략: 최대 실패 횟수 도달 ($_autoLoadFailureCount/$_maxAutoLoadFailures)', 
+                  name: 'DiscoverProfilesProvider');
+      }
+    }
+    
+    if (remainingCount == 0 && !state.hasMore && !state.isLoading && state.error == null) {
+      // 모든 프로필을 소진했으면 풀 확장 시도 (로딩 중이 아닐 때만)
+      Logger.log('모든 프로필 소진 - 오늘의 매칭 종료', name: 'DiscoverProfilesProvider');
+      // 더 이상 확장하지 않고 매칭 종료 상태로 설정
+      state = state.copyWith(
+        error: '오늘의 매칭이 모두 끝났습니다.',
+      );
     }
   }
   

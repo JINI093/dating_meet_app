@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/like_model.dart';
 import '../../screens/profile/profile_reveal_screen.dart';
+import '../../providers/likes_provider.dart';
+import '../../screens/profile/other_profile_screen.dart';
 import 'dart:ui';
 
-class SentActionBottomSheet extends StatelessWidget {
+class SentActionBottomSheet extends ConsumerWidget {
   final LikeModel like;
   
   const SentActionBottomSheet({
@@ -13,7 +16,7 @@ class SentActionBottomSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -123,7 +126,7 @@ class SentActionBottomSheet extends StatelessWidget {
           
           // 안내 메시지
           const Text(
-            '나를 좋아요 누른 사람을 확인합니다.',
+            '내가 좋아요 누른 사람을 확인합니다.',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -150,15 +153,25 @@ class SentActionBottomSheet extends StatelessWidget {
             width: double.infinity,
             height: 54,
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                // 프로필 해제 처리
+                await ref.read(likesProvider.notifier).addUnlockedProfile(like.toProfileId);
+                
+                if (!context.mounted) return;
                 Navigator.pop(context);
-                // 프로필 해제 로직 - 상세 페이지로 이동
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfileRevealScreen(like: like),
-                  ),
-                );
+                
+                // 해제된 프로필 직접 표시
+                if (like.profile != null && context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OtherProfileScreen(
+                        profile: like.profile!,
+                        isLocked: false,
+                      ),
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,

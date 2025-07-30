@@ -197,13 +197,19 @@ class MatchNotifier extends StateNotifier<MatchState> {
         print('✅ AWS에서 실제 프로필 로드 성공!');
         print('첫 번째 프로필: ${discoveredProfiles.first.name} (${discoveredProfiles.first.gender})');
         
+        // 이미 평가한 프로필과 매칭된 프로필 필터링
+        final filteredProfiles = await _filterEvaluatedProfiles(discoveredProfiles, currentUserId);
+        
+        // 필터링 결과 로그
+        print('전체 프로필: ${discoveredProfiles.length}개 → 필터링 후: ${filteredProfiles.length}개');
+        
         // 처음 3개 프로필의 상세 정보 출력
-        for (int i = 0; i < discoveredProfiles.length && i < 3; i++) {
-          final profile = discoveredProfiles[i];
+        for (int i = 0; i < filteredProfiles.length && i < 3; i++) {
+          final profile = filteredProfiles[i];
           print('실제 프로필 ${i + 1}: ${profile.name} (${profile.gender}) - ${profile.age}세, ${profile.location}');
         }
         
-        finalProfiles = discoveredProfiles;
+        finalProfiles = filteredProfiles;
       } else {
         print('⚠️  AWS에서 프로필을 가져오지 못함. 샘플 데이터 생성');
         
@@ -238,11 +244,17 @@ class MatchNotifier extends StateNotifier<MatchState> {
       
       final sortedProfiles = _applySorting(finalProfiles, 'super_chat');
       
+      // 프로필이 없으면 매칭 종료 메시지 설정
+      String? errorMessage;
+      if (sortedProfiles.isEmpty) {
+        errorMessage = '오늘의 매칭이 모두 끝났습니다.';
+      }
+      
       state = state.copyWith(
         profiles: sortedProfiles,
         currentIndex: 0,
         isLoading: false,
-        error: null,
+        error: errorMessage,
       );
     } catch (e) {
       state = state.copyWith(
@@ -546,22 +558,61 @@ class MatchNotifier extends StateNotifier<MatchState> {
       final currentUserId = authState.currentUser!.user!.userId;
       
       // Get more profiles from AWS
-      final moreProfiles = await _profileService.getDiscoverProfiles(
+      final rawProfiles = await _profileService.getDiscoverProfiles(
         currentUserId: currentUserId,
         limit: 20,
       );
       
+      // 이미 평가한 프로필과 매칭된 프로필 필터링
+      final moreProfiles = await _filterEvaluatedProfiles(rawProfiles, currentUserId);
+      
       final allProfiles = [...state.profiles, ...moreProfiles];
+      
+      // 추가로 로드된 프로필이 없으면 매칭 종료 메시지 설정
+      String? errorMessage;
+      if (moreProfiles.isEmpty) {
+        errorMessage = '오늘의 매칭이 모두 끝났습니다.';
+      }
       
       state = state.copyWith(
         profiles: allProfiles,
         isLoading: false,
+        error: errorMessage,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
+    }
+  }
+
+  /// 이미 평가한 프로필과 매칭된 프로필 필터링
+  Future<List<ProfileModel>> _filterEvaluatedProfiles(List<ProfileModel> profiles, String currentUserId) async {
+    try {
+      // 보낸 좋아요/패스 목록 조회
+      final sentLikes = await _likesService.getSentLikes(userId: currentUserId);
+      final evaluatedProfileIds = sentLikes.map((like) => like.toProfileId).toSet();
+      
+      // 매칭된 프로필 ID 조회
+      final matches = await _matchService.getUserMatches(userId: currentUserId);
+      final matchedProfileIds = matches.map((match) => match.profile.id).toSet();
+      
+      // 제외할 프로필 ID 통합
+      final excludedProfileIds = {...evaluatedProfileIds, ...matchedProfileIds};
+      
+      print('제외할 프로필 ID: ${excludedProfileIds.length}개 (평가: ${evaluatedProfileIds.length}개, 매칭: ${matchedProfileIds.length}개)');
+      
+      // 필터링 수행
+      final filteredProfiles = profiles
+          .where((profile) => !excludedProfileIds.contains(profile.id))
+          .toList();
+      
+      return filteredProfiles;
+    } catch (e) {
+      print('프로필 필터링 오류: $e');
+      // 오류 발생 시 원래 프로필 목록 반환
+      return profiles;
     }
   }
 
