@@ -131,12 +131,29 @@ class ProfileSetupState {
   }
 
   bool get isProfileComplete {
-    return profileImages.isNotEmpty && 
-           profileImages[0] != null && // 대표 사진 필수
-           nickname.isNotEmpty &&
-           age.isNotEmpty &&
+    // Check for 3 required photos
+    int requiredPhotos = 0;
+    for (int i = 0; i < 3; i++) {
+      if (i < profileImages.length && profileImages[i] != null) {
+        requiredPhotos++;
+      }
+    }
+    
+    // Check nickname length
+    final isNicknameValid = nickname.isNotEmpty && 
+                           nickname.length >= 2 && 
+                           nickname.length <= 12;
+    
+    // Check age range
+    final ageInt = int.tryParse(age);
+    final isAgeValid = ageInt != null && ageInt >= 18 && ageInt <= 100;
+    
+    return requiredPhotos >= 3 &&
+           isNicknameValid &&
+           isAgeValid &&
            selectedGender != null &&
-           location.isNotEmpty;
+           location.isNotEmpty &&
+           job.isNotEmpty;
   }
 }
 
@@ -272,7 +289,7 @@ class ProfileSetupNotifier extends StateNotifier<ProfileSetupState> {
   Future<bool> saveProfile() async {
     if (!state.isProfileComplete) {
       state = state.copyWith(error: '필수 정보를 모두 입력해주세요.');
-      return true;
+      return false;
     }
 
     state = state.copyWith(isLoading: true, error: null);
@@ -309,13 +326,13 @@ class ProfileSetupNotifier extends StateNotifier<ProfileSetupState> {
             } else {
               // Cognito에서도 안되면 강제로 로그인 상태의 사용자 정보 생성
               // 실제 Cognito 사용자 ID 패턴을 모방
-              userId = '${DateTime.now().millisecondsSinceEpoch}-${DateTime.now().microsecond}-force-user';
-              print('강제 사용자 ID 생성 (Cognito 패턴): $userId');
+              userId = 'local-${DateTime.now().millisecondsSinceEpoch}-force-user';
+              print('강제 사용자 ID 생성 (로컬 저장용): $userId');
             }
           } catch (e) {
             print('Cognito에서 사용자 ID 조회 실패, 강제 ID 생성: $e');
             // temp_user_ 대신 실제 사용자처럼 보이는 ID 생성
-            userId = '${DateTime.now().millisecondsSinceEpoch}-${DateTime.now().microsecond}-error-user';
+            userId = 'local-${DateTime.now().millisecondsSinceEpoch}-error-user';
           }
         } else {
           // 일반적인 경우 Cognito에서 가져오기 시도

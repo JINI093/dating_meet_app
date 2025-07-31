@@ -462,7 +462,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
           
           const SizedBox(height: AppDimensions.spacing16),
           
-          // 네이버 로그인 버튼 (네이버 브랜딩 가이드 준수)
+          // 네이버 로그인 버튼
           _buildNaverLoginButton(),
         ],
       ),
@@ -572,18 +572,18 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-                             Image.asset(
-                 'assets/icons/naver.png',
-                 width: 20,
-                 height: 20,
-                 errorBuilder: (context, error, stackTrace) {
-                   return const Icon(
-                     Icons.account_circle,
-                     color: Colors.white,
-                     size: 20,
-                   );
-                 },
-               ),
+              Image.asset(
+                'assets/icons/naver.png',
+                width: 20,
+                height: 20,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.account_circle,
+                    color: Colors.white,
+                    size: 20,
+                  );
+                },
+              ),
               const SizedBox(width: AppDimensions.spacing12),
               Text(
                 '네이버로 로그인',
@@ -598,6 +598,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
       ),
     );
   }
+
 
   Widget _buildLoginSettings() {
     return Column(
@@ -942,6 +943,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
       });
     }
   }
+
 
   Future<void> _handleSuccessfulLogin(AuthResult result) async {
     // 생체 인증 설정이 되어 있다면 생체 인증 시도

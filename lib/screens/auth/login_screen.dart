@@ -14,6 +14,7 @@ import '../../routes/route_names.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import '../../services/aws_profile_service.dart';
 import '../../models/profile_model.dart';
+import 'mobileok_verification_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -42,6 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: false,  // 키보드가 나타나도 화면이 리사이즈되지 않도록 설정
       body: Stack(
         children: [
           // 배경 이미지 (항상 화면 전체를 덮도록)
@@ -404,11 +406,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _loginWithKakao() async {
     try {
       final authNotifier = ref.read(enhancedAuthProvider.notifier);
-      await authNotifier.loginWithSocial('KAKAO');
+      await authNotifier.signInWithSocial('KAKAO');
       
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
-        context.pushReplacement(RouteNames.onboardingTutorial);
+        // 카카오 로그인 성공 시 PASS 본인인증으로 이동
+        _navigateToMobileOKVerification('소셜로그인', {
+          'socialProvider': 'KAKAO',
+          'socialLoginData': authState.currentUser?.toJson(),
+        });
       } else if (authState.error != null) {
         _showErrorSnackBar(authState.error!);
       }
@@ -417,14 +423,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+
   void _loginWithNaver() async {
     try {
       final authNotifier = ref.read(enhancedAuthProvider.notifier);
-      await authNotifier.loginWithSocial('NAVER');
+      await authNotifier.signInWithSocial('NAVER');
       
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
-        context.pushReplacement(RouteNames.onboardingTutorial);
+        // 네이버 로그인 성공 시 PASS 본인인증으로 이동
+        _navigateToMobileOKVerification('소셜로그인', {
+          'socialProvider': 'NAVER',
+          'socialLoginData': authState.currentUser?.toJson(),
+        });
       } else if (authState.error != null) {
         _showErrorSnackBar(authState.error!);
       }
@@ -436,11 +447,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _loginWithGoogle() async {
     try {
       final authNotifier = ref.read(enhancedAuthProvider.notifier);
-      await authNotifier.loginWithSocial('GOOGLE');
+      await authNotifier.signInWithSocial('GOOGLE');
       
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
-        context.pushReplacement(RouteNames.onboardingTutorial);
+        // 구글 로그인 성공 시 PASS 본인인증으로 이동
+        _navigateToMobileOKVerification('소셜로그인', {
+          'socialProvider': 'GOOGLE',
+          'socialLoginData': authState.currentUser?.toJson(),
+        });
       } else if (authState.error != null) {
         _showErrorSnackBar(authState.error!);
       }
@@ -471,10 +486,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _goToSignup() {
+    // 회원가입 시 PASS 본인인증으로 바로 이동
+    _navigateToMobileOKVerification('회원가입', {
+      'enableSimulation': true, // 개발용 시뮬레이션 활성화
+    });
+  }
+
+  /// MobileOK 본인인증 화면으로 이동
+  void _navigateToMobileOKVerification(String purpose, Map<String, dynamic> additionalData) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SignupScreen(),
+        builder: (context) => MobileOKVerificationScreen(
+          purpose: purpose,
+          userId: ref.read(enhancedAuthProvider).currentUser?.user?.userId,
+          additionalData: additionalData,
+        ),
       ),
     );
   }

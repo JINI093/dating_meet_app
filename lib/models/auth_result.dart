@@ -30,8 +30,13 @@ class AuthResult {
     String? loginMethod,
     DateTime? expiresAt,
     Map<String, dynamic>? metadata,
+    Map<String, dynamic>? additionalData,
     bool? requiresConfirmation,
   }) {
+    final combinedMetadata = <String, dynamic>{};
+    if (metadata != null) combinedMetadata.addAll(metadata);
+    if (additionalData != null) combinedMetadata.addAll(additionalData);
+    
     return AuthResult(
       success: true,
       user: user,
@@ -39,7 +44,7 @@ class AuthResult {
       refreshToken: refreshToken,
       loginMethod: loginMethod,
       expiresAt: expiresAt,
-      metadata: metadata,
+      metadata: combinedMetadata.isNotEmpty ? combinedMetadata : null,
       requiresConfirmation: requiresConfirmation,
     );
   }
@@ -86,6 +91,24 @@ class AuthResult {
       expiresAt: expiresAt ?? this.expiresAt,
       metadata: metadata ?? this.metadata,
     );
+  }
+
+  /// JSON 직렬화
+  Map<String, dynamic> toJson() {
+    return {
+      'success': success,
+      'error': error,
+      'user': user != null ? {
+        'userId': user!.userId,
+        'username': user!.username,
+      } : null,
+      'accessToken': accessToken,
+      'refreshToken': refreshToken,
+      'loginMethod': loginMethod,
+      'expiresAt': expiresAt?.toIso8601String(),
+      'metadata': metadata,
+      'requiresConfirmation': requiresConfirmation,
+    };
   }
 
   @override

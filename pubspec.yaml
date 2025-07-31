@@ -25,6 +25,7 @@ dependencies:
   # 네트워크 & API
   retrofit: ^4.1.0
   connectivity_plus: ^6.0.3
+  http: ^1.1.0
 
   # 로컬 저장소
   shared_preferences: ^2.2.2
@@ -45,8 +46,8 @@ dependencies:
   # 소셜 로그인 (최신 안정 버전)
   google_sign_in: ^6.1.5
   sign_in_with_apple: ^7.0.1
-  # kakao_flutter_sdk_user: ^1.9.4  # 임시 비활성화
-  # flutter_naver_login: ^1.8.0  # 임시 비활성화 - namespace 문제로 인해
+  kakao_flutter_sdk_user: ^1.9.5
+  naver_login_sdk: ^2.3.0  # 더 안정적인 네이버 로그인 SDK
 
   # 전화번호 인증 (AWS SNS 사용)
   # aws_sns_api: ^1.0.0  # 버전 충돌로 임시 비활성화
@@ -106,7 +107,6 @@ dependencies:
   amplify_auth_cognito: ^2.6.4
   amplify_api: ^2.6.4
   amplify_storage_s3: ^2.6.4
-  http: ^1.1.0
   provider: ^6.1.1
   sqflite: ^2.3.0
 

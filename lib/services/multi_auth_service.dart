@@ -3,7 +3,7 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 // import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' hide AuthResult; // Unnecessary import
 import 'package:google_sign_in/google_sign_in.dart';
 // import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart'; // Removed - not using Firebase
-// import 'package:flutter_naver_login/flutter_naver_login.dart'; // 임시 비활성화
+import 'naver_login_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/aws_auth_config.dart';
 import '../utils/point_exchange_validator.dart';
@@ -17,6 +17,7 @@ class MultiAuthService {
 
   // 소셜 로그인 인스턴스들
   late GoogleSignIn _googleSignIn;
+  final NaverLoginService _naverLoginService = NaverLoginService();
 
   // 초기화
   Future<void> initialize() async {
@@ -32,12 +33,8 @@ class MultiAuthService {
     // 카카오 SDK 초기화 (나중에 필요시 추가)
     // KakaoSdk.init(nativeAppKey: AWSAuthConfig.kakaoNativeAppKey);
 
-    // 네이버 로그인 초기화 (임시 비활성화)
-    // await FlutterNaverLogin.initSdk(
-    //   clientId: AWSAuthConfig.naverClientId,
-    //   clientSecret: AWSAuthConfig.naverClientSecret,
-    //   clientName: "소개팅앱",
-    // );
+    // 네이버 로그인 초기화
+    await _naverLoginService.initialize();
   }
 
   // 1. 일반 로그인 (아이디/비밀번호)
@@ -113,34 +110,34 @@ class MultiAuthService {
     }
   }
 
-  // 4. 네이버 로그인 (임시 비활성화)
+  // 4. 네이버 로그인
   Future<AuthResult> signInWithNaver() async {
     try {
-      // 네이버 로그인 임시 비활성화
-      return AuthResult.failure(error: '네이버 로그인은 현재 지원하지 않습니다.');
-      
       // 1단계: 네이버 로그인
-      // final NaverLoginResult result = await FlutterNaverLogin.logIn();
+      final naverResult = await _naverLoginService.signIn();
+      
+      if (naverResult.isSuccess && naverResult.metadata != null) {
+        // 2단계: Cognito로 페더레이션 로그인
+        final authResult = await _federateWithCognito(
+          provider: 'Naver',
+          token: naverResult.accessToken ?? '',
+          userInfo: {
+            'id': naverResult.metadata!['naver_user_id'],
+            'email': naverResult.metadata!['email'],
+            'name': naverResult.metadata!['name'] ?? naverResult.metadata!['nickname'],
+            'profileUrl': naverResult.metadata!['profile_image'],
+            'nickname': naverResult.metadata!['nickname'],
+            'birthday': naverResult.metadata!['birthday'],
+            'birthyear': naverResult.metadata!['birthyear'],
+            'gender': naverResult.metadata!['gender'],
+            'mobile': naverResult.metadata!['mobile'],
+          },
+        );
 
-      // if (result.status == NaverLoginStatus.loggedIn) {
-      //   final account = result.account;
+        return authResult;
+      }
 
-      //   // 2단계: Cognito로 페더레이션 로그인
-      //   final authResult = await _federateWithCognito(
-      //     provider: 'Naver',
-      //     token: result.accessToken.accessToken,
-      //     userInfo: {
-      //       'id': account.id,
-      //       'email': account.email,
-      //       'name': account.name,
-      //       'profileUrl': account.profileImage,
-      //     },
-      //   );
-
-      //   return authResult;
-      // }
-
-      // return AuthResult.failure(error: '네이버 로그인에 실패했습니다.');
+      return AuthResult.failure(error: naverResult.error ?? '네이버 로그인에 실패했습니다.');
     } catch (e) {
       return AuthResult.failure(error: '네이버 로그인 오류: $e');
     }
@@ -303,7 +300,7 @@ class MultiAuthService {
       // 각 소셜 로그인 로그아웃
       await _googleSignIn.signOut();
       // await UserApi.instance.logout(); // 카카오 SDK 제거로 인한 임시 비활성화
-      // await FlutterNaverLogin.logOut(); // 네이버 로그인 임시 비활성화
+      await _naverLoginService.signOut();
 
       // 로컬 데이터 삭제
       final prefs = await SharedPreferences.getInstance();

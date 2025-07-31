@@ -43,29 +43,29 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- 카카오 로그인 (임시 비활성화) -->
-        <!-- <activity
-            android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+        <!-- 카카오 로그인 -->
+        <activity
+            android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity"
             android:exported="true">
-            <intent-filter>
+            <intent-filter android:label="flutter_web_auth">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="kakao{5900a779e6f90159e4e8e51a8687262f}"/>
+                <data android:scheme="kakao5900a779e6f90159e4e8e51a8687262f"/>
             </intent-filter>
-        </activity> -->
+        </activity>
 
-        <!-- 네이버 로그인 (임시 비활성화) -->
-        <!-- <activity
-            android:name="com.naver.thirdparty.login.activity.OAuthLoginActivity"
+        <!-- 네이버 로그인 -->
+        <activity
+            android:name="com.naver.nid.oauth.activity.NidOAuthLoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="naver{AGs0_D3HXNm4GQKLCXml}"/>
+                <data android:scheme="naverloginAGs0_D3HXNm4GQKLCXml"/>
             </intent-filter>
-        </activity> -->
+        </activity>
 
         <!-- 구글 로그인 (OAuth Redirect) - 자동 처리됨 -->
     </application>
@@ -79,5 +79,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- 카카오톡 설치 여부 체크 -->
+        <package android:name="com.kakao.talk" />
     </queries>
 </manifest>

@@ -279,43 +279,15 @@ class AWSProfileService {
       } catch (e) {
         Logger.error('REST API 호출 실패: $e', name: 'AWSProfileService');
         
-        // 403 에러인 경우 로컬 저장소에 저장
+        // 403 오류의 경우 더 구체적인 오류 메시지 제공
         if (e.toString().contains('403')) {
-          Logger.log('403 인증 에러로 인해 로컬 저장소에 프로필 저장', name: 'AWSProfileService');
-          await _saveProfileToLocal(profileData);
+          Logger.error('403 인증 오류: AWS API Gateway 또는 Lambda 권한 설정을 확인하세요', name: 'AWSProfileService');
+          throw Exception('프로필 저장 권한이 없습니다. 관리자에게 문의하세요. (HTTP 403)');
         }
         
-        
-        // 모든 API가 실패한 경우 로컬 프로필 객체 생성
-        final localProfile = ProfileModel(
-          id: profileData['userId'], // userId를 profileId로 사용
-          name: profileData['name'],
-          age: profileData['age'],
-          location: profileData['location'],
-          profileImages: List<String>.from(profileData['profileImages']),
-          bio: profileData['bio'],
-          occupation: profileData['occupation'],
-          education: profileData['education'],
-          height: profileData['height'],
-          bodyType: profileData['bodyType'],
-          smoking: profileData['smoking'],
-          drinking: profileData['drinking'],
-          religion: profileData['religion'],
-          mbti: profileData['mbti'],
-          hobbies: List<String>.from(profileData['hobbies']),
-          badges: List<String>.from(profileData['badges']),
-          isVip: profileData['isVip'],
-          isPremium: profileData['isPremium'],
-          isVerified: profileData['isVerified'],
-          isOnline: profileData['isOnline'],
-          likeCount: profileData['likeCount'],
-          superChatCount: profileData['superChatCount'],
-          createdAt: DateTime.parse(profileData['createdAt']),
-          updatedAt: DateTime.parse(profileData['updatedAt']),
-        );
-        
-        Logger.log('로컬 프로필 생성 완료: ${localProfile.id}', name: 'AWSProfileService');
-        return localProfile;
+        // 기타 API 오류는 그대로 던지기
+        Logger.error('API 호출 실패로 프로필 저장을 중단합니다', name: 'AWSProfileService');
+        rethrow;
       }
     } catch (e) {
       Logger.error('프로필 생성 오류', error: e, name: 'AWSProfileService');

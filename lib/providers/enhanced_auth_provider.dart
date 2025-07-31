@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
 import '../services/multi_auth_service.dart';
 import '../services/aws_cognito_service.dart';
+import '../services/kakao_login_service.dart';
+import '../services/aws_kakao_auth_service.dart';
+import '../services/aws_naver_auth_service.dart';
+import '../services/aws_google_auth_service.dart';
 import '../models/auth_result.dart';
 import '../models/signup_data.dart';
 
@@ -84,6 +88,10 @@ class AutoLoginResult {
 class EnhancedAuthNotifier extends StateNotifier<AuthState> {
   final MultiAuthService _authService = MultiAuthService();
   final AWSCognitoService _cognitoService = AWSCognitoService();
+  final KakaoLoginService _kakaoService = KakaoLoginService();
+  final AWSKakaoAuthService _awsKakaoService = AWSKakaoAuthService();
+  final AWSNaverAuthService _awsNaverService = AWSNaverAuthService();
+  final AWSGoogleAuthService _awsGoogleService = AWSGoogleAuthService();
   final LocalAuthentication _localAuth = LocalAuthentication();
   
   // 전화번호 인증 관련
@@ -524,13 +532,16 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
       
       switch (provider.toUpperCase()) {
         case 'GOOGLE':
-          result = await _cognitoService.signInWithGoogle();
+          // AWS Cognito와 연동된 구글 로그인
+          result = await _awsGoogleService.signInWithGoogle();
           break;
         case 'KAKAO':
-          result = AuthResult.failure(error: '카카오 로그인은 현재 준비 중입니다.');
+          // AWS Cognito와 연동된 카카오 로그인
+          result = await _awsKakaoService.signInWithKakao();
           break;
         case 'NAVER':
-          result = AuthResult.failure(error: '네이버 로그인은 현재 준비 중입니다.');
+          // AWS Cognito와 연동된 네이버 로그인
+          result = await _awsNaverService.signInWithNaver();
           break;
         default:
           throw Exception('지원하지 않는 소셜 로그인: $provider');

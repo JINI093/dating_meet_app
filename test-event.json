@@ -1,1 +1,0 @@
-{"httpMethod": "GET", "path": "/profiles/discover", "queryStringParameters": {"currentUserId": "test123", "gender": "female", "limit": "5"}}

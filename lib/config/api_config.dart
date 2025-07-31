@@ -1,6 +1,6 @@
 class ApiConfig {
   // AWS API Gateway 기본 URL
-  static const String baseUrl = 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod';
+  static const String baseUrl = 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev';
   
   // API 엔드포인트들
   static const String likesEndpoint = '/likes';

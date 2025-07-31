@@ -80,7 +80,7 @@ class AWSMatchService {
       
       // REST API를 통한 매칭 목록 조회
       final matchesApiService = Dio(BaseOptions(
-        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod',
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
         headers: {'Content-Type': 'application/json'},
       ));
       
@@ -159,7 +159,7 @@ class AWSMatchService {
       
       // REST API를 통한 매칭 상세 조회
       final matchesApiService = Dio(BaseOptions(
-        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/prod',
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
         headers: {'Content-Type': 'application/json'},
       ));
       

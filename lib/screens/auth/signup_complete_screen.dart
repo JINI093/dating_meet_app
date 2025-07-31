@@ -3,11 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_text_styles.dart';
-import '../../utils/app_dimensions.dart';
-import '../../widgets/common/custom_button.dart';
-
 class SignupCompleteScreen extends ConsumerWidget {
   final Map<String, dynamic>? signupData;
   
@@ -16,15 +11,15 @@ class SignupCompleteScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
             // Header with Back Button
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.paddingM,
-                vertical: AppDimensions.spacing12,
+                horizontal: 16,
+                vertical: 12,
               ),
               child: Row(
                 children: [
@@ -32,8 +27,8 @@ class SignupCompleteScreen extends ConsumerWidget {
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(
                       CupertinoIcons.back,
-                      color: AppColors.textPrimary,
-                      size: AppDimensions.iconM,
+                      color: Colors.black,
+                      size: 24,
                     ),
                   ),
                 ],
@@ -42,65 +37,87 @@ class SignupCompleteScreen extends ConsumerWidget {
             
             // Main Content
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimensions.paddingL),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo Section
-                    _buildLogo(),
-                    
-                    const SizedBox(height: AppDimensions.spacing64),
-                    
-                    // Title
-                    Text(
-                      '회원가입 완료!',
-                      style: AppTextStyles.h2.copyWith(
-                        fontWeight: FontWeight.w700,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo Image
+                  Image.asset(
+                    'assets/icons/logo.png',
+                    width: 300,
+                    height: 200,
+                    fit: BoxFit.contain,
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Title
+                  const Text(
+                    '회원가입 완료!',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Description
+                  const Column(
+                    children: [
+                      Text(
+                        '회원가입이 완료되었습니다!',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
-                    ),
-                    
-                    const SizedBox(height: AppDimensions.spacing24),
-                    
-                    // Description
-                    Column(
-                      children: [
-                        Text(
-                          '회원가입이 완료되었습니다!',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                      SizedBox(height: 8),
+                      Text(
+                        '완벽한 MEET이용을 위하여',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
                         ),
-                        const SizedBox(height: AppDimensions.spacing4),
-                        Text(
-                          '완벽한 MEET이음을 위하여',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '본인 프로필 등록 과정으로 이동합니다',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
                         ),
-                        const SizedBox(height: AppDimensions.spacing4),
-                        Text(
-                          '본인 프로필 등록 과정으로 이동합니다',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             
             // Bottom Button
             Container(
-              padding: const EdgeInsets.all(AppDimensions.paddingL),
-              child: CustomButton(
-                text: '프로필 작성하기',
-                onPressed: () => _goToProfileSetup(context),
-                style: CustomButtonStyle.gradient,
-                size: CustomButtonSize.large,
+              padding: const EdgeInsets.all(24),
+              child: SizedBox(
                 width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () => _goToProfileSetup(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    '프로필 작성하기',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -109,69 +126,6 @@ class SignupCompleteScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLogo() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Heart with Crown
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppDimensions.spacing8),
-              child: const Icon(
-                CupertinoIcons.heart_fill,
-                color: AppColors.primary,
-                size: 64,
-              ),
-            ),
-            Positioned(
-              top: -8,
-              left: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                  ),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusS),
-                ),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(
-                  CupertinoIcons.heart_fill,
-                  color: AppColors.textWhite,
-                  size: 20,
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(width: AppDimensions.spacing16),
-        
-        // App Name
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spacing20,
-            vertical: AppDimensions.spacing12,
-          ),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: AppColors.primaryGradient,
-            ),
-            borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-          ),
-          child: Text(
-            '사랑해',
-            style: AppTextStyles.h2.copyWith(
-              color: AppColors.textWhite,
-              fontWeight: FontWeight.w700,
-              fontSize: 36,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   void _goToProfileSetup(BuildContext context) {
     // Navigate to profile setup with signup data if available

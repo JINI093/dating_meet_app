@@ -410,6 +410,34 @@ class AWSCognitoService {
     }
   }
 
+  /// 소셜 로그인 (Kakao) - Hosted UI 방식
+  Future<AppAuthResult.AuthResult> signInWithKakao() async {
+    try {
+      // AWS Cognito Hosted UI를 통한 카카오 로그인
+      final result = await Amplify.Auth.signInWithWebUI();
+
+      if (result.isSignedIn) {
+        final user = await Amplify.Auth.getCurrentUser();
+        final session = await Amplify.Auth.fetchAuthSession();
+        
+        // 토큰 저장
+        await _saveTokensFromSession(session);
+        await _saveUserInfo(user, '');
+
+        return AppAuthResult.AuthResult.success(
+          user: user,
+          loginMethod: 'KAKAO',
+          accessToken: await _getStoredToken(_accessTokenKey),
+          refreshToken: await _getStoredToken(_refreshTokenKey),
+        );
+      } else {
+        return AppAuthResult.AuthResult.failure(error: '카카오 로그인에 실패했습니다.');
+      }
+    } catch (e) {
+      return _handleAuthError(e, '카카오 로그인');
+    }
+  }
+
   /// 로그아웃
   Future<void> signOut() async {
     try {
@@ -532,7 +560,6 @@ class AWSCognitoService {
   /// 이메일 중복 확인
   Future<bool> _checkEmailExists(String email) async {
     try {
-      // 이메일로 사용자 검색 시도
       // 먼저 저장된 username을 확인
       final savedUsername = await _secureStorage.read(key: 'username_$email');
       if (savedUsername != null) {
@@ -540,32 +567,11 @@ class AWSCognitoService {
         return true;
       }
       
-      // Cognito에서 이메일 중복 확인 - 임시 비밀번호로 로그인 시도
-      try {
-        await Amplify.Auth.signIn(
-          username: email,
-          password: 'temp_password_for_check_123!',
-        );
-        // 로그인이 성공하면 사용자가 존재함
-        await Amplify.Auth.signOut();
-        print('Cognito에서 중복 이메일 발견: $email');
-        return true;
-      } catch (e) {
-        if (e.toString().contains('UserNotFoundException')) {
-          // 사용자가 존재하지 않음 - 중복 아님
-          print('이메일 중복 없음: $email');
-          return false;
-        } else if (e.toString().contains('NotAuthorizedException') || 
-                   e.toString().contains('UserNotConfirmedException')) {
-          // 비밀번호가 틀렸지만 사용자는 존재함 - 중복임
-          print('Cognito에서 중복 이메일 발견 (비밀번호 오류): $email');
-          return true;
-        } else {
-          // 기타 에러 - 안전하게 중복 아님으로 처리
-          print('이메일 중복 확인 중 에러, 중복 아님으로 처리: $e');
-          return false;
-        }
-      }
+      // 개발 중에는 이메일 중복 체크를 비활성화
+      // Cognito에서 이메일 중복 확인은 신뢰할 수 없으므로 실제 회원가입 시도에서 처리
+      print('이메일 중복 확인 건너뛰기 (개발 모드): $email');
+      return false;
+      
     } catch (e) {
       print('이메일 중복 확인 실패: $e');
       // 확인할 수 없는 경우 안전하게 중복 아님으로 처리

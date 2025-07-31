@@ -10,7 +10,8 @@ import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:amplify_api/amplify_api.dart';
 import 'package:amplify_storage_s3/amplify_storage_s3.dart';
 // import 'package:firebase_core/firebase_core.dart'; // Removed Firebase dependency
-// import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart'; // Temporarily disabled
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+// import 'package:naver_login_sdk/naver_login_sdk.dart'; // 임시 비활성화 - 다이렉트 import 이슈
 // import 'package:flutter_naver_login/flutter_naver_login.dart'; // Unused import
 // import 'package:google_sign_in/google_sign_in.dart'; // Unused import
 import 'package:app_links/app_links.dart';
@@ -25,6 +26,8 @@ import 'providers/permission_provider.dart';
 import 'utils/auth_error_handler.dart';
 import 'utils/auth_ux_utils.dart';
 import 'services/screen_capture_service.dart';
+import 'services/google_login_service.dart';
+import 'services/mobileok_verification_service.dart';
 // import 'models/auth_result.dart'; // Unused import
 
 void main() async {
@@ -175,15 +178,56 @@ Future<void> _configureAmplify() async {
 /// 소셜 SDK 초기화
 Future<void> _initializeSocialSDKs() async {
   try {
-    // 소셜 SDK 초기화를 백그라운드에서 비동기적으로 수행
-    print('✅ 소셜 SDK 초기화 건너뛰기 (성능 최적화)');
+    // 카카오 SDK 초기화
+    final kakaoNativeAppKey = dotenv.env['KAKAO_NATIVE_APP_KEY'];
+    if (kakaoNativeAppKey != null && kakaoNativeAppKey.isNotEmpty) {
+      KakaoSdk.init(nativeAppKey: kakaoNativeAppKey);
+      print('✅ 카카오 SDK 초기화 완료');
+    } else {
+      print('⚠️ 카카오 네이티브 앱 키가 설정되지 않음');
+    }
     
-    // 실제 필요할 때 초기화하도록 변경
-    // 카카오, 네이버, 구글 로그인 SDK는 각각의 로그인 시점에 초기화
+    // 네이버 SDK 초기화 (naver_login_sdk 2.3.0)
+    final naverClientId = dotenv.env['NAVER_CLIENT_ID'];
+    final naverClientSecret = dotenv.env['NAVER_CLIENT_SECRET'];
+    final naverClientName = dotenv.env['NAVER_CLIENT_NAME'] ?? '사귈래';
+    final naverUrlScheme = dotenv.env['NAVER_URL_SCHEME'] ?? 'naverlogin${naverClientId}';
+    
+    print('네이버 SDK 초기화 시작...');
+    print('NAVER_CLIENT_ID: $naverClientId');
+    print('NAVER_CLIENT_SECRET: ${naverClientSecret != null ? '****' : 'null'}');
+    
+    if (naverClientId != null && naverClientSecret != null) {
+      try {
+        // NaverLoginSDK.initialize(...); // 임시 비활성화 - 다이렉트 SDK 호출 이슈
+        print('✅ 네이버 SDK 초기화 준비 완료 (NaverLoginService에서 처리)');
+      } catch (e) {
+        print('❌ 네이버 SDK 초기화 실패: $e');
+      }
+    } else {
+      print('⚠️ 네이버 클라이언트 정보가 설정되지 않음');
+    }
+    
+    // 구글 SDK 초기화
+    try {
+      final googleService = GoogleLoginService();
+      await googleService.initialize();
+      print('✅ 구글 SDK 초기화 완료');
+    } catch (e) {
+      print('❌ 구글 SDK 초기화 실패: $e');
+    }
+    
+    // MobileOK 본인인증 서비스 초기화
+    try {
+      final mobileOKService = MobileOKVerificationService();
+      await mobileOKService.initialize();
+      print('✅ MobileOK 본인인증 서비스 초기화 완료');
+    } catch (e) {
+      print('❌ MobileOK 본인인증 서비스 초기화 실패: $e');
+    }
     
   } catch (e) {
-    print('⚠️  소셜 SDK 초기화 실패: $e');
-    // 에러 로깅 제거 (성능 최적화)
+    print('⚠️ 소셜 SDK 초기화 실패: $e');
   }
 }
 

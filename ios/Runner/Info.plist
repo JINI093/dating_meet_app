@@ -70,14 +70,14 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>kakao{5900a779e6f90159e4e8e51a8687262f}</string>
+				<string>kakao5900a779e6f90159e4e8e51a8687262f</string>
 			</array>
 		</dict>
 		<!-- 네이버 -->
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>naver{AGs0_D3HXNm4GQKLCXml}</string>
+				<string>naverloginAGs0_D3HXNm4GQKLCXml</string>
 			</array>
 		</dict>
 		<!-- 구글 -->
@@ -88,5 +88,21 @@
 			</array>
 		</dict>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaoplus</string>
+		<string>naversearchapp</string>
+		<string>naversearchthirdlogin</string>
+	</array>
+	<key>KAKAO_APP_KEY</key>
+	<string>5900a779e6f90159e4e8e51a8687262f</string>
+	<key>NAVER_CLIENT_ID</key>
+	<string>AGs0_D3HXNm4GQKLCXml</string>
+	<key>NAVER_CLIENT_SECRET</key>
+	<string>eDDXsl2Wb3</string>
+	<key>NAVER_CLIENT_NAME</key>
+	<string>사귈래</string>
 </dict>
 </plist>
