@@ -13,18 +13,16 @@
 
     /* 1. 본인확인 서비스 API 설정 */    
     $mobileOK = new mobileOK_Key_Manager();
-    /* [변경필요] 키파일 및 키파일 패스워드는 드림시큐리티에서 제공한 mok_keyinfo.dat 경로 및 패스워드를 지정 */
-    /* 키파일은 반드시 서버의 안전한 로컬경로에 별도 저장. 웹URL 경로에 파일이 있을경우 키파일이 외부에 노출될 수 있음 주의 */
-    /* 키파일은 개발용과 운영용으로 구분 ➔ 개발 및 테스트 시 개발용 키파일을 이용 / 운영 환경에 적용 시 운영용 키파일로 변경 적용 필요 */        
-    $key_path = "/본인확인 키정보파일 Path/mok_keyInfo.dat";
-    $password = "키파일 패스워드";
+    /* 실제 키파일 및 패스워드 설정 */
+    $key_path = __DIR__ . "/../mok_keyInfo.dat 2";
+    $password = "Sinsa507!";
     $mobileOK->key_init($key_path, $password);
 
     // 이용기관 거래ID생성시 이용기관별 유일성 보장을 위해 설정
-    $clientPrefix = "웹관리도구 회원사ID";     // [변경필요] 드림시큐리티에서 배포한 웹관리도구 회원사ID 설정
+    $clientPrefix = "61624356-3699-4e48-aa27-41f1652eb928";     // 실제 회원사ID 설정
 
-    /* [변경필요] 결과 수신 후 전달 URL 설정 */
-    $result_return_url = "https://이용기관URL/mok/mok_std_result.php";
+    /* 결과 수신 후 전달 URL 설정 */
+    $result_return_url = "http://localhost:8000/mok_std_result.php";
 
     /* 2. 거래 정보 호출 */
     echo mobileOK_std_request($mobileOK, $result_return_url,$clientPrefix);

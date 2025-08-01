@@ -61,7 +61,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.signup,
         name: 'signup',
-        builder: (context, state) => const SignupScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return SignupScreen(
+            mobileOKVerification: extra?['mobileOKVerification'],
+            additionalData: extra?['additionalData'],
+          );
+        },
       ),
       GoRoute(
         path: RouteNames.terms,

@@ -293,8 +293,9 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
     // 목적에 따라 다음 단계로 이동
     switch (widget.purpose) {
       case '회원가입':
-        context.pushReplacement(
-          RouteNames.profileSetup,
+        // 일반 회원가입: MobileOK 인증 후 → 아이디/비밀번호 생성 페이지로
+        context.go(
+          RouteNames.signup,
           extra: {
             'mobileOKVerification': result.toJson(),
             'additionalData': widget.additionalData,
@@ -302,7 +303,8 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
         );
         break;
       case '소셜로그인':
-        context.pushReplacement(
+        // SNS 로그인: MobileOK 인증 후 → 바로 프로필 설정으로
+        context.go(
           RouteNames.profileSetup,
           extra: {
             'mobileOKVerification': result.toJson(),
@@ -317,31 +319,38 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
   }
 
   void _goBack() {
-    context.pop();
+    // 항상 로그인 페이지로 이동
+    context.go(RouteNames.login);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _goBack();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: _goBack,
           ),
-          onPressed: _goBack,
-        ),
-        title: Text(
-          'MobileOK 본인인증',
-          style: AppTextStyles.h3.copyWith(
-            color: AppColors.textPrimary,
+          title: Text(
+            'MobileOK 본인인증',
+            style: AppTextStyles.h3.copyWith(
+              color: AppColors.textPrimary,
+            ),
           ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: ScaleTransition(
@@ -361,67 +370,100 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
           ),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildContent() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // MobileOK 로고 및 아이콘
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+        // 드림시큐리티 MobileOK 로고 스타일
         Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.verified_user,
-            size: 60,
-            color: AppColors.primary,
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            children: [
+              // 로고 영역
+              Container(
+                width: 180,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0066CC), // MobileOK 브랜드 색상
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    'Mobile OK',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '휴대폰 본인확인',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
         
         const SizedBox(height: 32),
         
-        // 제목
-        Text(
-          'MobileOK 본인인증',
-          style: AppTextStyles.h2.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+        // 인증 안내
+        Container(
+          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.smartphone,
+                size: 48,
+                color: const Color(0xFF0066CC),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _getPurposeDescription(),
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '본인 명의의 휴대폰으로\n안전하게 인증을 진행합니다.',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
         
-        const SizedBox(height: 16),
-        
-        // 설명
-        Text(
-          _getPurposeDescription(),
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: AppColors.textSecondary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        
-        const SizedBox(height: 8),
-        
-        Text(
-          'MobileOK을 통해 간편하고 안전하게 본인인증을 진행합니다.',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
         
         // 에러 메시지
         if (_errorMessage != null)
           Container(
             padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 24),
+            margin: const EdgeInsets.symmetric(horizontal: 20).copyWith(bottom: 24),
             decoration: BoxDecoration(
               color: AppColors.error.withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppDimensions.radiusM),
@@ -451,26 +493,55 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
         
         // 로딩 인디케이터
         if (_isLoading)
-          Column(
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '본인인증을 진행중입니다...',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+          Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF0066CC)),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  '본인인증을 진행중입니다...',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
         
-        const SizedBox(height: 40),
+        // 인증 결과 표시 영역 (mok.html의 textarea 대응)
+        if (_verificationResult != null && !_isLoading)
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  '인증이 완료되었습니다.',
+                  style: TextStyle(
+                    color: Colors.green[800],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        
+        const SizedBox(height: 32),
         
         // 안내사항
         _buildNoticeBox(),
       ],
+      ),
     );
   }
 
@@ -553,28 +624,68 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
   }
 
   Widget _buildBottomButtons() {
-    return Column(
-      children: [
-        CustomButton(
-          text: _isLoading ? '인증 진행중...' : 'MobileOK 본인인증 시작',
-          onPressed: _isLoading ? null : _startVerification,
-          style: CustomButtonStyle.gradient,
-          size: CustomButtonSize.large,
-          width: double.infinity,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey[300]!),
         ),
-        
-        const SizedBox(height: 12),
-        
-        // 개발용 시뮬레이션 버튼
-        if (widget.additionalData?['enableSimulation'] == true)
-          CustomButton(
-            text: '시뮬레이션 (개발용)',
-            onPressed: _isLoading ? null : _startSimulatedVerification,
-            style: CustomButtonStyle.outline,
-            size: CustomButtonSize.large,
-            width: double.infinity,
+      ),
+      child: Column(
+        children: [
+          // mok.html의 버튼 스타일 적용
+          Material(
+            color: const Color(0xFF0066CC),
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: _isLoading ? null : _startVerification,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Center(
+                  child: Text(
+                    _isLoading ? '인증 진행중...' : '본인확인 시작(팝업)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-      ],
+          
+          const SizedBox(height: 12),
+          
+          // 개발용 시뮬레이션 버튼
+          if (widget.additionalData?['enableSimulation'] == true || true) // 개발 중이므로 항상 표시
+            Material(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                onTap: _isLoading ? null : _startSimulatedVerification,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text(
+                      '시뮬레이션 (개발용)',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

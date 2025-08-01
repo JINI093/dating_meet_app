@@ -26,7 +26,14 @@ enum SignupStep {
 }
 
 class SignupScreen extends ConsumerStatefulWidget {
-  const SignupScreen({super.key});
+  final Map<String, dynamic>? mobileOKVerification;
+  final Map<String, dynamic>? additionalData;
+  
+  const SignupScreen({
+    super.key,
+    this.mobileOKVerification,
+    this.additionalData,
+  });
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
@@ -51,12 +58,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _canProceedToPassword = false;
   bool isLoading = false;
   
-  // Terms agreement data
-  Map<String, bool>? _agreedTerms;
+  
+  // MobileOK verification data
+  Map<String, dynamic>? _mobileOKData;
 
   @override
   void initState() {
     super.initState();
+    
+    // MobileOK 인증 데이터가 있으면 바로 아이디 입력 단계부터 시작
+    if (widget.mobileOKVerification != null) {
+      _mobileOKData = widget.mobileOKVerification;
+      currentStep = SignupStep.idInput;
+      
+      // MobileOK 인증 데이터로 필드 미리 채우기
+      if (_mobileOKData!['name'] != null) {
+        _nameController.text = _mobileOKData!['name'];
+      }
+      if (_mobileOKData!['phoneNumber'] != null) {
+        _phoneController.text = _mobileOKData!['phoneNumber'];
+      }
+    }
+    
     // 텍스트 컨트롤러에 리스너 추가
     _idController.addListener(_updateCanProceedToPassword);
     _nameController.addListener(_updateCanProceedToPassword);
@@ -76,21 +99,46 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: PageView(
-          controller: pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _buildIdInputScreen(),
-            _buildPasswordInputScreen(),
-            _buildCompleteScreen(),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPressed();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        resizeToAvoidBottomInset: true,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary),
+            onPressed: _handleBackPressed,
+          ),
+          title: Text(
+            _mobileOKData != null ? '계정 생성' : '회원가입',
+            style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: PageView(
+            controller: pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildIdInputScreen(),
+              _buildPasswordInputScreen(),
+              _buildCompleteScreen(),
+            ],
+          ),
         ),
       ),
     );
+  }
+  
+  void _handleBackPressed() {
+    // 항상 로그인 페이지로 이동
+    context.go(RouteNames.login);
   }
 
   Widget _buildTermsScreen() {
@@ -817,12 +865,16 @@ Widget _buildVipBanner() {
       // Enhanced Auth Provider를 사용하여 실제 AWS 사용자 생성
       final testPhone = _phoneController.text.trim();
       
+      // MobileOK 데이터가 있으면 우선 사용, 없으면 입력값 사용
+      final finalName = _mobileOKData?['name'] ?? testName;
+      final finalPhone = _mobileOKData?['phoneNumber'] ?? testPhone;
+      
       final signupData = SignupData(
         username: testName, // 사용자명으로 이름 사용
         email: testEmail,
         password: testPassword,
-        name: testName,
-        phoneNumber: testPhone.isNotEmpty ? testPhone : null,
+        name: finalName,
+        phoneNumber: finalPhone.isNotEmpty ? finalPhone : null,
       );
       
       final success = await ref.read(enhancedAuthProvider.notifier).signUp(signupData);
@@ -839,15 +891,16 @@ Widget _buildVipBanner() {
         if (authState.error != null && authState.error!.contains('이메일 인증')) {
           _showSuccessDialog('회원가입이 완료되었습니다!', authState.error!);
         } else {
-          // 회원가입 완료 화면으로 데이터와 함께 이동
+          // 회원가입 완료 후 바로 프로필 설정으로 이동
           final signupData = {
             'username': _idController.text.trim(),
             'name': _nameController.text.trim(),
             'phone': _phoneController.text.trim(),
+            'mobileOKVerification': _mobileOKData, // MobileOK 인증 데이터 포함
           };
           
           if (mounted) {
-            context.go(RouteNames.signupComplete, extra: signupData);
+            context.go(RouteNames.profileSetup, extra: signupData);
           }
         }
       } else {
@@ -948,9 +1001,6 @@ Widget _buildVipBanner() {
     );
 
     if (result != null && result is Map<String, bool>) {
-      setState(() {
-        _agreedTerms = result;
-      });
       _goToIdInput();
     }
   }

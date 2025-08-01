@@ -1,5 +1,11 @@
 <?php 
-    $phpseclib_autoload = "./vendor/autoload.php";
+    // vendor 디렉토리가 없는 경우를 위한 임시 설정
+    $phpseclib_autoload = __DIR__ . "/vendor/autoload.php";
+    
+    // vendor가 없으면 상위 디렉토리 확인
+    if (!file_exists($phpseclib_autoload)) {
+        $phpseclib_autoload = __DIR__ . "/../vendor/autoload.php";
+    }
 ?>
 <?php
     if(!file_exists($phpseclib_autoload)) {

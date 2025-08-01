@@ -411,7 +411,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 카카오 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOKVerification('소셜로그인', {
+        _navigateToMobileOK('소셜로그인', {
           'socialProvider': 'KAKAO',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -432,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 네이버 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOKVerification('소셜로그인', {
+        _navigateToMobileOK('소셜로그인', {
           'socialProvider': 'NAVER',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -452,7 +452,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 구글 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOKVerification('소셜로그인', {
+        _navigateToMobileOK('소셜로그인', {
           'socialProvider': 'GOOGLE',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -487,13 +487,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _goToSignup() {
     // 회원가입 시 PASS 본인인증으로 바로 이동
-    _navigateToMobileOKVerification('회원가입', {
-      'enableSimulation': true, // 개발용 시뮬레이션 활성화
+    _navigateToMobileOK('회원가입', {
+      // 'enableSimulation': true, // 실제 MobileOK 인증 사용
     });
   }
 
   /// MobileOK 본인인증 화면으로 이동
-  void _navigateToMobileOKVerification(String purpose, Map<String, dynamic> additionalData) {
+  void _navigateToMobileOK(String purpose, Map<String, dynamic> additionalData) {
     Navigator.push(
       context,
       MaterialPageRoute(

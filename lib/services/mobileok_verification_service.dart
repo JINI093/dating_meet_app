@@ -170,9 +170,15 @@ class MobileOKVerificationService {
         await initialize();
       }
 
-      // 개발 환경에서 키 정보가 없으면 시뮬레이션
-      if (_isDevelopment && (_keyPassword.contains('확인필요') || _clientPrefix.contains('확인필요'))) {
-        print('⚠️ 개발 환경 - MobileOK 인증 시뮬레이션 모드 사용');
+      // 키 정보 확인
+      print('🔑 MobileOK 키 정보 확인:');
+      print('- 키 파일 경로: $_keyFilePath');
+      print('- 키 패스워드 설정: ${_keyPassword.length > 0 ? "✓" : "✗"}');
+      print('- Client Prefix: $_clientPrefix');
+      
+      // 개발 환경에서 테스트를 위해 시뮬레이션 활성화 옵션 추가
+      if (additionalParams?['forceSimulation'] == true) {
+        print('⚠️ 강제 시뮬레이션 모드 사용');
         return await simulateSuccess(purpose: purpose);
       }
 
@@ -303,6 +309,19 @@ class MobileOKVerificationService {
   String _generateMobileOKHtml(String clientTxId, String dateTime, String purpose) {
     final usageCode = _getUsageCode(purpose);
     
+    // PHP 서버 URL 설정
+    String phpServerUrl;
+    if (Platform.isAndroid) {
+      // Android 에뮬레이터에서는 10.0.2.2 사용
+      phpServerUrl = 'http://10.0.2.2:8000';
+    } else {
+      // iOS 및 기타 플랫폼
+      phpServerUrl = 'http://localhost:8000';
+    }
+    
+    // 운영 환경에서는 실제 서버 URL로 변경
+    // phpServerUrl = 'https://your-server.com/mobileok';
+    
     return '''
 <!DOCTYPE html>
 <html lang="ko">
@@ -325,21 +344,13 @@ class MobileOKVerificationService {
 
     <script>
         document.getElementById('startAuth').addEventListener('click', function() {
-            // MobileOK 인증 요청 데이터 생성
-            const requestData = {
-                usageCode: '$usageCode',
-                serviceId: '$_serviceId',
-                encryptReqClientInfo: '$clientTxId|$dateTime', // 실제로는 암호화 필요
-                serviceType: 'telcoAuth',
-                retTransferType: 'MOKToken',
-                returnUrl: window.location.href
-            };
-            
             document.getElementById('status').innerHTML = '본인인증을 진행 중입니다...';
             
-            // MobileOK 프로세스 시작
-            if (typeof MOBILEOK !== 'undefined') {
-                MOBILEOK.process(JSON.stringify(requestData), "WB", "handleResult");
+            // MobileOK 프로세스 시작 - PHP 코드의 패턴 따르기
+            if (typeof MOBILEOK !== 'undefined' && MOBILEOK.process) {
+                // PHP 서버의 요청 URL
+                const requestUrl = '$phpServerUrl/mok_std_request.php';
+                MOBILEOK.process(requestUrl, "WB", "handleResult");
             } else {
                 // SDK 로딩 실패 시 시뮬레이션
                 setTimeout(function() {
