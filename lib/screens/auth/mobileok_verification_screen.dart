@@ -318,20 +318,11 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
     }
   }
 
-  void _goBack() {
-    // 항상 로그인 페이지로 이동
-    context.go(RouteNames.login);
-  }
+
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _goBack();
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -341,7 +332,10 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
               Icons.arrow_back_ios,
               color: AppColors.textPrimary,
             ),
-            onPressed: _goBack,
+            onPressed: () {
+              // 바로 로그인 페이지로 이동
+              context.go(RouteNames.login);
+            },
           ),
           title: Text(
             'MobileOK 본인인증',
@@ -369,7 +363,6 @@ class _MobileOKVerificationScreenState extends ConsumerState<MobileOKVerificatio
             ),
           ),
         ),
-      ),
       ),
     );
   }

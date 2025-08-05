@@ -16,7 +16,7 @@ class PointExchangeMainScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.go(RouteNames.profile),
         ),
         title: const Text(
           '포인트 전환',

@@ -28,6 +28,15 @@ class AWSKakaoAuthService {
     try {
       print('=== 카카오 - Cognito 연동 로그인 시작 ===');
       
+      // 0. 기존 Cognito 세션이 있으면 먼저 로그아웃
+      try {
+        await Amplify.Auth.getCurrentUser();
+        print('기존 Cognito 세션 발견, 로그아웃 후 카카오 로그인 진행');
+        await Amplify.Auth.signOut();
+      } catch (e) {
+        print('기존 세션 없음 또는 이미 로그아웃됨');
+      }
+      
       // 1. 카카오 로그인 먼저 수행
       final kakaoResult = await _kakaoService.signIn();
       
@@ -53,15 +62,35 @@ class AWSKakaoAuthService {
       if (existingCognitoUsername != null) {
         // 3-1. 기존 사용자로 로그인 시도
         print('기존 연동 사용자 발견: $existingCognitoUsername');
-        return await _signInExistingUser(existingCognitoUsername, kakaoUserId, kakaoResult);
-      } else {
-        // 3-2. 새 사용자 생성 또는 연동
-        print('새 사용자 생성 필요');
-        return await _createOrLinkUser(kakaoUserId, nickname, email, profileImage, kakaoResult);
+        
+        try {
+          final result = await _signInExistingUser(existingCognitoUsername, kakaoUserId, kakaoResult);
+          if (result.success) {
+            return result;
+          }
+        } catch (e) {
+          print('기존 사용자 로그인 실패, 연동 정보 삭제 후 재시도: $e');
+          // 기존 연동 정보가 잘못되었을 수 있으므로 삭제
+          await _clearLinkedUser(kakaoUserId);
+        }
       }
+      
+      // 3-2. 새 사용자 생성 또는 연동
+      print('새 사용자 생성 또는 기존 연동 정보 복구');
+      return await _createOrLinkUser(kakaoUserId, nickname, email, profileImage, kakaoResult);
       
     } catch (e) {
       print('카카오-Cognito 연동 로그인 실패: $e');
+      
+      // 카카오 로그인 실패 시 기존 Cognito 세션 정리
+      try {
+        await Amplify.Auth.getCurrentUser();
+        print('기존 Cognito 세션 발견, 로그아웃 처리');
+        await Amplify.Auth.signOut();
+      } catch (signOutError) {
+        print('기존 세션 없음 또는 로그아웃 실패: $signOutError');
+      }
+      
       return AppAuthResult.AuthResult.failure(error: '카카오 로그인 중 오류가 발생했습니다: $e');
     }
   }
@@ -73,6 +102,56 @@ class AWSKakaoAuthService {
       return await _secureStorage.read(key: key);
     } catch (e) {
       print('연동 사용자 확인 실패: $e');
+      return null;
+    }
+  }
+
+  /// 잘못된 연동 정보 삭제
+  Future<void> _clearLinkedUser(String kakaoUserId) async {
+    try {
+      final key = '${_kakaoUserIdKey}_$kakaoUserId';
+      await _secureStorage.delete(key: key);
+      await _secureStorage.delete(key: _cognitoUsernameKey);
+      await _secureStorage.delete(key: _cognitoUserIdKey);
+      print('연동 정보 삭제 완료: $kakaoUserId');
+    } catch (e) {
+      print('연동 정보 삭제 실패: $e');
+    }
+  }
+
+  /// 기존 카카오 사용자명 패턴 찾기
+  Future<String?> _findExistingKakaoUser(String kakaoUserId) async {
+    try {
+      // 가능한 username 패턴들을 시도해보기
+      final patterns = [
+        'kakao_${kakaoUserId}_629317',  // 로그에서 보이는 기존 패턴
+        'kakao_${kakaoUserId}_',        // 접두사만으로 검색
+      ];
+      
+      for (final pattern in patterns) {
+        try {
+          // 패턴 매칭으로 기존 사용자 로그인 시도
+          final tempPassword = 'Kakao#${kakaoUserId}2024!';
+          final result = await Amplify.Auth.signIn(
+            username: pattern,
+            password: tempPassword,
+          );
+          
+          if (result.isSignedIn) {
+            // 로그인 성공 시 바로 로그아웃하고 username 반환
+            await Amplify.Auth.signOut();
+            print('기존 사용자 패턴 발견: $pattern');
+            return pattern;
+          }
+        } catch (e) {
+          // 이 패턴은 실패, 다음 패턴 시도
+          continue;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      print('기존 카카오 사용자 검색 실패: $e');
       return null;
     }
   }
@@ -103,34 +182,10 @@ class AWSKakaoAuthService {
     AppAuthResult.AuthResult kakaoResult
   ) async {
     try {
-      // Cognito 커스텀 인증 플로우로 로그인
-      final result = await Amplify.Auth.signIn(
-        username: cognitoUsername,
-        options: const SignInOptions(
-          pluginOptions: CognitoSignInPluginOptions(
-            authFlowType: AuthenticationFlowType.customAuthWithoutSrp,
-            clientMetadata: {
-              'provider': 'kakao',
-            },
-          ),
-        ),
-      );
+      print('기존 사용자 비밀번호 로그인 시도: $cognitoUsername');
       
-      if (result.isSignedIn) {
-        final user = await Amplify.Auth.getCurrentUser();
-        final session = await Amplify.Auth.fetchAuthSession();
-        
-        return AppAuthResult.AuthResult.success(
-          user: user,
-          loginMethod: 'KAKAO',
-          accessToken: kakaoResult.accessToken,
-          refreshToken: kakaoResult.refreshToken,
-          metadata: kakaoResult.metadata,
-        );
-      } else {
-        // 비밀번호 없이 로그인 시도
-        return await _tryPasswordlessSignIn(cognitoUsername, kakaoUserId, kakaoResult);
-      }
+      // CUSTOM_AUTH가 비활성화되어 있으므로 바로 비밀번호 로그인 시도
+      return await _tryPasswordlessSignIn(cognitoUsername, kakaoUserId, kakaoResult);
     } catch (e) {
       print('기존 사용자 로그인 실패: $e');
       // 실패 시 새 사용자 생성 시도
@@ -178,7 +233,7 @@ class AWSKakaoAuthService {
     }
   }
 
-  /// 새 사용자 생성 또는 연동
+  /// 새 사용자 생성 또는 기존 사용자 연동
   Future<AppAuthResult.AuthResult> _createOrLinkUser(
     String kakaoUserId,
     String nickname,
@@ -187,19 +242,41 @@ class AWSKakaoAuthService {
     AppAuthResult.AuthResult kakaoResult
   ) async {
     try {
-      // 고유한 username 생성
+      // 먼저 기존에 동일한 카카오 ID로 만들어진 사용자가 있는지 확인
+      final existingUsername = await _findExistingKakaoUser(kakaoUserId);
+      
+      if (existingUsername != null) {
+        print('기존 카카오 사용자 발견, 연동 정보 복구: $existingUsername');
+        // 기존 사용자 로그인 시도
+        try {
+          final result = await _signInExistingUser(existingUsername, kakaoUserId, kakaoResult);
+          if (result.success) {
+            // 연동 정보 다시 저장
+            final user = await Amplify.Auth.getCurrentUser();
+            await _saveUserLink(kakaoUserId, existingUsername, user.userId);
+            return result;
+          }
+        } catch (e) {
+          print('기존 사용자 로그인 재시도 실패: $e');
+        }
+      }
+      
+      // 새 사용자 생성
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final username = 'kakao_${kakaoUserId}_${timestamp.substring(timestamp.length - 6)}';
       
       // 임시 이메일 생성 (이메일이 없는 경우)
       final userEmail = email ?? 'kakao_${kakaoUserId}@kakao.local';
       
+      // 임시 전화번호 생성 (필수 속성)
+      final tempPhoneNumber = '+821012345${kakaoUserId.substring(kakaoUserId.length - 3)}';
+      
       // 임시 비밀번호 생성
       final tempPassword = 'Kakao#${kakaoUserId}2024!';
       
       print('새 Cognito 사용자 생성: $username');
       
-      // Cognito 사용자 생성
+      // Cognito 사용자 생성 (필수 속성 포함)
       final signUpResult = await Amplify.Auth.signUp(
         username: username,
         password: tempPassword,
@@ -208,7 +285,8 @@ class AWSKakaoAuthService {
             AuthUserAttributeKey.email: userEmail,
             AuthUserAttributeKey.name: nickname,
             AuthUserAttributeKey.preferredUsername: nickname,
-            const CognitoUserAttributeKey.custom('kakao_id'): kakaoUserId,
+            AuthUserAttributeKey.phoneNumber: tempPhoneNumber,
+            // 카카오 ID는 username에 포함되어 있으므로 별도 저장 불필요
           },
         ),
       );

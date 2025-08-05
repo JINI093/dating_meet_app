@@ -27,6 +27,7 @@ dependencies:
   connectivity_plus: ^6.0.3
   http: ^1.1.0
 
+
   # 로컬 저장소
   shared_preferences: ^2.2.2
   flutter_secure_storage: ^9.2.2
@@ -179,6 +180,7 @@ flutter:
     - assets/splash/
     - assets/background/
     - assets/point/
+    - assets/vip/
     
     # - assets/animations/
     # - assets/sounds/

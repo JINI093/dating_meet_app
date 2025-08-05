@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_text_styles.dart';
+import '../../utils/app_dimensions.dart';
+
+enum VipTier { gold, silver, bronze }
 
 class VipPurchaseScreen extends ConsumerStatefulWidget {
   const VipPurchaseScreen({super.key});
@@ -11,7 +16,7 @@ class VipPurchaseScreen extends ConsumerStatefulWidget {
 
 class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _selectedTabIndex = 0;
+  VipTier selectedTier = VipTier.gold;
 
   @override
   void initState() {
@@ -19,7 +24,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {
-        _selectedTabIndex = _tabController.index;
+        selectedTier = VipTier.values[_tabController.index];
       });
     });
   }
@@ -33,1003 +38,332 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.chevron_left, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'VIP 이용권',
+          style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
         ),
         centerTitle: true,
-        title: const Text(
-          '이용권 구매',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
       body: Column(
         children: [
-          // 탭 바
+          // 상단 탭 메뉴 (좌우 여백 삭제)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                _buildTabItem('슈퍼챗', 0, false),
-                _buildTabItem('프로필 열람권', 1, false),
-                _buildTabItem('추천카드 더 보기', 2, false),
-                _buildTabItem('VIP', 3, true),
+            width: double.infinity,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 2,
+              labelStyle: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
+              unselectedLabelStyle: AppTextStyles.h4,
+              tabs: const [
+                Tab(text: 'GOLD'),
+                Tab(text: 'SILVER'),
+                Tab(text: 'BRONZE'),
               ],
             ),
           ),
-          // VIP 탭 내용
+          
           Expanded(
-            child: Column(
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                const SizedBox(height: 20),
-                // VIP 등급 선택 버튼들
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildVipGradeButton('GOLD', 0),
-                      const SizedBox(width: 12),
-                      _buildVipGradeButton('SILVER', 1),
-                      const SizedBox(width: 12),
-                      _buildVipGradeButton('BRONZE', 2),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // VIP 등급별 내용
-                Expanded(
-                  child: IndexedStack(
-                    index: _selectedTabIndex,
-                    children: [
-                      _buildVipGoldContent(),
-                      _buildVipSilverContent(),
-                      _buildVipBronzeContent(),
-                    ],
-                  ),
-                ),
+                _buildTierContent(VipTier.gold),
+                _buildTierContent(VipTier.silver),
+                _buildTierContent(VipTier.bronze),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: () {
-              // 구매 처리
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-            child: const Text(
-              '구매하기',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
+    );
+  }
+
+  Widget _buildTierContent(VipTier tier) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          
+          // VIP 프레임 이미지
+          _buildVipFrame(tier),
+          
+          const SizedBox(height: 30),
+          
+          // 티어 선택 버튼
+          _buildTierSelector(tier),
+          
+          const SizedBox(height: 30),
+          
+          // 상품 카드들
+          _buildProductCards(tier),
+        ],
       ),
     );
   }
 
-  Widget _buildTabItem(String title, int index, bool isSelected) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? Colors.black : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.black : const Color(0xFF999999),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVipGradeButton(String grade, int index) {
-    final isSelected = _selectedTabIndex == index;
-    final colors = [
-      const Color(0xFFB8860B), // GOLD
-      const Color(0xFF808080), // SILVER
-      const Color(0xFFCD7F32), // BRONZE
-    ];
+  Widget _buildVipFrame(VipTier tier) {
+    String flameAsset;
+    String tierText;
     
+    switch (tier) {
+      case VipTier.gold:
+        flameAsset = 'assets/vip/Gold_flame.png';
+        tierText = 'VIP GOLD';
+        break;
+      case VipTier.silver:
+        flameAsset = 'assets/vip/Silver_flame.png';
+        tierText = 'VIP SILVER';
+        break;
+      case VipTier.bronze:
+        flameAsset = 'assets/vip/Bronze_flame.png';
+        tierText = 'VIP BRONZE';
+        break;
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Image.asset(
+          flameAsset,
+          width: 300,
+          height: 200,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 300,
+              height: 200,
+              decoration: BoxDecoration(
+                color: _getTierColor(tier).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _getTierColor(tier), width: 2),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      tierText,
+                      style: AppTextStyles.h2.copyWith(
+                        color: _getTierColor(tier),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '15일 남음',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: _getTierColor(tier),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTierSelector(VipTier tier) {
+    final isSelected = selectedTier == tier;
+    String buttonAsset;
+    
+    switch (tier) {
+      case VipTier.gold:
+        buttonAsset = isSelected ? 'assets/vip/BS_gold.png' : 'assets/vip/B_gold.png';
+        break;
+      case VipTier.silver:
+        buttonAsset = isSelected ? 'assets/vip/BS_silver.png' : 'assets/vip/B_silver.png';
+        break;
+      case VipTier.bronze:
+        buttonAsset = isSelected ? 'assets/vip/BS_bronze.png' : 'assets/vip/B_bronze.png';
+        break;
+    }
+
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedTabIndex = index;
+          selectedTier = tier;
         });
+        _tabController.animateTo(tier.index);
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? colors[index] : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: colors[index],
-            width: 1,
-          ),
-        ),
-        child: Text(
-          grade,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : colors[index],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVipGoldContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // 왕관 이미지
-          Image.asset(
-            'assets/icons/gold_crown 1.png',
+      child: Image.asset(
+        buttonAsset,
+        width: 120,
+        height: 50,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
             width: 120,
-            height: 120,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFB8860B),
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                child: const Icon(
-                  Icons.star,
-                  color: Colors.white,
-                  size: 60,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'VIP GOLD',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'VIP 상품은 이성에게 더욱 매력적으로 보일 수 있습니다!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF666666),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // VIP GOLD 버튼
-          Container(
-            width: double.infinity,
-            height: 48,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
+            height: 50,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFB8860B), Color(0xFFFFD700)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
+              color: isSelected ? _getTierColor(tier) : Colors.transparent,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: _getTierColor(tier), width: 2),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                'VIP GOLD                    8일 남음',
-                style: TextStyle(
-                  fontSize: 16,
+                tier.name.toUpperCase(),
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: isSelected ? Colors.white : _getTierColor(tier),
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          // 등급 선택 버튼들
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildGradeSelectButton('GOLD', true),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('SILVER', false),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('BRONZE', false),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // GOLD 혜택 제목
-          const Text(
-            'GOLD',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 혜택 리스트
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '• VIP 카테고리 노출 = VIP GOLD 카테고리에 랜덤 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 매일 추천 카드 프로필 노출 혜택 UP!',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 프로필 카드 VIP GOLD 뱃지 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 디자인 혜택을 추가받은 더욱 미쳐진 가격에 이용하세요!',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '(혜택은 상품의 배송니 까지만 혜택이 적용됩니다. 상품 혜택으로 기록된 혜택은 적용되지 않습니다.)',
-                style: TextStyle(fontSize: 10, color: Color(0xFF999999)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // 상품 패키지들
-          ..._buildGoldPackages(),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildVipSilverContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // 왕관 이미지
-          Image.asset(
-            'assets/icons/silver_crown 1.png',
-            width: 120,
-            height: 120,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF808080),
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                child: const Icon(
-                  Icons.star,
-                  color: Colors.white,
-                  size: 60,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'VIP SILVER',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'VIP 상품은 이성에게 더욱 매력적으로 보일 수 있습니다!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF666666),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // VIP SILVER 버튼
-          Container(
-            width: double.infinity,
-            height: 48,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF808080),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Text(
-                'VIP SILVER                    8일 남음',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // 등급 선택 버튼들
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildGradeSelectButton('GOLD', false),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('SILVER', true),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('BRONZE', false),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // SILVER 혜택 제목
-          const Text(
-            'SILVER',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 혜택 리스트
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '• 하루 10장 추가 추천 카드',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• PICK+ 카테고리 노출 = PICK+ SILVER 카테고리에 랜덤 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 매일 추천 카드 프로필 노출 혜택 UP!',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 프로필 카드 VIP SILVER 뱃지 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 하트/슈퍼챗 혜택 2개 혜택',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // 상품 패키지들
-          ..._buildSilverPackages(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVipBronzeContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // 왕관 이미지
-          Image.asset(
-            'assets/icons/bronze_crown 1.png',
-            width: 120,
-            height: 120,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCD7F32),
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                child: const Icon(
-                  Icons.star,
-                  color: Colors.white,
-                  size: 60,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'VIP BRONZE',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'VIP 상품은 이성에게 더욱 매력적으로 보일 수 있습니다!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF666666),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // VIP BRONZE 버튼
-          Container(
-            width: double.infinity,
-            height: 48,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFCD7F32),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Text(
-                'VIP BRONZE                    8일 남음',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // 등급 선택 버튼들
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildGradeSelectButton('GOLD', false),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('SILVER', false),
-              const SizedBox(width: 12),
-              _buildGradeSelectButton('BRONZE', true),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // BRONZE 혜택 제목
-          const Text(
-            'BRONZE',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 혜택 리스트
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '• 하루 5장 추가 추천 카드',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• PICK+ 카테고리 노출 = PICK+ BRONZE 카테고리에 랜덤 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '• 프로필 카드 VIP BRONZE 뱃지 노출',
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 30),
-          // 상품 패키지들
-          ..._buildBronzePackages(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGradeSelectButton(String grade, bool isSelected) {
-    final colors = {
-      'GOLD': const Color(0xFFB8860B),
-      'SILVER': const Color(0xFF808080),
-      'BRONZE': const Color(0xFFCD7F32),
-    };
+  Widget _buildProductCards(VipTier tier) {
+    final products = _getProductsForTier(tier);
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? colors[grade] : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colors[grade]!,
-          width: 1,
-        ),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       ),
-      child: Text(
-        grade,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: isSelected ? Colors.white : colors[grade],
-        ),
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        return _buildProductCard(tier, products[index]);
+      },
+    );
+  }
+
+  Widget _buildProductCard(VipTier tier, Map<String, dynamic> product) {
+    String cardAsset;
+    final days = product['days'] as int;
+    
+    switch (tier) {
+      case VipTier.gold:
+        cardAsset = 'assets/vip/G$days.png';
+        break;
+      case VipTier.silver:
+        cardAsset = 'assets/vip/S$days.png';
+        break;
+      case VipTier.bronze:
+        cardAsset = 'assets/vip/B$days.png';
+        break;
+    }
+
+    return GestureDetector(
+      onTap: () => _onProductSelected(tier, product),
+      child: Image.asset(
+        cardAsset,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            decoration: BoxDecoration(
+              color: _getTierColor(tier).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _getTierColor(tier), width: 1),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.workspace_premium,
+                  size: 40,
+                  color: _getTierColor(tier),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${product['days']}일',
+                  style: AppTextStyles.h4.copyWith(
+                    color: _getTierColor(tier),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${product['price']}원',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: _getTierColor(tier),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  List<Widget> _buildGoldPackages() {
-    final packages = [
-      {'days': 7, 'originalPrice': 550, 'price': 300, 'discount': 45},
-      {'days': 15, 'originalPrice': 990, 'price': 400, 'discount': 56},
-      {'days': 20, 'originalPrice': 1590, 'price': 500, 'discount': 67},
-      {'days': 30, 'originalPrice': 2790, 'price': 700, 'discount': 74},
-      {'days': 45, 'originalPrice': 3990, 'price': 800, 'discount': 79},
-      {'days': 60, 'originalPrice': 6400, 'price': 1000, 'discount': 84},
-    ];
+  Color _getTierColor(VipTier tier) {
+    switch (tier) {
+      case VipTier.gold:
+        return const Color(0xFFFFD700);
+      case VipTier.silver:
+        return const Color(0xFFC0C0C0);
+      case VipTier.bronze:
+        return const Color(0xFFCD7F32);
+    }
+  }
 
-    return packages.map((package) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFB8860B), Color(0xFFFFD700)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+  List<Map<String, dynamic>> _getProductsForTier(VipTier tier) {
+    switch (tier) {
+      case VipTier.gold:
+        return [
+          {'days': 7, 'price': 9900},
+          {'days': 15, 'price': 19900},
+          {'days': 30, 'price': 39900},
+          {'days': 90, 'price': 99900},
+        ];
+      case VipTier.silver:
+        return [
+          {'days': 7, 'price': 7900},
+          {'days': 15, 'price': 15900},
+          {'days': 30, 'price': 29900},
+          {'days': 90, 'price': 79900},
+        ];
+      case VipTier.bronze:
+        return [
+          {'days': 7, 'price': 4900},
+          {'days': 15, 'price': 9900},
+          {'days': 30, 'price': 19900},
+          {'days': 90, 'price': 49900},
+        ];
+    }
+  }
+
+  void _onProductSelected(VipTier tier, Map<String, dynamic> product) {
+    // 결제 탭으로 이동하는 로직 구현
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${tier.name.toUpperCase()} ${product['days']}일'),
+        content: Text('${product['price']}원 상품을 구매하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
           ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          children: [
-            Row(
-              children: [
-                // 왼쪽 날짜 부분
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${package['days']}일',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // 중간 혜택 부분
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '하트 ${package['days'] == 7 ? '5' : package['days'] == 15 ? '10' : package['days'] == 20 ? '20' : package['days'] == 30 ? '40' : package['days'] == 45 ? '60' : '100'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.chat, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '슈퍼챗 ${package['days'] == 7 ? '4' : package['days'] == 15 ? '6' : package['days'] == 20 ? '10' : package['days'] == 30 ? '15' : package['days'] == 45 ? '18' : '22'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.person, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '프로필열람권 ${package['days'] == 7 ? '5' : package['days'] == 15 ? '10' : package['days'] == 20 ? '20' : package['days'] == 30 ? '40' : package['days'] == 45 ? '60' : '100'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.more_horiz, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '추천카드더보기 ${package['days'] == 7 ? '5' : package['days'] == 15 ? '10' : package['days'] == 20 ? '20' : package['days'] == 30 ? '40' : package['days'] == 45 ? '60' : '100'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // 오른쪽 가격 부분
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${package['originalPrice']}P',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    Text(
-                      '${package['price']}P',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // 할인 라벨
-            Positioned(
-              top: -8,
-              right: -8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-                child: Text(
-                  '-${package['discount']}%\n할인',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  List<Widget> _buildSilverPackages() {
-    final packages = [
-      {'days': 7, 'originalPrice': 300, 'price': 220, 'discount': 33},
-      {'days': 15, 'originalPrice': 650, 'price': 320, 'discount': 53},
-      {'days': 20, 'originalPrice': 1250, 'price': 420, 'discount': 68},
-      {'days': 30, 'originalPrice': 2350, 'price': 620, 'discount': 74},
-      {'days': 45, 'originalPrice': 3450, 'price': 720, 'discount': 79},
-      {'days': 60, 'originalPrice': 5650, 'price': 920, 'discount': 84},
-    ];
-
-    return packages.map((package) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF808080),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          children: [
-            Row(
-              children: [
-                // 왼쪽 날짜 부분
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${package['days']}일',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // 중간 혜택 부분
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '하트 ${package['days'] == 7 ? '2' : package['days'] == 15 ? '7' : package['days'] == 20 ? '17' : package['days'] == 30 ? '35' : package['days'] == 45 ? '55' : '95'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.chat, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '슈퍼챗 ${package['days'] == 7 ? '4' : package['days'] == 15 ? '6' : package['days'] == 20 ? '8' : package['days'] == 30 ? '12' : package['days'] == 45 ? '14' : '18'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.person, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '프로필열람권 ${package['days'] == 7 ? '2' : package['days'] == 15 ? '7' : package['days'] == 20 ? '17' : package['days'] == 30 ? '35' : package['days'] == 45 ? '55' : '95'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.more_horiz, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '추천카드더보기 ${package['days'] == 7 ? '2' : package['days'] == 15 ? '7' : package['days'] == 20 ? '17' : package['days'] == 30 ? '35' : package['days'] == 45 ? '55' : '95'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // 오른쪽 가격 부분
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${package['originalPrice']}P',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    Text(
-                      '${package['price']}P',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // 할인 라벨
-            Positioned(
-              top: -8,
-              right: -8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-                child: Text(
-                  '-${package['discount']}%\n할인',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  List<Widget> _buildBronzePackages() {
-    final packages = [
-      {'days': 7, 'originalPrice': 150, 'price': 150, 'discount': 33},
-      {'days': 15, 'originalPrice': 450, 'price': 250, 'discount': 56},
-      {'days': 20, 'originalPrice': 1090, 'price': 350, 'discount': 70},
-      {'days': 30, 'originalPrice': 2090, 'price': 550, 'discount': 75},
-      {'days': 45, 'originalPrice': 3390, 'price': 650, 'discount': 82},
-      {'days': 60, 'originalPrice': 5050, 'price': 850, 'discount': 84},
-    ];
-
-    return packages.map((package) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFCD7F32),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          children: [
-            Row(
-              children: [
-                // 왼쪽 날짜 부분
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${package['days']}일',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // 중간 혜택 부분
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '하트 ${package['days'] == 7 ? '1' : package['days'] == 15 ? '5' : package['days'] == 20 ? '14' : package['days'] == 30 ? '30' : package['days'] == 45 ? '50' : '85'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.chat, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '슈퍼챗 ${package['days'] == 7 ? '4' : package['days'] == 15 ? '4' : package['days'] == 20 ? '6' : package['days'] == 30 ? '10' : package['days'] == 45 ? '12' : '16'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.person, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '프로필열람권 ${package['days'] == 7 ? '1' : package['days'] == 15 ? '5' : package['days'] == 20 ? '14' : package['days'] == 30 ? '30' : package['days'] == 45 ? '50' : '85'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.more_horiz, size: 16, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            '추천카드더보기 ${package['days'] == 7 ? '1' : package['days'] == 15 ? '5' : package['days'] == 20 ? '14' : package['days'] == 30 ? '30' : package['days'] == 45 ? '50' : '85'}개',
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // 오른쪽 가격 부분
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${package['originalPrice']}P',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    Text(
-                      '${package['price']}P',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // 할인 라벨
-            Positioned(
-              top: -8,
-              right: -8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-                child: Text(
-                  '-${package['discount']}%\n할인',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: 결제 화면으로 이동
+            },
+            child: const Text('구매'),
+          ),
+        ],
+      ),
+    );
   }
 }

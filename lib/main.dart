@@ -23,6 +23,7 @@ import 'config/aws_config.dart';
 import 'amplifyconfiguration.dart';
 import 'providers/enhanced_auth_provider.dart';
 import 'providers/permission_provider.dart';
+import 'providers/user_provider.dart';
 import 'utils/auth_error_handler.dart';
 import 'utils/auth_ux_utils.dart';
 import 'services/screen_capture_service.dart';
@@ -85,19 +86,26 @@ Future<void> _initializeCriticalServices() async {
   }
 }
 
-/// 백그라운드 초기화 순서 (필수가 아닌 서비스들)
+/// 백그라운드 초기화 순서 (필수가 아닌 서비스들) - 병렬 처리
 Future<void> _initializeBackgroundServices() async {
   try {
-    print('🔄 백그라운드 서비스 초기화 시작...');
+    print('🔄 백그라운드 서비스 초기화 시작 (병렬 처리)...');
     
-    // 1. 소셜 SDK 초기화
-    await _initializeSocialSDKs();
-    
-    // 2. 딥링크 처리 설정
-    await _setupDeepLinks();
-    
-    // 3. 오프라인 상태 복구
-    await _handleOnlineState();
+    // 병렬로 초기화 (서로 독립적인 서비스들)
+    await Future.wait([
+      _initializeSocialSDKs().catchError((e) {
+        print('소셜 SDK 초기화 실패: $e');
+        return null;
+      }),
+      _setupDeepLinks().catchError((e) {
+        print('딥링크 설정 실패: $e'); 
+        return null;
+      }),
+      _handleOnlineState().catchError((e) {
+        print('온라인 상태 복구 실패: $e');
+        return null;
+      }),
+    ]);
     
     print('✅ 백그라운드 서비스 초기화 완료');
   } catch (e) {
@@ -208,13 +216,20 @@ Future<void> _initializeSocialSDKs() async {
       print('⚠️ 네이버 클라이언트 정보가 설정되지 않음');
     }
     
-    // 구글 SDK 초기화
+    // 구글 SDK 초기화 (임시 비활성화 - 앱 시작 시 크래시 방지)
     try {
-      final googleService = GoogleLoginService();
-      await googleService.initialize();
-      print('✅ 구글 SDK 초기화 완료');
+      print('ℹ️ 구글 SDK 초기화는 첫 로그인 시에 수행됩니다.');
+      // final googleService = GoogleLoginService();
+      // await googleService.initialize().timeout(
+      //   const Duration(seconds: 10),
+      //   onTimeout: () {
+      //     print('⚠️ 구글 SDK 초기화 시간 초과');
+      //   },
+      // );
+      // print('✅ 구글 SDK 초기화 완료');
     } catch (e) {
       print('❌ 구글 SDK 초기화 실패: $e');
+      print('⚠️ 구글 로그인 기능이 제한될 수 있습니다.');
     }
     
     // MobileOK 본인인증 서비스 초기화
@@ -424,19 +439,26 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         },
       );
       
-      // 권한 초기화 (앱 최초 실행 시에만)
-      final permissionNotifier = ref.read(permissionProvider.notifier);
-      await permissionNotifier.initializePermissions().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          print('⚠️ 권한 초기화 타임아웃');
-        },
-      );
+      // 백그라운드에서 비필수 서비스들 초기화 (로딩 속도 개선)
+      Future.microtask(() async {
+        // 권한 초기화 (백그라운드에서 실행)
+        try {
+          final permissionNotifier = ref.read(permissionProvider.notifier);
+          await permissionNotifier.initializePermissions().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              print('⚠️ 권한 초기화 타임아웃');
+            },
+          );
+        } catch (e) {
+          print('권한 초기화 실패: $e');
+        }
+        
+        // 백그라운드 서비스 초기화
+        await _initializeBackgroundServices();
+      });
       
-      // 백그라운드 서비스 초기화 (필수가 아닌 서비스들)
-      _initializeBackgroundServices();
-      
-      // 자동 로그인 체크 (백그라운드에서 실행)
+      // 자동 로그인 체크 및 사용자 프로필 로드 (백그라운드에서 실행)
       _checkAutoLogin();
       
       // 안전한 setState 호출
@@ -483,6 +505,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         // 로그인 기록 추가 (백그라운드에서 실행)
         _addLoginRecord(autoLoginResult);
         
+        // 사용자 프로필 로드 (로그인 성공 시)
+        _loadUserProfile();
+        
       } else {
         print('ℹ️ 자동 로그인 실패 또는 비활성화');
         
@@ -495,6 +520,25 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     }
   }
   
+  /// 사용자 프로필 로드
+  Future<void> _loadUserProfile() async {
+    try {
+      print('🔄 사용자 프로필 로드 시작...');
+      
+      final userNotifier = ref.read(userProvider.notifier);
+      await userNotifier.initializeUser().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 사용자 프로필 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 사용자 프로필 로드 완료');
+    } catch (e) {
+      print('❌ 사용자 프로필 로드 실패: $e');
+    }
+  }
+
   /// 로그인 기록 추가 (백그라운드)
   void _addLoginRecord(dynamic autoLoginResult) {
     AuthUXUtils.addLoginRecord(

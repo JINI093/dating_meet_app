@@ -23,7 +23,10 @@ import '../screens/notice/notice_list_screen.dart';
 import '../screens/notice/notice_detail_screen.dart';
 import '../screens/privacy/privacy_list_screen.dart';
 import '../screens/error/not_found_screen.dart';
-import '../screens/vip/vip_screen.dart';
+import '../screens/vip/vip_membership_screen.dart';
+import '../screens/vip/vip_purchase_screen.dart';
+import '../screens/vip/vip_dating_screen.dart';
+import '../widgets/navigation/vip_route_guard.dart';
 import '../screens/chat/chat_list_screen.dart';
 import '../screens/profile/my_profile_screen.dart';
 import '../screens/point/point_shop_screen.dart';
@@ -172,7 +175,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RouteNames.vip,
             name: 'vip',
-            builder: (context, state) => const VipScreen(),
+            builder: (context, state) => const VipRouteGuard(),
             routes: [
               GoRoute(
                 path: 'today',
@@ -187,6 +190,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const Scaffold(
                   body: Center(child: Text('VIP Plans 화면 - 개발 중')),
                 ),
+              ),
+              GoRoute(
+                path: 'membership',
+                name: 'vipMembership',
+                builder: (context, state) => const VipMembershipScreen(),
+              ),
+              GoRoute(
+                path: 'purchase',
+                name: 'vipPurchase',
+                builder: (context, state) => const VipPurchaseScreen(),
               ),
             ],
           ),

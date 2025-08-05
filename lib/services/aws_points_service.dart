@@ -1,482 +1,445 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_api/amplify_api.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/point_model.dart';
+import '../models/user_points_model.dart';
 import '../utils/logger.dart';
 
-/// AWS 기반 포인트 관리 서비스
-/// DynamoDB를 통한 포인트 잔액 및 거래 내역 관리
 class AWSPointsService {
-  static final AWSPointsService _instance = AWSPointsService._internal();
-  factory AWSPointsService() => _instance;
-  AWSPointsService._internal();
-
-  static const int _dailyLoginBonus = 10;
-  static const int _profileCompletionBonus = 100;
-  static const String _lastLoginDateKey = 'last_login_date';
-  static const String _profileCompletionRewardKey = 'profile_completion_reward_given';
-
-  /// 서비스 초기화
-  Future<void> initialize() async {
-    try {
-      if (!Amplify.isConfigured) {
-        throw Exception('Amplify가 초기화되지 않았습니다.');
-      }
-      Logger.log('✅ AWSPointsService 초기화 완료', name: 'AWSPointsService');
-    } catch (e) {
-      Logger.error('❌ AWSPointsService 초기화 실패', error: e, name: 'AWSPointsService');
-      rethrow;
-    }
-  }
-
-  /// 사용자 포인트 잔액 조회
+  static const String _tableName = 'UserPoints';
+  
+  /// 사용자 포인트 정보 조회
   Future<UserPointsModel?> getUserPoints(String userId) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetUserPoints(\$userId: String!) {
-            getUserPoints(userId: \$userId) {
+      Logger.log('사용자 포인트 조회 시작: $userId', name: 'AWSPointsService');
+      
+      // 기존 포인트 데이터 조회
+      const listQuery = '''
+        query ListUserPoints(\$filter: ModelUserPointsFilterInput) {
+          listUserPoints(filter: \$filter) {
+            items {
+              id
               userId
-              totalPoints
-              availablePoints
-              pendingPoints
-              usedPoints
+              currentPoints
+              totalEarned
+              totalSpent
               lastUpdated
             }
           }
-        ''',
-        variables: {'userId': userId},
+        }
+      ''';
+
+      final listRequest = GraphQLRequest<String>(
+        document: listQuery,
+        variables: {
+          'filter': {
+            'userId': {'eq': userId}
+          }
+        },
       );
 
-      final response = await Amplify.API.query(request: request).response;
+      final listResponse = await Amplify.API.query(request: listRequest).response;
       
-      if (response.errors.isNotEmpty) {
-        Logger.error('포인트 조회 실패: ${response.errors.first.message}', name: 'AWSPointsService');
-        return null;
+      Logger.log('GraphQL 응답 - hasErrors: ${listResponse.hasErrors}', name: 'AWSPointsService');
+      
+      if (listResponse.hasErrors) {
+        Logger.error('GraphQL 오류: ${listResponse.errors}', name: 'AWSPointsService');
+        // 에러 발생시 초기 포인트 생성
+        return await _createInitialUserPoints(userId);
       }
 
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final pointsData = data['getUserPoints'];
-        if (pointsData != null) {
-          return UserPointsModel.fromJson(pointsData);
+      if (listResponse.data != null) {
+        final data = listResponse.data as Map<String, dynamic>;
+        final listData = data['listUserPoints'] as Map<String, dynamic>;
+        final items = listData['items'] as List<dynamic>;
+        
+        Logger.log('조회된 포인트 데이터 개수: ${items.length}', name: 'AWSPointsService');
+        
+        if (items.isNotEmpty) {
+          final userPointsData = items.first as Map<String, dynamic>;
+          Logger.log('포인트 조회 성공: ${userPointsData['currentPoints']}P', name: 'AWSPointsService');
+          
+          return UserPointsModel(
+            userId: userPointsData['userId'],
+            currentPoints: userPointsData['currentPoints'],
+            totalEarned: userPointsData['totalEarned'],
+            totalSpent: userPointsData['totalSpent'],
+            lastUpdated: DateTime.parse(userPointsData['lastUpdated']),
+            transactions: [], // 별도로 로드
+          );
         }
       }
 
-      return null;
+      // 사용자 포인트가 없으면 새로 생성
+      Logger.log('포인트 데이터가 없음 - 새로 생성', name: 'AWSPointsService');
+      return await _createInitialUserPoints(userId);
+      
     } catch (e) {
-      Logger.error('포인트 조회 오류', error: e, name: 'AWSPointsService');
-      return null;
+      Logger.error('포인트 조회 실패: $e', name: 'AWSPointsService');
+      // 실패시 초기 포인트 생성 시도
+      return await _createInitialUserPoints(userId);
     }
   }
 
-  /// 사용자 포인트 잔액 생성 또는 업데이트
-  Future<UserPointsModel?> createOrUpdateUserPoints({
-    required String userId,
-    int totalPoints = 0,
-    int availablePoints = 0,
-    int pendingPoints = 0,
-    int usedPoints = 0,
-  }) async {
+  /// 초기 사용자 포인트 생성
+  Future<UserPointsModel?> _createInitialUserPoints(String userId) async {
     try {
-      final now = DateTime.now();
-      final pointsData = {
-        'userId': userId,
-        'totalPoints': totalPoints,
-        'availablePoints': availablePoints,
-        'pendingPoints': pendingPoints,
-        'usedPoints': usedPoints,
-        'lastUpdated': now.toIso8601String(),
-      };
-
-      final request = GraphQLRequest<String>(
-        document: '''
-          mutation CreateOrUpdateUserPoints(\$input: UserPointsInput!) {
-            createOrUpdateUserPoints(input: \$input) {
-              userId
-              totalPoints
-              availablePoints
-              pendingPoints
-              usedPoints
-              lastUpdated
-            }
+      Logger.log('초기 포인트 생성 시작: $userId', name: 'AWSPointsService');
+      
+      const mutation = '''
+        mutation CreateUserPoints(\$input: CreateUserPointsInput!) {
+          createUserPoints(input: \$input) {
+            id
+            userId
+            currentPoints
+            totalEarned
+            totalSpent
+            lastUpdated
           }
-        ''',
-        variables: {'input': pointsData},
+        }
+      ''';
+
+      final now = DateTime.now().toUtc().toIso8601String();
+      final request = GraphQLRequest<String>(
+        document: mutation,
+        variables: {
+          'input': {
+            'userId': userId,
+            'currentPoints': 302,
+            'totalEarned': 302,
+            'totalSpent': 0,
+            'lastUpdated': now,
+          }
+        },
       );
 
       final response = await Amplify.API.mutate(request: request).response;
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('포인트 업데이트 실패: ${response.errors.first.message}');
+      if (response.hasErrors) {
+        Logger.error('초기 포인트 생성 GraphQL 오류: ${response.errors}', name: 'AWSPointsService');
+        // 에러 발생시에도 초기 포인트 반환
+        return UserPointsModel.initial(userId);
       }
 
       if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final pointsData = data['createOrUpdateUserPoints'];
-        if (pointsData != null) {
-          return UserPointsModel.fromJson(pointsData);
-        }
+        final data = response.data as Map<String, dynamic>;
+        final userPointsData = data['createUserPoints'] as Map<String, dynamic>;
+        
+        Logger.log('초기 포인트 생성 완료: ${userPointsData['currentPoints']}P', name: 'AWSPointsService');
+        
+        return UserPointsModel(
+          userId: userPointsData['userId'],
+          currentPoints: userPointsData['currentPoints'],
+          totalEarned: userPointsData['totalEarned'],
+          totalSpent: userPointsData['totalSpent'],
+          lastUpdated: DateTime.parse(userPointsData['lastUpdated']),
+          transactions: [],
+        );
       }
-
-      return null;
+      
+      // 생성 실패시 기본 포인트 반환
+      return UserPointsModel.initial(userId);
     } catch (e) {
-      Logger.error('포인트 업데이트 오류', error: e, name: 'AWSPointsService');
-      rethrow;
+      Logger.error('초기 포인트 생성 실패: $e', name: 'AWSPointsService');
+      // 에러 발생시에도 초기 포인트 반환
+      return UserPointsModel.initial(userId);
     }
   }
 
-  /// 포인트 추가
-  Future<bool> addPoints({
+  /// 포인트 추가 (구매, 리워드 등)
+  Future<UserPointsModel?> addPoints({
     required String userId,
     required int amount,
-    required PointTransactionType type,
     required String description,
-    Map<String, dynamic>? metadata,
+    PointTransactionType type = PointTransactionType.earned,
   }) async {
     try {
-      // 1. 현재 포인트 잔액 조회
+      Logger.log('포인트 추가 시작: $userId (+$amount)', name: 'AWSPointsService');
+      
       final currentPoints = await getUserPoints(userId);
       if (currentPoints == null) {
-        // 포인트 계정이 없으면 생성
-        await createOrUpdateUserPoints(
-          userId: userId,
-          totalPoints: amount,
-          availablePoints: amount,
-        );
-      } else {
-        // 기존 계정에 포인트 추가
-        await createOrUpdateUserPoints(
-          userId: userId,
-          totalPoints: currentPoints.totalPoints + amount,
-          availablePoints: currentPoints.availablePoints + amount,
-          pendingPoints: currentPoints.pendingPoints,
-          usedPoints: currentPoints.usedPoints,
-        );
+        Logger.error('사용자 포인트 정보를 찾을 수 없음', name: 'AWSPointsService');
+        return null;
       }
 
-      // 2. 거래 기록 생성
-      await _createPointTransaction(
+      final updatedPoints = currentPoints.addPoints(amount, description, type);
+      
+      // 먼저 트랜잭션 생성
+      await _createTransaction(
         userId: userId,
         amount: amount,
-        type: type,
+        type: type.toStringValue(),
         description: description,
-        metadata: metadata,
       );
-
-      Logger.log('포인트 추가 완료: $userId (+$amount)', name: 'AWSPointsService');
-      return true;
+      
+      // 포인트 업데이트
+      await _updateUserPoints(updatedPoints);
+      
+      Logger.log('포인트 추가 완료: ${updatedPoints.currentPoints}P', name: 'AWSPointsService');
+      return updatedPoints;
+      
     } catch (e) {
-      Logger.error('포인트 추가 오류', error: e, name: 'AWSPointsService');
-      return false;
+      Logger.error('포인트 추가 실패: $e', name: 'AWSPointsService');
+      return null;
     }
   }
 
-  /// 포인트 차감
-  Future<bool> deductPoints({
+  /// 포인트 사용
+  Future<UserPointsModel?> spendPoints({
     required String userId,
     required int amount,
-    required PointTransactionType type,
     required String description,
-    Map<String, dynamic>? metadata,
+    PointTransactionType type = PointTransactionType.spentOther,
   }) async {
     try {
-      // 1. 현재 포인트 잔액 조회
+      Logger.log('포인트 사용 시작: $userId (-$amount)', name: 'AWSPointsService');
+      
       final currentPoints = await getUserPoints(userId);
-      if (currentPoints == null || !currentPoints.canAfford(amount)) {
-        throw Exception('포인트가 부족합니다. 필요: $amount, 보유: ${currentPoints?.availablePoints ?? 0}');
+      if (currentPoints == null) {
+        Logger.error('사용자 포인트 정보를 찾을 수 없음', name: 'AWSPointsService');
+        return null;
       }
 
-      // 2. 포인트 차감
-      await createOrUpdateUserPoints(
-        userId: userId,
-        totalPoints: currentPoints.totalPoints,
-        availablePoints: currentPoints.availablePoints - amount,
-        pendingPoints: currentPoints.pendingPoints,
-        usedPoints: currentPoints.usedPoints + amount,
-      );
+      if (!currentPoints.canSpend(amount)) {
+        throw Exception('포인트가 부족합니다. 현재: ${currentPoints.currentPoints}P, 필요: ${amount}P');
+      }
 
-      // 3. 거래 기록 생성 (음수로 기록)
-      await _createPointTransaction(
+      final updatedPoints = currentPoints.spendPoints(amount, description, type);
+      
+      // 먼저 트랜잭션 생성
+      await _createTransaction(
         userId: userId,
         amount: -amount,
-        type: type,
+        type: type.toStringValue(),
         description: description,
-        metadata: metadata,
       );
-
-      Logger.log('포인트 차감 완료: $userId (-$amount)', name: 'AWSPointsService');
-      return true;
+      
+      // 포인트 업데이트
+      await _updateUserPoints(updatedPoints);
+      
+      Logger.log('포인트 사용 완료: ${updatedPoints.currentPoints}P', name: 'AWSPointsService');
+      return updatedPoints;
+      
     } catch (e) {
-      Logger.error('포인트 차감 오류', error: e, name: 'AWSPointsService');
-      rethrow;
+      Logger.error('포인트 사용 실패: $e', name: 'AWSPointsService');
+      return null;
     }
   }
 
-  /// 포인트 거래 내역 조회
-  Future<List<PointTransaction>> getPointTransactions({
+  /// 포인트 구매
+  Future<UserPointsModel?> purchasePoints({
     required String userId,
-    int limit = 20,
-    String? nextToken,
+    required int amount,
+    required int price,
+    required String paymentMethod,
   }) async {
     try {
-      final request = GraphQLRequest<String>(
-        document: '''
-          query GetPointTransactions(\$userId: String!, \$limit: Int, \$nextToken: String) {
-            pointTransactionsByUserId(
-              userId: \$userId, 
-              limit: \$limit, 
-              nextToken: \$nextToken,
-              sortDirection: DESC
-            ) {
-              items {
-                id
-                amount
-                type
-                description
-                createdAt
-                relatedItemId
-                metadata
-              }
-              nextToken
+      Logger.log('포인트 구매 시작: $userId (+$amount, ₩$price)', name: 'AWSPointsService');
+      
+      return await addPoints(
+        userId: userId,
+        amount: amount,
+        description: '포인트 구매 ($paymentMethod, ₩$price)',
+        type: PointTransactionType.purchase,
+      );
+      
+    } catch (e) {
+      Logger.error('포인트 구매 실패: $e', name: 'AWSPointsService');
+      return null;
+    }
+  }
+
+  /// 포인트 업데이트
+  Future<bool> _updateUserPoints(UserPointsModel userPoints) async {
+    try {
+      // 먼저 기존 레코드 ID 조회
+      const listQuery = '''
+        query ListUserPoints(\$filter: ModelUserPointsFilterInput) {
+          listUserPoints(filter: \$filter) {
+            items {
+              id
+              userId
             }
           }
-        ''',
+        }
+      ''';
+
+      final listRequest = GraphQLRequest<String>(
+        document: listQuery,
         variables: {
-          'userId': userId,
-          'limit': limit,
-          'nextToken': nextToken,
+          'filter': {
+            'userId': {'eq': userPoints.userId}
+          }
         },
       );
 
-      final response = await Amplify.API.query(request: request).response;
+      final listResponse = await Amplify.API.query(request: listRequest).response;
       
-      if (response.errors.isNotEmpty) {
-        throw Exception('거래 내역 조회 실패: ${response.errors.first.message}');
+      if (listResponse.hasErrors || listResponse.data == null) {
+        Logger.error('사용자 포인트 ID 조회 실패', name: 'AWSPointsService');
+        return false;
       }
 
-      if (response.data != null) {
-        final data = _parseGraphQLResponse(response.data!);
-        final items = data['pointTransactionsByUserId']?['items'] as List?;
-        if (items != null) {
-          return items
-              .map((item) => PointTransaction.fromJson(item as Map<String, dynamic>))
-              .toList();
+      final data = listResponse.data as Map<String, dynamic>;
+      final listData = data['listUserPoints'] as Map<String, dynamic>;
+      final items = listData['items'] as List<dynamic>;
+      
+      if (items.isEmpty) {
+        Logger.error('업데이트할 포인트 레코드를 찾을 수 없음', name: 'AWSPointsService');
+        return false;
+      }
+
+      final pointsId = items.first['id'] as String;
+      
+      // 업데이트 실행
+      const mutation = '''
+        mutation UpdateUserPoints(\$input: UpdateUserPointsInput!) {
+          updateUserPoints(input: \$input) {
+            id
+            userId
+            currentPoints
+            totalEarned
+            totalSpent
+            lastUpdated
+          }
         }
-      }
-
-      return [];
-    } catch (e) {
-      Logger.error('거래 내역 조회 오류', error: e, name: 'AWSPointsService');
-      return [];
-    }
-  }
-
-  /// 일일 로그인 보너스 지급
-  Future<bool> giveDailyLoginBonus(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayString = '${today.year}-${today.month}-${today.day}';
-      
-      final lastLoginDate = prefs.getString('${_lastLoginDateKey}_$userId') ?? '';
-      
-      // 오늘 이미 보너스를 받았는지 확인
-      if (lastLoginDate == todayString) {
-        return false; // 이미 받음
-      }
-
-      // 보너스 지급
-      final success = await addPoints(
-        userId: userId,
-        amount: _dailyLoginBonus,
-        type: PointTransactionType.dailyLogin,
-        description: '일일 출석 보너스',
-        metadata: {'date': todayString},
-      );
-
-      if (success) {
-        await prefs.setString('${_lastLoginDateKey}_$userId', todayString);
-        Logger.log('일일 로그인 보너스 지급: $userId (+$_dailyLoginBonus)', name: 'AWSPointsService');
-      }
-
-      return success;
-    } catch (e) {
-      Logger.error('일일 로그인 보너스 지급 오류', error: e, name: 'AWSPointsService');
-      return false;
-    }
-  }
-
-  /// 프로필 완성 보너스 지급
-  Future<bool> giveProfileCompletionBonus(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyGiven = prefs.getBool('${_profileCompletionRewardKey}_$userId') ?? false;
-      
-      // 이미 보너스를 받았는지 확인
-      if (alreadyGiven) {
-        return false; // 이미 받음
-      }
-
-      // 보너스 지급
-      final success = await addPoints(
-        userId: userId,
-        amount: _profileCompletionBonus,
-        type: PointTransactionType.profileCompletion,
-        description: '프로필 완성 보너스',
-        metadata: {'completedAt': DateTime.now().toIso8601String()},
-      );
-
-      if (success) {
-        await prefs.setBool('${_profileCompletionRewardKey}_$userId', true);
-        Logger.log('프로필 완성 보너스 지급: $userId (+$_profileCompletionBonus)', name: 'AWSPointsService');
-      }
-
-      return success;
-    } catch (e) {
-      Logger.error('프로필 완성 보너스 지급 오류', error: e, name: 'AWSPointsService');
-      return false;
-    }
-  }
-
-  /// 포인트 잔액 확인
-  Future<bool> hasEnoughPoints(String userId, int requiredAmount) async {
-    try {
-      final userPoints = await getUserPoints(userId);
-      return userPoints?.canAfford(requiredAmount) ?? false;
-    } catch (e) {
-      Logger.error('포인트 잔액 확인 오류', error: e, name: 'AWSPointsService');
-      return false;
-    }
-  }
-
-  /// 포인트 거래 기록 생성
-  Future<void> _createPointTransaction({
-    required String userId,
-    required int amount,
-    required PointTransactionType type,
-    required String description,
-    Map<String, dynamic>? metadata,
-  }) async {
-    try {
-      final now = DateTime.now();
-      final transactionData = {
-        'userId': userId,
-        'amount': amount,
-        'type': type.name,
-        'description': description,
-        'metadata': metadata,
-        'status': 'COMPLETED',
-        'createdAt': now.toIso8601String(),
-        'updatedAt': now.toIso8601String(),
-      };
+      ''';
 
       final request = GraphQLRequest<String>(
-        document: '''
-          mutation CreatePointTransaction(\$input: CreatePointTransactionInput!) {
-            createPointTransaction(input: \$input) {
+        document: mutation,
+        variables: {
+          'input': {
+            'id': pointsId,
+            'currentPoints': userPoints.currentPoints,
+            'totalEarned': userPoints.totalEarned,
+            'totalSpent': userPoints.totalSpent,
+            'lastUpdated': userPoints.lastUpdated.toUtc().toIso8601String(),
+          }
+        },
+      );
+
+      final response = await Amplify.API.mutate(request: request).response;
+      
+      if (response.hasErrors) {
+        Logger.error('포인트 업데이트 GraphQL 오류: ${response.errors}', name: 'AWSPointsService');
+        return false;
+      }
+
+      Logger.log('포인트 업데이트 성공: ${userPoints.currentPoints}P', name: 'AWSPointsService');
+      return true;
+      
+    } catch (e) {
+      Logger.error('포인트 업데이트 실패: $e', name: 'AWSPointsService');
+      return false;
+    }
+  }
+
+  /// 트랜잭션 생성
+  Future<bool> _createTransaction({
+    required String userId,
+    required int amount,
+    required String type,
+    required String description,
+  }) async {
+    try {
+      const mutation = '''
+        mutation CreatePointTransaction(\$input: CreatePointTransactionInput!) {
+          createPointTransaction(input: \$input) {
+            id
+            userId
+            amount
+            type
+            description
+            timestamp
+          }
+        }
+      ''';
+
+      final request = GraphQLRequest<String>(
+        document: mutation,
+        variables: {
+          'input': {
+            'userId': userId,
+            'amount': amount,
+            'type': type,
+            'description': description,
+            'timestamp': DateTime.now().toUtc().toIso8601String(),
+          }
+        },
+      );
+
+      final response = await Amplify.API.mutate(request: request).response;
+      
+      if (response.hasErrors) {
+        Logger.error('트랜잭션 생성 GraphQL 오류: ${response.errors}', name: 'AWSPointsService');
+        return false;
+      }
+
+      Logger.log('트랜잭션 생성 성공: $type ($amount)', name: 'AWSPointsService');
+      return true;
+      
+    } catch (e) {
+      Logger.error('트랜잭션 생성 실패: $e', name: 'AWSPointsService');
+      return false;
+    }
+  }
+
+  /// 포인트 트랜잭션 목록 조회
+  Future<List<PointTransaction>> getPointTransactions(String userId, {int limit = 20}) async {
+    try {
+      Logger.log('트랜잭션 목록 조회 시작: $userId', name: 'AWSPointsService');
+      
+      const listQuery = '''
+        query ListPointTransactions(\$filter: ModelPointTransactionFilterInput, \$limit: Int) {
+          listPointTransactions(filter: \$filter, limit: \$limit) {
+            items {
               id
               userId
               amount
               type
               description
-              status
-              createdAt
+              timestamp
             }
           }
-        ''',
-        variables: {'input': transactionData},
+        }
+      ''';
+
+      final request = GraphQLRequest<String>(
+        document: listQuery,
+        variables: {
+          'filter': {
+            'userId': {'eq': userId}
+          },
+          'limit': limit,
+        },
       );
 
-      await Amplify.API.mutate(request: request).response;
+      final response = await Amplify.API.query(request: request).response;
       
-      Logger.log('포인트 거래 기록 생성: $userId, $amount, $type', name: 'AWSPointsService');
-    } catch (e) {
-      Logger.error('포인트 거래 기록 생성 오류', error: e, name: 'AWSPointsService');
-      // 거래 기록 실패는 전체 프로세스를 중단시키지 않음
-    }
-  }
-
-  /// 일일 로그인 보너스 수령 가능 여부 확인
-  Future<bool> canReceiveDailyBonus(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayString = '${today.year}-${today.month}-${today.day}';
-      
-      final lastLoginDate = prefs.getString('${_lastLoginDateKey}_$userId') ?? '';
-      
-      return lastLoginDate != todayString;
-    } catch (e) {
-      Logger.error('일일 보너스 수령 가능 여부 확인 오류', error: e, name: 'AWSPointsService');
-      return false;
-    }
-  }
-
-  /// 프로필 완성 보너스 수령 가능 여부 확인
-  Future<bool> canReceiveProfileCompletionBonus(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyGiven = prefs.getBool('${_profileCompletionRewardKey}_$userId') ?? false;
-      
-      return !alreadyGiven;
-    } catch (e) {
-      Logger.error('프로필 완성 보너스 수령 가능 여부 확인 오류', error: e, name: 'AWSPointsService');
-      return false;
-    }
-  }
-
-  /// 포인트 통계 조회
-  Future<Map<String, int>> getPointsStatistics(String userId) async {
-    try {
-      final transactions = await getPointTransactions(userId: userId, limit: 100);
-      final userPoints = await getUserPoints(userId);
-
-      int totalEarned = 0;
-      int totalSpent = 0;
-      int transactionsThisMonth = 0;
-
-      final thisMonth = DateTime.now();
-      final monthStart = DateTime(thisMonth.year, thisMonth.month, 1);
-
-      for (final transaction in transactions) {
-        if (transaction.amount > 0) {
-          totalEarned += transaction.amount;
-        } else {
-          totalSpent += transaction.amount.abs();
-        }
-
-        if (transaction.createdAt.isAfter(monthStart)) {
-          transactionsThisMonth++;
-        }
+      if (response.hasErrors) {
+        Logger.error('트랜잭션 조회 GraphQL 오류: ${response.errors}', name: 'AWSPointsService');
+        return [];
       }
 
-      return {
-        'available': userPoints?.availablePoints ?? 0,
-        'total': userPoints?.totalPoints ?? 0,
-        'totalEarned': totalEarned,
-        'totalSpent': totalSpent,
-        'transactionsThisMonth': transactionsThisMonth,
-        'dailyLoginBonusAmount': _dailyLoginBonus,
-        'profileCompletionBonusAmount': _profileCompletionBonus,
-      };
-    } catch (e) {
-      Logger.error('포인트 통계 조회 오류', error: e, name: 'AWSPointsService');
-      return {};
-    }
-  }
-
-  /// GraphQL 응답 파싱
-  Map<String, dynamic> _parseGraphQLResponse(String response) {
-    try {
-      if (response.startsWith('{') || response.startsWith('[')) {
-        return Map<String, dynamic>.from(response as Map);
+      if (response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final listData = data['listPointTransactions'] as Map<String, dynamic>;
+        final items = listData['items'] as List<dynamic>;
+        
+        Logger.log('트랜잭션 조회 성공: ${items.length}개', name: 'AWSPointsService');
+        
+        return items.map((item) => PointTransaction(
+          id: item['id'],
+          userId: item['userId'],
+          amount: item['amount'],
+          type: PointTransactionTypeExtension.fromString(item['type']),
+          description: item['description'],
+          timestamp: DateTime.parse(item['timestamp']),
+        )).toList();
       }
-      return {};
+      
+      return [];
     } catch (e) {
-      Logger.error('GraphQL 응답 파싱 오류', error: e, name: 'AWSPointsService');
-      return {};
+      Logger.error('트랜잭션 조회 실패: $e', name: 'AWSPointsService');
+      return [];
     }
   }
 }

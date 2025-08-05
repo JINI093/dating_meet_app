@@ -51,17 +51,36 @@ class AWSCognitoService {
   /// 현재 세션 확인
   Future<void> _checkCurrentSession() async {
     try {
-      final sessionResult = Amplify.Auth.fetchAuthSession();
-      await sessionResult.then((session) async {
-        if (session.isSignedIn) {
-          print('✅ 기존 세션 발견');
-          await _saveTokensFromSession(session);
-        } else {
-          print('ℹ️ 활성 세션 없음');
+      // Credential Store가 로딩 중일 수 있으므로 재시도 로직 추가
+      int retryCount = 0;
+      const maxRetries = 3;
+      const retryDelay = Duration(milliseconds: 500);
+      
+      while (retryCount < maxRetries) {
+        try {
+          final session = await Amplify.Auth.fetchAuthSession();
+          if (session.isSignedIn) {
+            print('✅ 기존 세션 발견');
+            await _saveTokensFromSession(session);
+          } else {
+            print('ℹ️ 활성 세션 없음');
+          }
+          break; // 성공하면 루프 종료
+        } catch (e) {
+          if (e.toString().contains('CredentialStoreLoadingStoredCredentials') || 
+              e.toString().contains('FetchAuthSessionFetching')) {
+            print('⚠️ Credential Store 로딩 중... 재시도 ${retryCount + 1}/$maxRetries');
+            await Future.delayed(retryDelay);
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              print('⚠️ 세션 확인 실패: $e');
+            }
+          } else {
+            print('⚠️ 세션 확인 실패: $e');
+            break;
+          }
         }
-      }).catchError((error) {
-        print('⚠️ 세션 확인 중 오류: $error');
-      });
+      }
     } catch (e) {
       print('⚠️ 세션 확인 실패: $e');
     }
@@ -211,11 +230,37 @@ class AWSCognitoService {
 
       // 기존 로그인 상태 확인 및 로그아웃
       try {
-        final currentSession = await Amplify.Auth.fetchAuthSession();
-        if (currentSession.isSignedIn) {
-          print('기존 사용자가 로그인되어 있음. 로그아웃 후 재로그인...');
-          await Amplify.Auth.signOut();
-          await _clearStoredTokens();
+        // Credential Store 로딩 상태 처리
+        int retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = Duration(milliseconds: 300);
+        
+        while (retryCount < maxRetries) {
+          try {
+            final currentSession = await Amplify.Auth.fetchAuthSession();
+            if (currentSession.isSignedIn) {
+              print('기존 사용자가 로그인되어 있음. 로그아웃 후 재로그인...');
+              await Amplify.Auth.signOut();
+              await _clearStoredTokens();
+            }
+            break;
+          } catch (e) {
+            if (e.toString().contains('CredentialStoreLoadingStoredCredentials') || 
+                e.toString().contains('FetchAuthSessionFetching')) {
+              if (retryCount < maxRetries - 1) {
+                print('Credential Store 로딩 중... 잠시 대기');
+                await Future.delayed(retryDelay);
+                retryCount++;
+              } else {
+                // 마지막 시도에서도 실패하면 그냥 진행
+                print('기존 세션 확인 건너뛰기: $e');
+                break;
+              }
+            } else {
+              print('기존 세션 확인 중 오류: $e');
+              break;
+            }
+          }
         }
       } catch (e) {
         print('기존 세션 확인 중 오류: $e');
@@ -253,10 +298,39 @@ class AWSCognitoService {
         print('   사용자명: $loginUsername');
         print('   비밀번호 길이: ${password.length}');
         
-        result = await Amplify.Auth.signIn(
-          username: loginUsername,
-          password: password,
-        );
+        // iOS에서 Credential Store가 완전히 로드될 때까지 대기
+        if (Platform.isIOS) {
+          print('iOS 플랫폼 감지: Credential Store 로딩 대기...');
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+        
+        // 재시도 로직 추가
+        int signInRetryCount = 0;
+        const maxSignInRetries = 3;
+        const signInRetryDelay = Duration(milliseconds: 500);
+        
+        while (signInRetryCount < maxSignInRetries) {
+          try {
+            result = await Amplify.Auth.signIn(
+              username: loginUsername,
+              password: password,
+            );
+            break; // 성공하면 루프 종료
+          } catch (e) {
+            if (e.toString().contains('CredentialStoreLoadingStoredCredentials') || 
+                e.toString().contains('CredentialStoreSuccess')) {
+              if (signInRetryCount < maxSignInRetries - 1) {
+                print('Credential Store 아직 로딩 중... 재시도 ${signInRetryCount + 1}/$maxSignInRetries');
+                await Future.delayed(signInRetryDelay);
+                signInRetryCount++;
+              } else {
+                rethrow; // 마지막 시도에서도 실패하면 에러 발생
+              }
+            } else {
+              rethrow; // 다른 에러는 즉시 발생
+            }
+          }
+        }
       } catch (e) {
         print('❌ 로그인 실패 - 플랫폼: ${Platform.isAndroid ? "Android" : "iOS"}');
         print('   에러: $e');
@@ -273,17 +347,8 @@ class AWSCognitoService {
       if (result?.isSignedIn == true) {
         // 로그인 성공
         try {
-          final userResult = Amplify.Auth.getCurrentUser();
-          final user = await userResult.catchError((error) {
-            print('사용자 정보 조회 에러: $error');
-            throw error;
-          });
-          
-          final sessionResult = Amplify.Auth.fetchAuthSession();
-          final session = await sessionResult.catchError((error) {
-            print('세션 조회 에러: $error');
-            throw error;
-          });
+          final user = await Amplify.Auth.getCurrentUser();
+          final session = await Amplify.Auth.fetchAuthSession();
           
           // 토큰 저장
           await _saveTokensFromSession(session);
@@ -458,11 +523,7 @@ class AWSCognitoService {
       print('현재 사용자 조회 시작...');
       
       // 먼저 세션 상태를 확인
-      final sessionResult = Amplify.Auth.fetchAuthSession();
-      final session = await sessionResult.catchError((error) {
-        print('세션 조회 에러: $error');
-        throw error;
-      });
+      final session = await Amplify.Auth.fetchAuthSession();
       
       print('세션 상태: isSignedIn=${session.isSignedIn}');
       
@@ -472,11 +533,7 @@ class AWSCognitoService {
       }
 
       // 사용자 정보 조회
-      final userResult = Amplify.Auth.getCurrentUser();
-      final user = await userResult.catchError((error) {
-        print('사용자 정보 조회 에러: $error');
-        throw error;
-      });
+      final user = await Amplify.Auth.getCurrentUser();
       
       final storedEmail = await _getStoredValue(_emailKey);
       print('현재 사용자: ${user.username}, 이메일: $storedEmail');
@@ -586,37 +643,34 @@ class AWSCognitoService {
         // 토큰 결과가 성공 상태인지 확인
         final tokenResult = session.userPoolTokensResult;
         
-        try {
-          // 토큰 결과에서 값 직접 접근 시도
-          final tokens = tokenResult.value;
-          
-          final accessToken = tokens.accessToken;
-          if (accessToken != null) {
+        // valueOrNull을 사용하여 안전하게 토큰 접근
+        final tokens = tokenResult.valueOrNull;
+        if (tokens != null) {
+          try {
+            final accessToken = tokens.accessToken;
             await _secureStorage.write(
               key: _accessTokenKey,
               value: accessToken.toString(),
             );
-          }
-          
-          final refreshToken = tokens.refreshToken;
-          if (refreshToken != null) {
+            
+            final refreshToken = tokens.refreshToken;
             await _secureStorage.write(
               key: _refreshTokenKey,
               value: refreshToken,
             );
-          }
-          
-          final idToken = tokens.idToken;
-          if (idToken != null) {
+            
+            final idToken = tokens.idToken;
             await _secureStorage.write(
               key: _idTokenKey,
               value: idToken.toString(),
             );
+            
+            print('✅ 토큰 저장 완료');
+          } catch (tokenError) {
+            print('⚠️ 토큰 접근 실패: $tokenError');
           }
-          
-          print('✅ 토큰 저장 완료');
-        } catch (tokenError) {
-          print('⚠️ 토큰 접근 실패: $tokenError');
+        } else {
+          print('⚠️ 토큰이 아직 사용 불가능한 상태입니다');
         }
       } else {
         print('⚠️ 세션이 CognitoAuthSession이 아님');

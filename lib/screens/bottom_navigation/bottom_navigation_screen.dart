@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
+import '../../providers/user_provider.dart';
 
 
 // Bottom Navigation State Provider
@@ -64,6 +65,7 @@ class BottomNavigationScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(bottomNavigationProvider);
+    final userState = ref.watch(userProvider);
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     // Determine current index based on route
@@ -84,13 +86,17 @@ class BottomNavigationScreen extends ConsumerWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: _buildBottomNavigationBar(context, ref, routeIndex),
+      bottomNavigationBar: _buildBottomNavigationBar(context, ref, routeIndex, userState),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, WidgetRef ref, int currentIndex) {
-    // 임시 프로필 이미지 (실제 연동 시 provider 등에서 가져오세요)
-    final String? profileImageUrl = null; // ex) 'https://randomuser.me/api/portraits/men/1.jpg';
+  Widget _buildBottomNavigationBar(BuildContext context, WidgetRef ref, int currentIndex, userState) {
+    // 사용자 프로필 이미지 가져오기
+    String? profileImageUrl;
+    if (userState.currentUser?.profileImages != null && userState.currentUser!.profileImages.isNotEmpty) {
+      profileImageUrl = userState.currentUser!.profileImages.first;
+    }
+    
     return Container(
       height: AppDimensions.bottomNavHeight + MediaQuery.of(context).padding.bottom,
       decoration: const BoxDecoration(
@@ -145,17 +151,8 @@ class BottomNavigationScreen extends ConsumerWidget {
         height: 32,
       );
     } else if (index == 4) {
-      // 프로필: 원형 프로필 이미지 or 기본 아바타
-      iconWidget = profileImageUrl != null
-          ? CircleAvatar(
-              radius: 20,
-              backgroundImage: NetworkImage(profileImageUrl),
-            )
-          : CircleAvatar(
-              radius: 20,
-              backgroundColor: Color(0xFF2196F3),
-              backgroundImage: AssetImage('assets/icons/profile.png'),
-            );
+      // 프로필: 원형 프로필 이미지 또는 기본 아바타
+      iconWidget = _buildProfileImage(profileImageUrl, isActive);
     } else {
       iconWidget = Icon(
         isActive ? (item.activeIcon ?? item.icon) : item.icon,
@@ -184,6 +181,52 @@ class BottomNavigationScreen extends ConsumerWidget {
     if (currentRoute != route) {
       context.go(route);
     }
+  }
+
+  Widget _buildProfileImage(String? profileImageUrl, bool isActive) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: isActive 
+            ? Border.all(color: AppColors.primary, width: 2) 
+            : null,
+      ),
+      child: ClipOval(
+        child: profileImageUrl != null && profileImageUrl.isNotEmpty
+            ? Image.network(
+                profileImageUrl,
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildDefaultProfileImage();
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _buildDefaultProfileImage();
+                },
+              )
+            : _buildDefaultProfileImage(),
+      ),
+    );
+  }
+
+  Widget _buildDefaultProfileImage() {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: const BoxDecoration(
+        color: AppColors.divider,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        CupertinoIcons.person_fill,
+        size: 16,
+        color: AppColors.textSecondary,
+      ),
+    );
   }
 }
 

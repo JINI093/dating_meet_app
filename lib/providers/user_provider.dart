@@ -9,22 +9,26 @@ class UserState {
   final ProfileModel? currentUser;
   final bool isLoading;
   final String? error;
+  final String? vipTier;
 
   const UserState({
     this.currentUser,
     required this.isLoading,
     this.error,
+    this.vipTier,
   });
 
   UserState copyWith({
     ProfileModel? currentUser,
     bool? isLoading,
     String? error,
+    String? vipTier,
   }) {
     return UserState(
       currentUser: currentUser ?? this.currentUser,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      vipTier: vipTier ?? this.vipTier,
     );
   }
 
@@ -173,8 +177,12 @@ class UserNotifier extends StateNotifier<UserState> {
     state = state.copyWith(isLoading: true);
     
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Update profile in AWS
+      final profileService = AWSProfileService();
+      await profileService.updateProfile(
+        profileId: updatedProfile.id,
+        additionalData: updatedProfile.toJson(),
+      );
       
       final updatedUser = updatedProfile.copyWith(
         updatedAt: DateTime.now(),
@@ -188,12 +196,71 @@ class UserNotifier extends StateNotifier<UserState> {
       
       return true;
     } catch (e) {
+      Logger.error('프로필 업데이트 실패: $e', name: 'UserProvider');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
       return false;
     }
+  }
+
+  /// VIP 상태 업데이트
+  Future<void> updateVipStatus({
+    required bool isVip,
+    DateTime? vipStartDate,
+    DateTime? vipEndDate,
+    String? vipTier,
+  }) async {
+    if (state.currentUser == null) return;
+    
+    try {
+      Logger.log('VIP 상태 업데이트: isVip=$isVip, tier=$vipTier', name: 'UserProvider');
+      
+      // Create updated profile with VIP info
+      final updatedProfile = state.currentUser!.copyWith(
+        isVip: isVip,
+        isPremium: isVip && vipTier == 'GOLD',
+        updatedAt: DateTime.now(),
+      );
+      
+      // Update AWS profile
+      final profileService = AWSProfileService();
+      await profileService.updateProfile(
+        profileId: updatedProfile.id,
+        additionalData: {
+          'isVip': isVip,
+          'isPremium': isVip && vipTier == 'GOLD',
+          'vipStartDate': vipStartDate?.toIso8601String(),
+          'vipEndDate': vipEndDate?.toIso8601String(),
+          'vipTier': vipTier,
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      // Update local state
+      state = state.copyWith(
+        currentUser: updatedProfile,
+        vipTier: vipTier,
+        error: null,
+      );
+      
+      Logger.log('VIP 상태 업데이트 완료', name: 'UserProvider');
+    } catch (e) {
+      Logger.error('VIP 상태 업데이트 실패: $e', name: 'UserProvider');
+      state = state.copyWith(error: 'VIP 상태 업데이트 실패: ${e.toString()}');
+    }
+  }
+
+  /// VIP 상태 확인
+  bool get isVip {
+    return state.currentUser?.isVip == true;
+  }
+
+  /// VIP 만료일 확인 (추후 프로필에 해당 필드 추가 시 사용)
+  DateTime? get vipExpirationDate {
+    // TODO: ProfileModel에 vipEndDate 필드 추가 후 구현
+    return null;
   }
 
   // Update profile photos

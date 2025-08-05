@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
-import '../../providers/point_provider.dart';
+import '../../providers/points_provider.dart';
 
 class PurchaseScreen extends ConsumerStatefulWidget {
   final int points;
@@ -576,11 +577,17 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       ),
     );
     Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      
       Navigator.of(context).pop();
-      ref.read(pointProvider.notifier).addPoints(
-        widget.points + widget.bonusPoints,
-        '포인트 충전',
+      ref.read(pointsProvider.notifier).purchasePoints(
+        amount: widget.points + widget.bonusPoints,
+        price: widget.price,
+        paymentMethod: _selectedPaymentMethod,
       );
+      
+      if (!mounted) return;
+      
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -601,9 +608,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    // 다이얼로그 닫기
                     Navigator.of(context).pop();
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
+                    
+                    // 포인트 샵으로 돌아가기 (Go Router 안전 방식)
+                    context.go('/bottom-navigation');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,

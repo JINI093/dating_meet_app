@@ -23,6 +23,12 @@ import '../../routes/route_names.dart';
 import '../../widgets/dialogs/region_selector_bottom_sheet.dart';
 import '../notification/notification_screen.dart';
 import '../chat/chat_room_screen.dart';
+import '../../widgets/navigation/vip_route_guard.dart';
+import '../../services/daily_counter_service.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
+import '../../providers/points_provider.dart';
+import '../../utils/logger.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -33,6 +39,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final SwiperController _swiperController = SwiperController();
+  final DailyCounterService _dailyCounterService = DailyCounterService();
   
   // Filter states
   String _selectedRegion = '지역';
@@ -47,6 +54,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 초기화 시 matchProvider 인덱스 확인
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(matchProvider.notifier).setCurrentIndex(0);
+      // 포인트 데이터 로드
+      ref.read(pointsProvider.notifier).loadUserPoints();
     });
   }
 
@@ -168,13 +177,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        '302',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final pointsState = ref.watch(pointsProvider);
+                          return Text(
+                            '${pointsState.currentPoints}',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -220,8 +234,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             onTap: () => context.go('/vip'),
             child: Image.asset(
               'assets/icons/VIP Frame.png',
-              width: 30,
-              height: 30,
+              width: 40,
+              height: 40,
             ),
           ),
           const Spacer(),
@@ -317,6 +331,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 
                 // matchProvider의 currentIndex와 동기화
                 ref.read(matchProvider.notifier).setCurrentIndex(index);
+                
+                // 일일 프로필 조회 카운터 증가
+                _incrementDailyProfileCounter();
                 
                 // 4. 카드를 5번 넘기면 모달 노출
                 if (_swipeCount == 5) {
@@ -613,6 +630,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _showProfileDetail(ProfileModel profile) {
     // TODO: 프로필 상세 화면으로 이동
+  }
+  
+  Future<void> _incrementDailyProfileCounter() async {
+    try {
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        return;
+      }
+      
+      final userId = authState.currentUser!.user!.userId;
+      final userState = ref.read(userProvider);
+      final vipTier = userState.vipTier ?? 'FREE';
+      
+      await _dailyCounterService.incrementCounter(userId, vipTier);
+    } catch (e) {
+      // 일일 카운터 증가 실패는 조용히 처리
+      Logger.log('Failed to increment daily profile counter: $e', name: 'MainScreen');
+    }
   }
 
   void _showRegionSelectorBottomSheet() async {

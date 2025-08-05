@@ -9,10 +9,12 @@ import '../models/profile_model.dart';
 import '../services/aws_profile_service.dart';
 import '../services/aws_likes_service.dart';
 import '../services/location_service.dart';
+import '../services/daily_counter_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 import 'current_user_profile_provider.dart';
 import 'matches_provider.dart';
+import 'user_provider.dart';
 
 /// 프로필 필터 설정
 class ProfileFilter {
@@ -110,6 +112,7 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
   final AWSProfileService _profileService = AWSProfileService();
   final AWSLikesService _likesService = AWSLikesService();
   final LocationService _locationService = LocationService();
+  final DailyCounterService _dailyCounterService = DailyCounterService();
   StreamSubscription? _profileCreateSubscription;
   StreamSubscription? _profileUpdateSubscription;
   
@@ -156,8 +159,19 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
       }
 
       final currentUserId = authState.currentUser!.user!.userId;
+      
+      // 2. 사용자 VIP 등급 확인
+      final userState = ref.read(userProvider);
+      final vipTier = userState.vipTier ?? 'FREE';
+      
+      // 3. 일일 프로필 조회 제한 확인
+      final canViewMore = await _dailyCounterService.canViewMoreProfiles(currentUserId, vipTier);
+      if (!canViewMore && !forceRefresh) {
+        final remaining = await _dailyCounterService.getRemainingProfiles(currentUserId, vipTier);
+        throw Exception('오늘의 프로필 조회 한도를 모두 사용했습니다. (남은 조회 수: $remaining)');
+      }
 
-      // 2. 현재 사용자의 프로필 정보 가져오기 (성별 확인)
+      // 4. 현재 사용자의 프로필 정보 가져오기 (성별 확인)
       final currentUserProfile = ref.read(currentProfileProvider);
       String? oppositeGender;
       
@@ -1017,6 +1031,32 @@ class DiscoverProfilesNotifier extends StateNotifier<DiscoverProfilesState> {
         if (profileType == userType) {
           score += 5;
         }
+      }
+    }
+    
+    // 7. VIP 등급별 노출 확률 부스트 (최대 30점)
+    if (profile.isVip) {
+      // ProfileModel에서 vipTier 직접 가져오기
+      final vipTier = profile.vipTier;
+      
+      // VIP 등급별 점수 부여
+      switch (vipTier?.toUpperCase()) {
+        case 'GOLD':
+          score += 30; // 최고 부스트
+          Logger.log('VIP GOLD 부스트 적용: +30점 for ${profile.name}', name: 'DiscoverProfilesProvider');
+          break;
+        case 'SILVER':
+          score += 20; // 중간 부스트
+          Logger.log('VIP SILVER 부스트 적용: +20점 for ${profile.name}', name: 'DiscoverProfilesProvider');
+          break;
+        case 'BRONZE':
+          score += 10; // 기본 부스트
+          Logger.log('VIP BRONZE 부스트 적용: +10점 for ${profile.name}', name: 'DiscoverProfilesProvider');
+          break;
+        default:
+          // VIP이지만 등급이 없는 경우 기본 Bronze 처리
+          score += 10;
+          Logger.log('VIP 기본 부스트 적용: +10점 for ${profile.name}', name: 'DiscoverProfilesProvider');
       }
     }
     

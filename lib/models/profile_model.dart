@@ -31,6 +31,7 @@ class ProfileModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? gender;
+  final String? vipTier;
 
   const ProfileModel({
     required this.id,
@@ -60,6 +61,7 @@ class ProfileModel {
     required this.createdAt,
     required this.updatedAt,
     this.gender,
+    this.vipTier,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) =>
@@ -76,6 +78,7 @@ class ProfileModel {
     gender: null, // 성별 정보 추가
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
+    vipTier: null,
   );
 
   ProfileModel copyWith({
@@ -106,6 +109,7 @@ class ProfileModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? gender,
+    String? vipTier,
   }) {
     return ProfileModel(
       id: id ?? this.id,
@@ -135,6 +139,7 @@ class ProfileModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       gender: gender ?? this.gender,
+      vipTier: vipTier ?? this.vipTier,
     );
   }
 

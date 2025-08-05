@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import GoogleSignIn
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -7,6 +8,13 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Firebase 없이 Google Sign-In 설정
+    if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+       let plist = NSDictionary(contentsOfFile: path),
+       let clientId = plist["CLIENT_ID"] as? String {
+      GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+    }
+    
     GeneratedPluginRegistrant.register(with: self)
     
     // 스크린 캡처 방지 설정
@@ -16,6 +24,14 @@ import UIKit
     setupMethodChannel()
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+  
+  override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    // Google Sign-In URL 처리
+    if GIDSignIn.sharedInstance.handle(url) {
+      return true
+    }
+    return super.application(app, open: url, options: options)
   }
   
   // 메소드 채널 설정

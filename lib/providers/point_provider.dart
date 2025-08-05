@@ -1,296 +1,185 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/point_model.dart';
+
+import '../models/user_points_model.dart';
 import '../services/aws_points_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 
-// Point State
+// Point State - AWS 호환 버전
 class PointState {
-  final int currentPoints;
-  final List<PointItem> availableItems;
-  final List<PointPurchase> purchases;
-  final List<PointTransaction> transactions;
+  final UserPointsModel? userPoints;
   final bool isLoading;
   final String? error;
+  final List<PointTransaction> transactions;
 
   const PointState({
-    required this.currentPoints,
-    required this.availableItems,
-    required this.purchases,
-    required this.transactions,
-    required this.isLoading,
+    this.userPoints,
+    this.isLoading = false,
     this.error,
+    this.transactions = const [],
   });
 
   PointState copyWith({
-    int? currentPoints,
-    List<PointItem>? availableItems,
-    List<PointPurchase>? purchases,
-    List<PointTransaction>? transactions,
+    UserPointsModel? userPoints,
     bool? isLoading,
     String? error,
+    List<PointTransaction>? transactions,
   }) {
     return PointState(
-      currentPoints: currentPoints ?? this.currentPoints,
-      availableItems: availableItems ?? this.availableItems,
-      purchases: purchases ?? this.purchases,
-      transactions: transactions ?? this.transactions,
+      userPoints: userPoints ?? this.userPoints,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: error,
+      transactions: transactions ?? this.transactions,
     );
   }
 
-  // Helper methods
-  List<PointPurchase> getActivePurchases() {
-    return purchases.where((p) => p.isActive).toList();
-  }
-
-  List<PointPurchase> getPurchasesByCategory(String category) {
-    return purchases.where((p) {
-      final item = availableItems.firstWhere(
-        (item) => item.id == p.itemId,
-        orElse: () => PointItem(
-          id: '',
-          name: '',
-          description: '',
-          category: '',
-          points: 0,
-          iconUrl: '',
-        ),
-      );
-      return item.category == category;
-    }).toList();
-  }
-
-  int getTotalSpentPoints() {
-    return transactions
-        .where((t) => t.isSpent)
-        .fold(0, (sum, t) => sum + t.amount.abs());
-  }
-
-  int getTotalEarnedPoints() {
-    return transactions
-        .where((t) => t.isEarned || t.type == PointTransactionType.bonus)
-        .fold(0, (sum, t) => sum + t.amount);
-  }
+  // Helper getters
+  int get currentPoints => userPoints?.currentPoints ?? 0;
+  int get totalEarned => userPoints?.totalEarned ?? 0;
+  int get totalSpent => userPoints?.totalSpent ?? 0;
+  bool get hasPoints => currentPoints > 0;
+  bool canSpend(int amount) => currentPoints >= amount;
 }
 
-// Point Provider
+// Point Provider - AWS 호환 버전
 class PointNotifier extends StateNotifier<PointState> {
   final Ref ref;
   final AWSPointsService _pointsService = AWSPointsService();
 
-  PointNotifier(this.ref) : super(const PointState(
-    currentPoints: 0,
-    availableItems: [],
-    purchases: [],
-    transactions: [],
-    isLoading: false,
-  )) {
+  PointNotifier(this.ref) : super(const PointState()) {
     _initialize();
   }
 
   Future<void> _initialize() async {
-    try {
-      await _pointsService.initialize();
-      await initializePoints();
-    } catch (e) {
-      Logger.error('포인트 provider 초기화 실패', error: e, name: 'PointProvider');
-      state = state.copyWith(error: e.toString());
-    }
+    await initializePoints();
   }
 
-  // Initialize point data
+  // Initialize point data from AWS
   Future<void> initializePoints() async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, error: null);
     
     try {
+      Logger.log('포인트 데이터 초기화 시작', name: 'PointProvider');
+      
       // Get current user
       final authState = ref.read(enhancedAuthProvider);
       if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
-        // If not logged in, use default values
-        state = state.copyWith(
-          currentPoints: 0,
-          availableItems: [],
-          transactions: [],
-          isLoading: false,
-        );
+        Logger.log('사용자 인증 실패 - 포인트 초기화 불가', name: 'PointProvider');
+        state = state.copyWith(isLoading: false);
         return;
       }
-
+      
       final userId = authState.currentUser!.user!.userId;
       
-      // Load data from AWS services
+      // Load points from AWS
       final userPoints = await _pointsService.getUserPoints(userId);
-      final transactions = await _pointsService.getPointTransactions(userId: userId);
-      
-      // Use default values if userPoints is null
-      final currentPoints = userPoints?.availablePoints ?? 0;
-      final items = PointItem.getAllMockItems(); // Use mock items for now until AWS service is implemented
+      final transactions = await _pointsService.getPointTransactions(userId, limit: 50);
       
       state = state.copyWith(
-        currentPoints: currentPoints,
-        availableItems: items,
+        userPoints: userPoints,
         transactions: transactions,
-        purchases: [], // Will be populated from transactions
         isLoading: false,
-        error: null,
       );
-
-      Logger.log('포인트 데이터 로드 완료: ${currentPoints}포인트, ${transactions.length}개 거래', name: 'PointProvider');
+      
+      Logger.log('포인트 초기화 완료: ${userPoints?.currentPoints ?? 0}P', name: 'PointProvider');
+      
     } catch (e) {
-      Logger.error('포인트 데이터 로드 실패', error: e, name: 'PointProvider');
+      Logger.error('포인트 초기화 실패: $e', name: 'PointProvider');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
-    }
-  }
-
-  // Purchase item
-  Future<bool> purchaseItem(PointItem item) async {
-    if (state.currentPoints < item.points) {
-      state = state.copyWith(error: '포인트가 부족합니다');
-      return false;
-    }
-
-    state = state.copyWith(isLoading: true);
-    
-    try {
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Create purchase record
-      final purchase = PointPurchase(
-        id: 'purchase_${DateTime.now().millisecondsSinceEpoch}',
-        itemId: item.id,
-        itemName: item.name,
-        pointsSpent: item.points,
-        purchasedAt: DateTime.now(),
-        expiresAt: _getExpirationDate(item),
-        status: PurchaseStatus.active,
-      );
-      
-      // Create transaction record
-      final transaction = PointTransaction(
-        id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
-        amount: -item.points,
-        type: PointTransactionType.spent,
-        description: '${item.name} 구매',
-        createdAt: DateTime.now(),
-        relatedItemId: item.id,
-      );
-      
-      // Update state
-      final updatedPurchases = [...state.purchases, purchase];
-      final updatedTransactions = [...state.transactions, transaction];
-      final newCurrentPoints = state.currentPoints - item.points;
-      
-      state = state.copyWith(
-        currentPoints: newCurrentPoints,
-        purchases: updatedPurchases,
-        transactions: updatedTransactions,
-        isLoading: false,
-        error: null,
-      );
-      
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-      return false;
     }
   }
 
   // Add points (for testing or admin purposes)
   Future<void> addPoints(int amount, String description) async {
     try {
-      final transaction = PointTransaction(
-        id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+      
+      final userId = authState.currentUser!.user!.userId;
+      
+      final updatedPoints = await _pointsService.addPoints(
+        userId: userId,
         amount: amount,
-        type: PointTransactionType.earned,
         description: description,
-        createdAt: DateTime.now(),
+        type: PointTransactionType.earned,
       );
       
-      final updatedTransactions = [...state.transactions, transaction];
-      final newCurrentPoints = state.currentPoints + amount;
+      if (updatedPoints != null) {
+        final transactions = await _pointsService.getPointTransactions(userId, limit: 50);
+        
+        state = state.copyWith(
+          userPoints: updatedPoints,
+          transactions: transactions,
+          error: null,
+        );
+        
+        Logger.log('포인트 추가 완료: ${updatedPoints.currentPoints}P', name: 'PointProvider');
+      }
       
-      state = state.copyWith(
-        currentPoints: newCurrentPoints,
-        transactions: updatedTransactions,
-      );
     } catch (e) {
+      Logger.error('포인트 추가 실패: $e', name: 'PointProvider');
       state = state.copyWith(error: e.toString());
     }
   }
 
-  // Spend points (for profile unlock, etc.)
+  // Spend points
   Future<void> spendPoints(int amount, String description) async {
     try {
-      final transaction = PointTransaction(
-        id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
-        amount: -amount,
-        type: PointTransactionType.spent,
+      if (!canSpendPoints(amount)) {
+        throw Exception('포인트가 부족합니다. 현재: ${state.currentPoints}P, 필요: ${amount}P');
+      }
+      
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+      
+      final userId = authState.currentUser!.user!.userId;
+      
+      final updatedPoints = await _pointsService.spendPoints(
+        userId: userId,
+        amount: amount,
         description: description,
-        createdAt: DateTime.now(),
+        type: PointTransactionType.spentOther,
       );
       
-      final updatedTransactions = [...state.transactions, transaction];
-      final newCurrentPoints = state.currentPoints - amount;
+      if (updatedPoints != null) {
+        final transactions = await _pointsService.getPointTransactions(userId, limit: 50);
+        
+        state = state.copyWith(
+          userPoints: updatedPoints,
+          transactions: transactions,
+          error: null,
+        );
+        
+        Logger.log('포인트 사용 완료: ${updatedPoints.currentPoints}P', name: 'PointProvider');
+      }
       
-      state = state.copyWith(
-        currentPoints: newCurrentPoints,
-        transactions: updatedTransactions,
-      );
     } catch (e) {
+      Logger.error('포인트 사용 실패: $e', name: 'PointProvider');
       state = state.copyWith(error: e.toString());
+      rethrow;
     }
   }
 
-  // Use purchased item
-  Future<bool> usePurchasedItem(String purchaseId) async {
-    try {
-      final purchaseIndex = state.purchases.indexWhere((p) => p.id == purchaseId);
-      if (purchaseIndex == -1) {
-        state = state.copyWith(error: '구매 항목을 찾을 수 없습니다');
-        return false;
-      }
-      
-      final purchase = state.purchases[purchaseIndex];
-      if (!purchase.isActive) {
-        state = state.copyWith(error: '사용할 수 없는 항목입니다');
-        return false;
-      }
-      
-      // Update purchase to used
-      final updatedPurchase = PointPurchase(
-        id: purchase.id,
-        itemId: purchase.itemId,
-        itemName: purchase.itemName,
-        pointsSpent: purchase.pointsSpent,
-        purchasedAt: purchase.purchasedAt,
-        usedAt: DateTime.now(),
-        expiresAt: purchase.expiresAt,
-        status: PurchaseStatus.used,
-      );
-      
-      final updatedPurchases = [...state.purchases];
-      updatedPurchases[purchaseIndex] = updatedPurchase;
-      
-      state = state.copyWith(purchases: updatedPurchases);
-      return true;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+  // Check if user can spend points
+  bool canSpendPoints(int amount) {
+    return state.canSpend(amount);
   }
 
-  // Get items by category
-  List<PointItem> getItemsByCategory(String category) {
-    return state.availableItems.where((item) => item.category == category).toList();
+  // Get current point balance
+  int getCurrentPoints() {
+    return state.currentPoints;
+  }
+
+  // Refresh points data
+  Future<void> refreshPoints() async {
+    await initializePoints();
   }
 
   // Clear error
@@ -298,32 +187,29 @@ class PointNotifier extends StateNotifier<PointState> {
     state = state.copyWith(error: null);
   }
 
-  // Private helper methods
-  int _calculateCurrentPoints(List<PointTransaction> transactions) {
-    return transactions.fold(0, (sum, transaction) => sum + transaction.amount);
+  // Helper methods for backward compatibility
+  Future<bool> purchaseItem(String itemName, int points) async {
+    try {
+      await spendPoints(points, '$itemName 구매');
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
-  DateTime? _getExpirationDate(PointItem item) {
-    // Set expiration based on item type
-    switch (item.category) {
-      case 'boost':
-        if (item.name.contains('1시간')) {
-          return DateTime.now().add(const Duration(hours: 1));
-        } else if (item.name.contains('3시간')) {
-          return DateTime.now().add(const Duration(hours: 3));
-        } else if (item.name.contains('24시간')) {
-          return DateTime.now().add(const Duration(hours: 24));
-        }
-        break;
-      case 'special':
-        if (item.name.contains('무제한 좋아요')) {
-          return DateTime.now().add(const Duration(days: 1));
-        }
-        break;
-      default:
-        return null; // No expiration for other items
-    }
-    return null;
+  // Get transactions by type
+  List<PointTransaction> getTransactionsByType(PointTransactionType type) {
+    return state.transactions.where((t) => t.type == type).toList();
+  }
+
+  // Get earning transactions
+  List<PointTransaction> getEarningTransactions() {
+    return state.transactions.where((t) => t.amount > 0).toList();
+  }
+
+  // Get spending transactions
+  List<PointTransaction> getSpendingTransactions() {
+    return state.transactions.where((t) => t.amount < 0).toList();
   }
 }
 
@@ -332,40 +218,25 @@ final pointProvider = StateNotifierProvider<PointNotifier, PointState>((ref) {
   return PointNotifier(ref);
 });
 
-// Helper providers
+// Helper providers for backward compatibility
 final currentPointsProvider = Provider<int>((ref) {
   return ref.watch(pointProvider).currentPoints;
-});
-
-final availableItemsProvider = Provider<List<PointItem>>((ref) {
-  return ref.watch(pointProvider).availableItems;
-});
-
-final activePurchasesProvider = Provider<List<PointPurchase>>((ref) {
-  return ref.watch(pointProvider).getActivePurchases();
 });
 
 final pointTransactionsProvider = Provider<List<PointTransaction>>((ref) {
   return ref.watch(pointProvider).transactions;
 });
 
-// Category-specific providers
-final boostItemsProvider = Provider<List<PointItem>>((ref) {
-  final pointNotifier = ref.read(pointProvider.notifier);
-  return pointNotifier.getItemsByCategory('boost');
+// Additional convenience providers
+final canSpendProvider = Provider.family<bool, int>((ref, amount) {
+  final pointState = ref.watch(pointProvider);
+  return pointState.canSpend(amount);
 });
 
-final superChatItemsProvider = Provider<List<PointItem>>((ref) {
-  final pointNotifier = ref.read(pointProvider.notifier);
-  return pointNotifier.getItemsByCategory('super_chat');
+final totalEarnedProvider = Provider<int>((ref) {
+  return ref.watch(pointProvider).totalEarned;
 });
 
-final viewItemsProvider = Provider<List<PointItem>>((ref) {
-  final pointNotifier = ref.read(pointProvider.notifier);
-  return pointNotifier.getItemsByCategory('view');
-});
-
-final specialItemsProvider = Provider<List<PointItem>>((ref) {
-  final pointNotifier = ref.read(pointProvider.notifier);
-  return pointNotifier.getItemsByCategory('special');
+final totalSpentProvider = Provider<int>((ref) {
+  return ref.watch(pointProvider).totalSpent;
 });

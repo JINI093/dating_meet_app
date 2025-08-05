@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../models/profile_model.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/points_provider.dart';
 import 'edit_profile_screen.dart';
 import '../point/point_shop_screen.dart';
 import 'block_contacts_screen.dart';
@@ -17,7 +18,6 @@ import 'referral_code_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../../routes/route_names.dart';
 import '../point/ticket_shop_screen.dart';
-import '../vip/vip_purchase_screen.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key});
@@ -33,6 +33,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(userProvider.notifier).initializeUser();
+        // 포인트 데이터 로드
+        ref.read(pointsProvider.notifier).loadUserPoints();
       }
     });
   }
@@ -95,6 +97,37 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
   Widget _buildVipGradeBar(ProfileModel user) {
+    // 사용자의 VIP 등급 확인
+    final userState = ref.watch(userProvider);
+    final vipTier = userState.vipTier ?? user.vipTier;
+    
+    // VIP 등급에 따른 이미지 및 정보 설정
+    String vipImagePath;
+    String vipGradeText;
+    List<Color> gradientColors;
+    
+    switch (vipTier?.toUpperCase()) {
+      case 'GOLD':
+        vipImagePath = 'assets/vip/gold_level.png';
+        vipGradeText = 'GOLD';
+        gradientColors = [const Color(0xFFB8860B), const Color(0xFFFFD700)];
+        break;
+      case 'SILVER':
+        vipImagePath = 'assets/vip/silver_level.png';
+        vipGradeText = 'SILVER';
+        gradientColors = [const Color(0xFF708090), const Color(0xFFC0C0C0)];
+        break;
+      case 'BRONZE':
+        vipImagePath = 'assets/vip/bronze_level.png';
+        vipGradeText = 'BRONZE';
+        gradientColors = [const Color(0xFF8B4513), const Color(0xFFCD7F32)];
+        break;
+      default:
+        vipImagePath = 'assets/vip/no_level.png';
+        vipGradeText = '일반 회원';
+        gradientColors = [const Color(0xFF666666), const Color(0xFF999999)];
+    }
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
@@ -102,7 +135,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.asset(
-            'assets/icons/VIP_Gold.png',
+            vipImagePath,
             width: double.infinity,
             height: 40,
             fit: BoxFit.cover,
@@ -111,16 +144,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 width: double.infinity,
                 height: 40,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFB8860B), Color(0xFFFFD700)],
+                  gradient: LinearGradient(
+                    colors: gradientColors,
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Padding(
+                    const Padding(
                       padding: EdgeInsets.only(left: 16),
                       child: Text(
                         'VIP',
@@ -131,12 +164,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         ),
                       ),
                     ),
-                    Spacer(),
+                    const Spacer(),
                     Padding(
-                      padding: EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.only(right: 16),
                       child: Text(
-                        'GOLD',
-                        style: TextStyle(
+                        vipGradeText,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -249,12 +282,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                       },
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      '302',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final pointsState = ref.watch(pointsProvider);
+                        return Text(
+                          '${pointsState.currentPoints}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(width: 16),
                     _buildSmallButton('포인트 전환', const Color(0xFFFFC107), _goToPointExchange),
@@ -645,7 +683,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     Navigator.push(
       context,
       CupertinoPageRoute(
-        builder: (context) => const VipPurchaseScreen(),
+        builder: (context) => const TicketShopScreen(initialTabIndex: 4), // VIP 탭 (index 4)
       ),
     );
   }

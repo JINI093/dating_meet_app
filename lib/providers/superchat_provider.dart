@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/superchat_model.dart';
 import '../services/aws_superchat_service.dart';
+import '../services/aws_likes_service.dart';
 import '../services/superchat_priority_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
@@ -60,6 +61,7 @@ class SuperchatState {
 class SuperchatNotifier extends StateNotifier<SuperchatState> {
   final Ref ref;
   final AWSSuperchatService _superchatService = AWSSuperchatService();
+  final AWSLikesService _likesService = AWSLikesService();
   final SuperchatPriorityService _priorityService = SuperchatPriorityService();
 
   SuperchatNotifier(this.ref) : super(const SuperchatState());
@@ -171,7 +173,9 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
 
     try {
       final fromUserId = authState.currentUser!.user!.userId;
-      final result = await _superchatService.sendSuperchat(
+      
+      // REST API를 통한 슈퍼챗 전송 (likes 페이지와 호환성 위해)
+      final likeResult = await _likesService.sendSuperchat(
         fromUserId: fromUserId,
         toProfileId: toProfileId,
         message: message,
@@ -180,15 +184,31 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
         customData: customData,
       );
 
-      if (result != null) {
+      if (likeResult != null) {
+        // LikeModel을 SuperchatModel로 변환
+        final superchatModel = SuperchatModel(
+          id: likeResult.id,
+          fromUserId: likeResult.fromUserId,
+          toProfileId: likeResult.toProfileId,
+          message: likeResult.message ?? message,
+          pointsUsed: pointsUsed,
+          templateType: templateType ?? SuperchatTemplateType.custom,
+          customData: customData,
+          status: SuperchatStatus.sent,
+          priority: _calculatePriority(pointsUsed),
+          expiresAt: DateTime.now().add(const Duration(days: 7)),
+          createdAt: likeResult.createdAt,
+          updatedAt: likeResult.updatedAt,
+        );
+        
         // 보낸 슈퍼챗 목록에 추가
         state = state.copyWith(
-          sentSuperchats: [...state.sentSuperchats, result],
+          sentSuperchats: [...state.sentSuperchats, superchatModel],
           remainingDailySuperchats: state.remainingDailySuperchats - 1,
           isSending: false,
         );
 
-        Logger.log('슈퍼챗 전송 성공: ${result.id}', name: 'SuperchatProvider');
+        Logger.log('슈퍼챗 전송 성공: ${superchatModel.id}', name: 'SuperchatProvider');
         return true;
       } else {
         throw Exception('슈퍼챗 전송에 실패했습니다.');
@@ -328,6 +348,15 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
   /// 상태 초기화
   void reset() {
     state = const SuperchatState();
+  }
+
+  /// 슈퍼챗 우선순위 계산
+  int _calculatePriority(int pointsUsed) {
+    // 포인트에 따른 우선순위 계산
+    if (pointsUsed >= 1000) return 1; // 최고 우선순위
+    if (pointsUsed >= 500) return 2;  // 높은 우선순위
+    if (pointsUsed >= 200) return 3;  // 중간 우선순위
+    return 4; // 기본 우선순위
   }
 }
 

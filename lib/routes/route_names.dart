@@ -36,6 +36,8 @@ class RouteNames {
   // VIP Sub-routes
   static const String vipToday = '/vip/today';
   static const String vipPlans = '/vip/plans';
+  static const String vipMembership = '/vip/membership';
+  static const String vipPurchase = '/vip/purchase';
 
   // Chat Routes
   static const String chatRoom = '/chat-room';
@@ -239,6 +241,8 @@ class RouteNames {
     superChat: '슈퍼챗',
     vipToday: '오늘의 VIP',
     vipPlans: 'VIP 플랜',
+    vipMembership: 'VIP 이용권',
+    vipPurchase: 'VIP 구매',
     chatRoom: '채팅방',
     editProfile: '프로필 수정',
     otherProfile: '프로필 보기',

@@ -1,8 +1,94 @@
-# This "input" configures a global authorization rule to enable public access to
-# all models in this schema. Learn more about authorization rules here: https://docs.amplify.aws/cli/graphql/authorization-rules
-input AMPLIFY { globalAuthRule: AuthRule = { allow: public } } # FOR TESTING ONLY!
+# Dating App GraphQL Schema
+# This schema uses API_KEY authentication for testing purposes
+input AMPLIFY { globalAuthRule: AuthRule = { allow: public } }
 
-type Todo @model {
+# User Points Model  
+type UserPoints @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  userId: String! @index(name: "byUserId")
+  currentPoints: Int!
+  totalEarned: Int!
+  totalSpent: Int!
+  lastUpdated: AWSDateTime!
+  transactions: [PointTransaction] @hasMany(indexName: "byUserPoints", fields: ["id"])
+}
+
+# Point Transaction Model
+type PointTransaction @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  userPointsId: ID! @index(name: "byUserPoints")
+  userId: String! @index(name: "byUserId")
+  amount: Int!
+  type: String!
+  description: String!
+  timestamp: AWSDateTime!
+  userPoints: UserPoints @belongsTo(fields: ["userPointsId"])
+}
+
+# Point Package Model for Shop
+type PointPackage @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  points: Int!
+  bonusPoints: Int
+  price: Int!
+  discountPercent: Int
+  isPopular: Boolean
+  isLimited: Boolean
+  sortOrder: Int!
+  active: Boolean!
+}
+
+# Profile Model for VIP functionality
+type Profile @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  userId: String! @index(name: "byUserId")
+  name: String!
+  age: Int
+  gender: String
+  location: String
+  profileImages: [String]
+  bio: String
+  occupation: String
+  education: String
+  height: Int
+  bodyType: String
+  smoking: String
+  drinking: String
+  religion: String
+  mbti: String
+  hobbies: [String]
+  badges: [String]
+  isVip: Boolean
+  isPremium: Boolean
+  isVerified: Boolean
+  isOnline: Boolean
+  likeCount: Int
+  superChatCount: Int
+  meetingType: String
+  incomeCode: String
+  lastSeen: AWSDateTime
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Superchat Model for premium messaging
+type Superchat @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  fromUserId: String! @index(name: "byFromUserId")
+  toProfileId: String! @index(name: "byToProfileId")
+  message: String!
+  pointsUsed: Int!
+  templateType: String
+  customData: String
+  status: String!
+  priority: Int!
+  expiresAt: AWSDateTime!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Keep existing Todo model for backward compatibility
+type Todo @model @auth(rules: [{ allow: public }]) {
   id: ID!
   name: String!
   description: String

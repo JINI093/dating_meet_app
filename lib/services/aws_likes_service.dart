@@ -114,6 +114,89 @@ class AWSLikesService {
   }
 
 
+  /// 슈퍼챗 전송 (REST API)
+  Future<LikeModel?> sendSuperchat({
+    required String fromUserId,
+    required String toProfileId,
+    required String message,
+    required int pointsUsed,
+    String? templateType,
+    Map<String, dynamic>? customData,
+  }) async {
+    try {
+      Logger.log('🚀 REST API 슈퍼챗 전송 시작', name: 'AWSLikesService');
+      Logger.log('   전송자: $fromUserId', name: 'AWSLikesService');
+      Logger.log('   수신자: $toProfileId', name: 'AWSLikesService');
+      Logger.log('   메시지: $message', name: 'AWSLikesService');
+      Logger.log('   포인트: $pointsUsed', name: 'AWSLikesService');
+
+      // REST API를 통한 슈퍼챗 전송
+      final likesApiService = Dio(BaseOptions(
+        baseUrl: 'https://wkj6fdmoyf.execute-api.ap-northeast-2.amazonaws.com/dev',
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      // JWT 토큰 추가
+      try {
+        final session = await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
+        if (session.isSignedIn && session.userPoolTokensResult.value != null) {
+          final idToken = session.userPoolTokensResult.value!.idToken.raw;
+          if (idToken.isNotEmpty) {
+            likesApiService.options.headers['Authorization'] = 'Bearer $idToken';
+          }
+        }
+      } catch (e) {
+        Logger.error('슈퍼챗 API 토큰 추가 실패: $e', name: 'AWSLikesService');
+      }
+      
+      final response = await likesApiService.post('/superchats', data: {
+        'fromUserId': fromUserId,
+        'toProfileId': toProfileId,
+        'message': message,
+        'pointsUsed': pointsUsed,
+        'templateType': templateType ?? 'CUSTOM',
+        'customData': customData,
+        'likeType': 'SUPERCHAT',
+      });
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final superchatData = response.data['data']['superchat'];
+        final isMatch = response.data['data']['isMatch'] ?? false;
+        final matchId = response.data['data']['matchId'];
+
+        Logger.log('✅ 슈퍼챗 전송 성공', name: 'AWSLikesService');
+        Logger.log('   매칭 여부: $isMatch', name: 'AWSLikesService');
+        Logger.log('   매치 ID: $matchId', name: 'AWSLikesService');
+
+        // LikeModel 객체 생성 (슈퍼챗을 Like 형태로 변환)
+        final like = LikeModel.fromJson({
+          'id': superchatData['id'],
+          'fromUserId': superchatData['fromUserId'],
+          'toProfileId': superchatData['toProfileId'],
+          'likeType': 'SUPERCHAT',
+          'message': superchatData['message'],
+          'isMatched': isMatch,
+          'matchId': matchId,
+          'createdAt': superchatData['createdAt'],
+          'updatedAt': superchatData['updatedAt'],
+          'isRead': false,
+          'pointsUsed': superchatData['pointsUsed'],
+          'priority': superchatData['priority'],
+          'templateType': superchatData['templateType'],
+        });
+
+        return like;
+      } else {
+        final errorMessage = response.data['message'] ?? '슈퍼챗 전송에 실패했습니다.';
+        Logger.error('❌ 슈퍼챗 전송 실패: $errorMessage', name: 'AWSLikesService');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      Logger.error('❌ 슈퍼챗 전송 중 오류 발생', error: e, name: 'AWSLikesService');
+      rethrow;
+    }
+  }
+
   /// 패스하기
   Future<LikeModel?> sendPass({
     required String fromUserId,

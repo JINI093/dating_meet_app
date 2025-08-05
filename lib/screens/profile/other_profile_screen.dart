@@ -10,7 +10,6 @@ import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/likes_provider.dart';
 import '../../providers/discover_profiles_provider.dart';
 import '../../services/aws_likes_service.dart';
-import '../../services/aws_superchat_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
 import '../../utils/app_text_styles.dart';
@@ -646,9 +645,11 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       final fromUserId = authState.currentUser!.user!.userId;
       final toProfileId = widget.profile.id;
 
-      // Send superchat
-      final superchatService = AWSSuperchatService();
-      final superchat = await superchatService.sendSuperchat(
+      // Send superchat via REST API (for likes page compatibility)
+      final likesService = AWSLikesService();
+      Logger.log('슈퍼챗 전송 시작 - From: $fromUserId, To: $toProfileId', name: 'ProfileSuperchat');
+      
+      final superchat = await likesService.sendSuperchat(
         fromUserId: fromUserId,
         toProfileId: toProfileId,
         message: message,

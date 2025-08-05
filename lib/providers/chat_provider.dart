@@ -453,9 +453,26 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final subscription = _chatService.subscribeToMessages(matchId, currentUserId).listen(
         (message) {
-          // 내가 보낸 메시지인 경우, 이미 로컬 상태에 추가했으므로 중복 체크가 더 중요
+          // 내가 보낸 메시지인 경우, 이미 로컬 상태에 추가했으므로 중복 방지
           if (message.senderId == currentUserId) {
-            developer.log('📤 내가 보낸 메시지 실시간 수신 - 중복 체크: ${message.content}', name: 'ChatProvider');
+            developer.log('📤 내가 보낸 메시지 실시간 수신 - 중복 체크 중: ${message.content}', name: 'ChatProvider');
+            
+            // 현재 메시지 목록에서 중복 체크
+            final currentMessages = state.messagesByMatch[matchId] ?? [];
+            final isDuplicate = currentMessages.any((msg) {
+              // 같은 messageId 또는 localId가 있는지 확인
+              return (message.messageId.isNotEmpty && msg.messageId == message.messageId) ||
+                     (message.localId != null && msg.localId == message.localId) ||
+                     // 같은 내용, 발송자, 시간(3초 이내)
+                     (msg.senderId == message.senderId && 
+                      msg.content == message.content &&
+                      msg.createdAt.difference(message.createdAt).abs().inSeconds <= 3);
+            });
+            
+            if (isDuplicate) {
+              developer.log('🚫 내가 보낸 메시지 중복 감지 - 무시: ${message.content}', name: 'ChatProvider');
+              return; // 중복이면 추가하지 않음
+            }
           }
           
           _addMessageToState(matchId, message);

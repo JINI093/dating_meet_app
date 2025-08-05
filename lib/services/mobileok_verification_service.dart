@@ -212,6 +212,9 @@ class MobileOKVerificationService {
     // 웹뷰 컨트롤러 설정
     final controller = WebViewController();
     
+    // 다이얼로그 닫힘 추적을 위한 변수
+    bool isDialogClosed = false;
+    
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -238,6 +241,12 @@ class MobileOKVerificationService {
           },
           onWebResourceError: (WebResourceError error) {
             print('MobileOK 웹뷰 오류: ${error.description}');
+            // 웹 리소스 오류 시 안전하게 처리
+            if (!completer.isCompleted && !isDialogClosed) {
+              completer.complete(MobileOKVerificationResult.failure(
+                error: '웹페이지 로딩 중 오류가 발생했습니다: ${error.description}',
+              ));
+            }
           },
         ),
       )
@@ -245,16 +254,31 @@ class MobileOKVerificationService {
         'mobileOKResult',
         onMessageReceived: (JavaScriptMessage message) async {
           try {
+            if (isDialogClosed || completer.isCompleted) {
+              print('다이얼로그가 이미 닫혔거나 결과가 완료됨');
+              return;
+            }
+            
             final resultJson = message.message;
             print('MobileOK 결과 수신: $resultJson');
             
             final result = await _processMobileOKResult(resultJson, clientTxId);
-            completer.complete(result);
+            if (!completer.isCompleted) {
+              completer.complete(result);
+            }
+            
+            // 성공 시 다이얼로그 자동 닫기
+            if (context.mounted && result.success) {
+              Navigator.of(context).pop();
+              isDialogClosed = true;
+            }
           } catch (e) {
             print('MobileOK 결과 처리 오류: $e');
-            completer.complete(MobileOKVerificationResult.failure(
-              error: '인증 결과 처리 중 오류가 발생했습니다.',
-            ));
+            if (!completer.isCompleted) {
+              completer.complete(MobileOKVerificationResult.failure(
+                error: '인증 결과 처리 중 오류가 발생했습니다.',
+              ));
+            }
           }
         },
       )
@@ -265,44 +289,88 @@ class MobileOKVerificationService {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => Dialog(
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.8,
-            child: Column(
-              children: [
-                AppBar(
-                  title: const Text('MobileOK 본인인증'),
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      if (!completer.isCompleted) {
-                        completer.complete(MobileOKVerificationResult.failure(
-                          error: '사용자가 인증을 취소했습니다.',
-                        ));
-                      }
-                    },
+        builder: (dialogContext) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            
+            // 뒤로가기 처리 - 안전하게 종료
+            _handleDialogClose(dialogContext, completer, isDialogClosed);
+          },
+          child: Dialog(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: Column(
+                children: [
+                  AppBar(
+                    title: const Text('MobileOK 본인인증'),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _handleDialogClose(dialogContext, completer, isDialogClosed);
+                      },
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: WebViewWidget(controller: controller),
-                ),
-              ],
+                  Expanded(
+                    child: WebViewWidget(controller: controller),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      );
+      ).then((_) {
+        // 다이얼로그가 닫혔을 때 처리
+        isDialogClosed = true;
+        if (!completer.isCompleted) {
+          completer.complete(MobileOKVerificationResult.failure(
+            error: '사용자가 인증을 취소했습니다.',
+          ));
+        }
+      });
     }
 
     return completer.future.timeout(
-      const Duration(minutes: 10),
+      const Duration(minutes: 5), // 타임아웃 단축 (10분 -> 5분)
       onTimeout: () {
+        isDialogClosed = true;
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
         return MobileOKVerificationResult.failure(
           error: '인증 시간이 초과되었습니다.',
         );
       },
     );
+  }
+
+  /// 다이얼로그 닫기 처리 헬퍼 메서드
+  void _handleDialogClose(
+    BuildContext dialogContext, 
+    Completer<MobileOKVerificationResult> completer,
+    bool isDialogClosed,
+  ) {
+    if (isDialogClosed || completer.isCompleted) {
+      return;
+    }
+    
+    try {
+      Navigator.of(dialogContext).pop();
+      
+      if (!completer.isCompleted) {
+        completer.complete(MobileOKVerificationResult.failure(
+          error: '사용자가 인증을 취소했습니다.',
+        ));
+      }
+    } catch (e) {
+      print('다이얼로그 닫기 오류: $e');
+      if (!completer.isCompleted) {
+        completer.complete(MobileOKVerificationResult.failure(
+          error: '인증을 취소했습니다.',
+        ));
+      }
+    }
   }
 
   /// MobileOK 웹뷰용 HTML 생성
@@ -376,16 +444,35 @@ class MobileOKVerificationService {
                 // Flutter로 결과 전달 - JavaScript 채널 사용
                 if (window.mobileOKResult && window.mobileOKResult.postMessage) {
                     window.mobileOKResult.postMessage(result);
+                } else if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                    // 대안 방법: flutter_inappwebview 직접 호출
+                    window.flutter_inappwebview.callHandler('mobileOKResult', result);
                 } else {
                     console.log('MobileOK 결과:', result);
-                    // 대안: 시뮬레이션 결과를 직접 완료 처리
+                    // 마지막 대안: 브로드캐스트 이벤트
+                    try {
+                        const event = new CustomEvent('mobileOKComplete', { detail: result });
+                        window.dispatchEvent(event);
+                    } catch (eventError) {
+                        console.error('이벤트 발생 오류:', eventError);
+                    }
+                    
+                    // 자동 종료 (안전 장치)
                     setTimeout(function() {
-                        window.close();
+                        document.getElementById('status').innerHTML = '인증이 완료되었습니다. 잠시 후 창이 닫힙니다.';
+                        setTimeout(function() {
+                            if (window.close) window.close();
+                        }, 1000);
                     }, 2000);
                 }
             } catch (error) {
                 console.error('결과 처리 오류:', error);
-                document.getElementById('status').innerHTML = '결과 처리 중 오류가 발생했습니다.';
+                document.getElementById('status').innerHTML = '결과 처리 중 오류가 발생했습니다. 잠시 후 창이 닫힙니다.';
+                
+                // 오류 발생시에도 자동 종료
+                setTimeout(function() {
+                    if (window.close) window.close();
+                }, 3000);
             }
         }
         

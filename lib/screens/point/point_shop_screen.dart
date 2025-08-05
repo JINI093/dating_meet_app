@@ -8,7 +8,7 @@ import 'dart:io';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
-import '../../providers/point_provider.dart';
+import '../../providers/points_provider.dart';
 import 'purchase_screen.dart';
 
 class PointShopScreen extends ConsumerStatefulWidget {
@@ -24,15 +24,16 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(pointProvider.notifier).initializePoints();
+        // Force refresh points when entering point shop
+        ref.read(pointsProvider.notifier).refreshPoints();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final pointState = ref.watch(pointProvider);
-    final currentPoints = pointState.currentPoints;
+    final pointsState = ref.watch(pointsProvider);
+    final currentPoints = pointsState.currentPoints;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -108,23 +109,30 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
           ),
           Row(
             children: [
-              Container(
+              Image.asset(
+                'assets/icons/coin.png',
                 width: 20,
                 height: 20,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFA726),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    '●',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFA726),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                ),
+                    child: const Center(
+                      child: Text(
+                        '●',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 8),
               Text(

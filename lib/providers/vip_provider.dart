@@ -5,6 +5,7 @@ import '../models/profile_model.dart';
 import '../services/aws_profile_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
+import 'user_provider.dart';
 
 // VIP State
 class VipState {
@@ -145,8 +146,8 @@ class VipNotifier extends StateNotifier<VipState> {
       Logger.log('결제 처리 시뮬레이션...', name: 'VipProvider');
       await Future.delayed(const Duration(seconds: 2));
       
-      // Get current profile
-      final profile = await _profileService.getProfileByUserId(userId).timeout(
+      // Get current profile (force refresh to get latest updatedAt)
+      final profile = await _profileService.getProfile(userId, forceRefresh: true).timeout(
         const Duration(seconds: 10),
         onTimeout: () => null,
       );
@@ -155,14 +156,20 @@ class VipNotifier extends StateNotifier<VipState> {
         throw Exception('프로필을 찾을 수 없습니다.');
       }
       
-      // Update profile to VIP status
+      // Calculate VIP end date
+      final vipStartDate = DateTime.now();
+      final vipEndDate = vipStartDate.add(Duration(days: plan.durationDays));
+      
+      // Update profile to VIP status in AWS
       final updatedProfile = await _profileService.updateProfile(
         profileId: profile.id,
         additionalData: {
           'isVip': true,
           'isPremium': plan.name.contains('PREMIUM') || plan.name.contains('GOLD'),
-          'vipStartDate': DateTime.now().toIso8601String(),
-          'vipEndDate': DateTime.now().add(Duration(days: plan.durationDays)).toIso8601String(),
+          'vipStartDate': vipStartDate.toIso8601String(),
+          'vipEndDate': vipEndDate.toIso8601String(),
+          'vipPlan': plan.name,
+          'vipTier': _getVipTierFromPlan(plan.name),
         },
       ).timeout(
         const Duration(seconds: 15),
@@ -177,8 +184,8 @@ class VipNotifier extends StateNotifier<VipState> {
         id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
         userId: userId,
         plan: plan,
-        startDate: DateTime.now(),
-        endDate: DateTime.now().add(Duration(days: plan.durationDays)),
+        startDate: vipStartDate,
+        endDate: vipEndDate,
         status: VipSubscriptionStatus.active,
         autoRenew: true,
         paymentMethod: 'AWS_PAYMENT',
@@ -190,6 +197,14 @@ class VipNotifier extends StateNotifier<VipState> {
         isLoading: false,
       );
       
+      // Update user provider with VIP status
+      await _ref.read(userProvider.notifier).updateVipStatus(
+        isVip: true,
+        vipStartDate: vipStartDate,
+        vipEndDate: vipEndDate,
+        vipTier: _getVipTierFromPlan(plan.name),
+      );
+      
       Logger.log('VIP 구매 성공: ${updatedProfile != null ? "AWS 업데이트 완료" : "로컬 상태만 업데이트"}', name: 'VipProvider');
       return true;
     } catch (e) {
@@ -199,6 +214,148 @@ class VipNotifier extends StateNotifier<VipState> {
         error: 'VIP 구매에 실패했습니다: ${e.toString()}',
       );
       return false;
+    }
+  }
+
+  /// VIP 플랜명에서 등급 추출
+  String _getVipTierFromPlan(String planName) {
+    if (planName.toUpperCase().contains('GOLD')) return 'GOLD';
+    if (planName.toUpperCase().contains('SILVER')) return 'SILVER';
+    if (planName.toUpperCase().contains('BRONZE')) return 'BRONZE';
+    return 'GOLD'; // 기본값
+  }
+
+  /// VIP 티켓 구매 처리 (포인트 상점에서 호출)
+  Future<bool> purchaseVipTicket({
+    required String tier, // GOLD, SILVER, BRONZE
+    required int days,
+    required int price,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    
+    try {
+      Logger.log('VIP 티켓 구매 시작: $tier $days일 ($price P)', name: 'VipProvider');
+      
+      // Get current user
+      final authState = _ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+      
+      final userId = authState.currentUser!.user!.userId;
+      
+      // Simulate payment processing
+      Logger.log('포인트 결제 처리...', name: 'VipProvider');
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Get current profile (force refresh to get latest updatedAt)
+      final profile = await _profileService.getProfile(userId, forceRefresh: true).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => null,
+      );
+      
+      if (profile == null) {
+        throw Exception('프로필을 찾을 수 없습니다.');
+      }
+      
+      // Calculate VIP dates
+      final vipStartDate = DateTime.now();
+      final vipEndDate = vipStartDate.add(Duration(days: days));
+      
+      // Update profile to VIP status
+      await _profileService.updateProfile(
+        profileId: profile.id,
+        additionalData: {
+          'isVip': true,
+          'isPremium': tier == 'GOLD',
+          'vipStartDate': vipStartDate.toIso8601String(),
+          'vipEndDate': vipEndDate.toIso8601String(),
+          'vipTier': tier,
+          'lastVipPurchase': DateTime.now().toIso8601String(),
+        },
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          Logger.log('VIP 프로필 업데이트 타임아웃', name: 'VipProvider');
+          return null;
+        },
+      );
+      
+      // Create subscription for tracking
+      final newSubscription = VipSubscription(
+        id: 'ticket_${DateTime.now().millisecondsSinceEpoch}',
+        userId: userId,
+        plan: VipPlan(
+          id: 'ticket_$tier',
+          name: '$tier VIP $days일',
+          description: '$tier 등급 VIP $days일 이용권',
+          durationDays: days,
+          originalPrice: price + 100, // 가상의 원가
+          discountPrice: price,
+          discountPercent: ((100 * 100) / (price + 100)).round(), // 할인율 계산
+          features: _getVipFeatures(tier),
+          isPopular: days == 30,
+          isRecommended: days == 30,
+          type: _getVipPlanTypeFromDays(days),
+        ),
+        startDate: vipStartDate,
+        endDate: vipEndDate,
+        status: VipSubscriptionStatus.active,
+        autoRenew: false, // 티켓은 자동갱신 없음
+        paymentMethod: 'POINT_PAYMENT',
+      );
+      
+      state = state.copyWith(
+        isVipUser: true,
+        currentSubscription: newSubscription,
+        isLoading: false,
+      );
+      
+      // Update user provider with VIP status
+      await _ref.read(userProvider.notifier).updateVipStatus(
+        isVip: true,
+        vipStartDate: vipStartDate,
+        vipEndDate: vipEndDate,
+        vipTier: tier,
+      );
+      
+      Logger.log('VIP 티켓 구매 성공: $tier $days일', name: 'VipProvider');
+      return true;
+      
+    } catch (e) {
+      Logger.error('VIP 티켓 구매 실패: $e', name: 'VipProvider');
+      state = state.copyWith(
+        isLoading: false,
+        error: 'VIP 티켓 구매에 실패했습니다: ${e.toString()}',
+      );
+      return false;
+    }
+  }
+
+  /// VIP 등급별 특징 반환
+  List<String> _getVipFeatures(String tier) {
+    switch (tier) {
+      case 'GOLD':
+        return ['VIP GOLD 배지', '프로필 우선 노출', '무제한 좋아요', '슈퍼챗 할인'];
+      case 'SILVER':
+        return ['VIP SILVER 배지', '프로필 노출 우선순위', '추가 좋아요'];
+      case 'BRONZE':
+        return ['VIP BRONZE 배지', '기본 VIP 혜택'];
+      default:
+        return ['VIP 혜택'];
+    }
+  }
+
+  /// 일수에 따른 VIP 플랜 타입 결정
+  VipPlanType _getVipPlanTypeFromDays(int days) {
+    if (days <= 7) {
+      return VipPlanType.weekly;
+    } else if (days <= 30) {
+      return VipPlanType.monthly;
+    } else if (days <= 90) {
+      return VipPlanType.quarterly;
+    } else {
+      return VipPlanType.yearly;
     }
   }
 
@@ -456,56 +613,81 @@ class VipNotifier extends StateNotifier<VipState> {
     return plan.originalPrice - plan.discountPrice;
   }
 
-  // 등급별 VIP 프로필 리스트 반환 (더미 데이터)
-  List<ProfileModel> getProfilesByGrade(String grade) {
-    // 실제 구현에서는 서버에서 받아오거나 상태에서 필터링
-    // 여기서는 등급별 더미 데이터 반환
-    if (grade == 'GOLD') {
-      return [
-        ProfileModel(
-          id: 'gold1',
-          name: '서연',
-          age: 19,
-          location: '세종특별자치시',
-          profileImages: ['https://randomuser.me/api/portraits/women/1.jpg'],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-        ProfileModel(
-          id: 'gold2',
-          name: '민수',
-          age: 25,
-          location: '서울',
-          profileImages: ['https://randomuser.me/api/portraits/men/2.jpg'],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-      ];
-    } else if (grade == 'SILVER') {
-      return [
-        ProfileModel(
-          id: 'silver1',
-          name: '지은',
-          age: 22,
-          location: '부산',
-          profileImages: ['https://randomuser.me/api/portraits/women/3.jpg'],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-      ];
-    } else if (grade == 'BRONZE') {
-      return [
-        ProfileModel(
-          id: 'bronze1',
-          name: '철수',
-          age: 28,
-          location: '대구',
-          profileImages: ['https://randomuser.me/api/portraits/men/4.jpg'],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-      ];
-    } else {
+  // 등급별 VIP 프로필 리스트 반환 (실제 사용자 데이터)
+  Future<List<ProfileModel>> getProfilesByGrade(String grade) async {
+    try {
+      Logger.log('VIP 프로필 로드 시작 - 등급: $grade', name: 'VipProvider');
+      
+      // Get current user info
+      final authState = _ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+        Logger.log('사용자 인증 실패 - 빈 리스트 반환', name: 'VipProvider');
+        return [];
+      }
+      
+      final currentUserId = authState.currentUser!.user!.userId;
+      
+      // Get my profile to determine target gender
+      final myProfile = await _profileService.getProfile(currentUserId);
+      Logger.log('내 프로필 존재 여부: ${myProfile != null}', name: 'VipProvider');
+      Logger.log('내 프로필 성별: ${myProfile?.gender}', name: 'VipProvider');
+      
+      String? targetGender;
+      if (myProfile != null && myProfile.gender != null) {
+        if (myProfile.gender == '남성' || myProfile.gender == 'M') {
+          targetGender = '여성';
+        } else if (myProfile.gender == '여성' || myProfile.gender == 'F') {
+          targetGender = '남성';
+        }
+      } else {
+        // 성별 정보가 없으면 기본값으로 여성 프로필을 표시
+        Logger.log('성별 정보가 없어 기본값(여성) 사용', name: 'VipProvider');
+        targetGender = '여성';
+      }
+      
+      Logger.log('타겟 성별: $targetGender', name: 'VipProvider');
+      
+      // Get VIP profiles from AWS with grade filter
+      final vipProfiles = await _profileService.getVipProfiles(
+        currentUserId: currentUserId,
+        gender: targetGender,
+        vipGrade: grade,
+        limit: 10,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          Logger.log('VIP 프로필 로드 타임아웃 - 빈 리스트 반환', name: 'VipProvider');
+          return <ProfileModel>[];
+        },
+      );
+      
+      Logger.log('가져온 VIP 프로필 수: ${vipProfiles.length}', name: 'VipProvider');
+      
+      if (vipProfiles.isNotEmpty) {
+        Logger.log('✅ AWS에서 실제 VIP 프로필 로드 성공!', name: 'VipProvider');
+        Logger.log('첫 번째 프로필: ${vipProfiles.first.name} (${vipProfiles.first.gender})', name: 'VipProvider');
+        return vipProfiles;
+      } else {
+        Logger.log('⚠️ VIP 프로필이 없음 - 일반 프로필로 대체', name: 'VipProvider');
+        // If no VIP profiles available, fallback to regular discover profiles
+        final fallbackProfiles = await _profileService.getDiscoverProfiles(
+          currentUserId: currentUserId,
+          gender: targetGender,
+          limit: 5,
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            Logger.log('일반 프로필 로드 타임아웃', name: 'VipProvider');
+            return <ProfileModel>[];
+          },
+        );
+        
+        Logger.log('대체 프로필 수: ${fallbackProfiles.length}', name: 'VipProvider');
+        return fallbackProfiles;
+      }
+      
+    } catch (e) {
+      Logger.error('VIP 프로필 로드 실패: $e', name: 'VipProvider');
       return [];
     }
   }

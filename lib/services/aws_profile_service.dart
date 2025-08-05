@@ -347,9 +347,27 @@ class AWSProfileService {
         'religion': religion ?? existingProfile.religion,
         'mbti': mbti ?? existingProfile.mbti,
         'hobbies': hobbies ?? existingProfile.hobbies,
-        'updatedAt': DateTime.now().toIso8601String(),
-        ...?additionalData,
       };
+
+      // 추가 데이터가 있는 경우 GraphQL 스키마에 맞는 필드만 포함
+      if (additionalData != null) {
+        // UpdateProfileInput에 정의된 필드만 허용
+        const validFields = {
+          'userId', 'name', 'age', 'gender', 'location', 'profileImages',
+          'bio', 'occupation', 'education', 'height', 'bodyType',
+          'smoking', 'drinking', 'religion', 'mbti', 'hobbies', 'badges',
+          'isVip', 'isPremium', 'isVerified', 'isOnline', 'likeCount',
+          'superChatCount', 'meetingType', 'incomeCode', 'lastSeen'
+        };
+        
+        for (final entry in additionalData.entries) {
+          if (validFields.contains(entry.key)) {
+            updateData[entry.key] = entry.value;
+          } else {
+            Logger.log('GraphQL 스키마에 없는 필드 무시: ${entry.key}', name: 'AWSProfileService');
+          }
+        }
+      }
 
       // 4. API 호출하여 프로필 업데이트
       final request = GraphQLRequest<String>(
@@ -391,7 +409,138 @@ class AWSProfileService {
       final response = await Amplify.API.mutate(request: request).response;
       
       if (response.errors.isNotEmpty) {
-        throw Exception('프로필 업데이트 실패: ${response.errors.first.message}');
+        // 조건부 업데이트 실패시 재시도 (타임스탬프 없이)
+        Logger.log('조건부 업데이트 실패, 재시도: ${response.errors.first.message}', name: 'AWSProfileService');
+        
+        // updatedAt 없이 재시도
+        final retryData = Map<String, dynamic>.from(updateData);
+        retryData.remove('updatedAt');
+        retryData.remove('createdAt');
+        
+        final retryRequest = GraphQLRequest<String>(
+          document: '''
+            mutation UpdateProfile(\$input: UpdateProfileInput!) {
+              updateProfile(input: \$input) {
+                id
+                userId
+                name
+                age
+                gender
+                location
+                profileImages
+                bio
+                occupation
+                education
+                height
+                bodyType
+                smoking
+                drinking
+                religion
+                mbti
+                hobbies
+                badges
+                isVip
+                isPremium
+                isVerified
+                isOnline
+                likeCount
+                superChatCount
+                createdAt
+                updatedAt
+              }
+            }
+          ''',
+          variables: {'input': retryData},
+        );
+        
+        final retryResponse = await Amplify.API.mutate(request: retryRequest).response;
+        
+        if (retryResponse.errors.isNotEmpty) {
+          // 업데이트 실패시 새 프로필 생성 시도 (GraphQL 테이블에 없는 경우)
+          Logger.log('업데이트 재시도 실패, 프로필 생성 시도: ${retryResponse.errors.first.message}', name: 'AWSProfileService');
+          
+          final createData = Map<String, dynamic>.from(retryData);
+          createData.remove('id'); // 생성시 ID 제거
+          createData['userId'] = existingProfile.id; // userId 사용
+          
+          final createRequest = GraphQLRequest<String>(
+            document: '''
+              mutation CreateProfile(\$input: CreateProfileInput!) {
+                createProfile(input: \$input) {
+                  id
+                  userId
+                  name
+                  age
+                  gender
+                  location
+                  profileImages
+                  bio
+                  occupation
+                  education
+                  height
+                  bodyType
+                  smoking
+                  drinking
+                  religion
+                  mbti
+                  hobbies
+                  badges
+                  isVip
+                  isPremium
+                  isVerified
+                  isOnline
+                  likeCount
+                  superChatCount
+                  createdAt
+                  updatedAt
+                }
+              }
+            ''',
+            variables: {'input': createData},
+          );
+          
+          final createResponse = await Amplify.API.mutate(request: createRequest).response;
+          
+          if (createResponse.errors.isNotEmpty) {
+            throw Exception('프로필 생성 실패: ${createResponse.errors.first.message}');
+          }
+          
+          if (createResponse.data != null) {
+            try {
+              Logger.log('프로필 생성 응답: ${createResponse.data}', name: 'AWSProfileService');
+              Logger.log('응답 타입: ${createResponse.data.runtimeType}', name: 'AWSProfileService');
+              
+              dynamic profileData;
+              if (createResponse.data is String) {
+                final parsedData = json.decode(createResponse.data as String) as Map<String, dynamic>;
+                profileData = parsedData['createProfile'];
+              } else if (createResponse.data is Map) {
+                final dataMap = createResponse.data as Map<String, dynamic>;
+                profileData = dataMap['createProfile'];
+              } else {
+                throw Exception('예상치 못한 응답 형식: ${createResponse.data.runtimeType}');
+              }
+              
+              if (profileData == null) {
+                throw Exception('프로필 데이터가 응답에 없습니다');
+              }
+              
+              return ProfileModel.fromJson(profileData as Map<String, dynamic>);
+            } catch (e) {
+              Logger.error('프로필 생성 응답 파싱 실패: $e', name: 'AWSProfileService');
+              throw Exception('프로필 생성 응답 파싱 실패: $e');
+            }
+          }
+          
+          throw Exception('프로필 생성 응답이 비어있습니다.');
+        }
+        
+        if (retryResponse.data != null) {
+          final profileJson = _parseGraphQLResponse(retryResponse.data!);
+          return ProfileModel.fromJson(profileJson);
+        }
+        
+        throw Exception('프로필 업데이트 응답이 비어있습니다.');
       }
 
       if (response.data != null) {
@@ -408,15 +557,17 @@ class AWSProfileService {
 
   /// 프로필 조회
   /// 프로필 조회 (캐시 우선, DynamoDB 폴백)
-  Future<ProfileModel?> getProfile(String userId) async {
+  Future<ProfileModel?> getProfile(String userId, {bool forceRefresh = false}) async {
     try {
-      Logger.log('프로필 조회 시작: $userId', name: 'AWSProfileService');
+      Logger.log('프로필 조회 시작: $userId (forceRefresh: $forceRefresh)', name: 'AWSProfileService');
       
-      // 1. 캐시 확인
-      final cachedProfile = _getCachedProfile(userId);
-      if (cachedProfile != null) {
-        Logger.log('캐시에서 프로필 로드 성공: ${cachedProfile.name}', name: 'AWSProfileService');
-        return cachedProfile;
+      // 1. 캐시 확인 (forceRefresh가 false인 경우만)
+      if (!forceRefresh) {
+        final cachedProfile = _getCachedProfile(userId);
+        if (cachedProfile != null) {
+          Logger.log('캐시에서 프로필 로드 성공: ${cachedProfile.name}', name: 'AWSProfileService');
+          return cachedProfile;
+        }
       }
       
       // 2. 중복 요청 방지
@@ -992,6 +1143,167 @@ class AWSProfileService {
       } finally {
         // _ongoingRequests.remove(cacheKey); // TODO: cacheKey 스코프 문제로 임시 주석
       }
+  }
+
+  /// VIP 등급별 프로필 목록 조회
+  Future<List<ProfileModel>> getVipProfiles({
+    required String currentUserId,
+    String? gender,
+    String? vipGrade,
+    int? minAge,
+    int? maxAge,
+    String? location,
+    int limit = 10,
+    String? nextToken,
+  }) async {
+    try {
+      // 캐시 키 생성
+      final cacheKey = 'vip_${currentUserId}_${gender ?? 'all'}_${vipGrade ?? 'all'}_${minAge ?? 0}_${maxAge ?? 100}_${location ?? 'all'}_$limit';
+      
+      Logger.log('=== getVipProfiles 디버깅 시작 ===', name: 'AWSProfileService');
+      Logger.log('🔍 VIP 프로필 검색 요청:', name: 'AWSProfileService');
+      Logger.log('   요청된 성별: $gender', name: 'AWSProfileService');
+      Logger.log('   VIP 등급: $vipGrade', name: 'AWSProfileService');
+      Logger.log('   현재 사용자 ID: $currentUserId', name: 'AWSProfileService');
+      Logger.log('   필터링 조건: minAge=$minAge, maxAge=$maxAge, location=$location, limit=$limit', name: 'AWSProfileService');
+      
+      // 1. 캐시 확인
+      final cachedProfiles = _getCachedDiscoverProfiles(cacheKey);
+      if (cachedProfiles != null) {
+        Logger.log('✅ 캐시에서 VIP 프로필 로드: ${cachedProfiles.length}개', name: 'AWSProfileService');
+        return cachedProfiles;
+      }
+      
+      // 2. 중복 요청 방지
+      if (_ongoingRequests.contains(cacheKey)) {
+        Logger.log('이미 진행 중인 VIP 요청이 있음, 잠시 대기', name: 'AWSProfileService');
+        await Future.delayed(const Duration(milliseconds: 200));
+        final retryCache = _getCachedDiscoverProfiles(cacheKey);
+        if (retryCache != null) return retryCache;
+      }
+      
+      _ongoingRequests.add(cacheKey);
+      
+      try {
+        // 필터 조건 생성 - VIP 사용자만 조회
+        final filter = <String, dynamic>{
+          'isVip': {'eq': true}, // VIP 사용자만 필터링
+        };
+        
+        if (gender != null) filter['gender'] = {'eq': gender};
+        if (minAge != null || maxAge != null) {
+          filter['age'] = {};
+          if (minAge != null) filter['age']['gte'] = minAge;
+          if (maxAge != null) filter['age']['lte'] = maxAge;
+        }
+        if (location != null) filter['location'] = {'contains': location};
+
+        Logger.log('📝 VIP GraphQL 필터 조건: ${json.encode(filter)}', name: 'AWSProfileService');
+
+        final request = GraphQLRequest<String>(
+          document: '''
+          query ListVipProfiles(\$filter: ModelProfileFilterInput, \$limit: Int, \$nextToken: String) {
+            listProfiles(filter: \$filter, limit: \$limit, nextToken: \$nextToken) {
+              items {
+                id
+                userId
+                name
+                age
+                gender
+                location
+                profileImages
+                bio
+                occupation
+                education
+                height
+                bodyType
+                smoking
+                drinking
+                religion
+                mbti
+                hobbies
+                badges
+                isVip
+                isPremium
+                isVerified
+                isOnline
+                lastSeen
+                likeCount
+                superChatCount
+                createdAt
+                updatedAt
+              }
+              nextToken
+            }
+          }
+        ''',
+        variables: {
+          'filter': filter,
+          'limit': limit,
+          'nextToken': nextToken,
+        },
+      );
+
+      Logger.log('🚀 VIP GraphQL 요청 시작', name: 'AWSProfileService');
+      final response = await Amplify.API.query(request: request).response;
+
+      if (response.errors.isNotEmpty) {
+        Logger.error('VIP GraphQL 오류: ${response.errors}', name: 'AWSProfileService');
+        return [];
+      }
+
+      if (response.data == null) {
+        Logger.log('⚠️ VIP GraphQL 응답 데이터가 없음', name: 'AWSProfileService');
+        return [];
+      }
+
+      final Map<String, dynamic> responseData = json.decode(response.data!);
+      final List<dynamic> items = responseData['listProfiles']['items'] ?? [];
+
+      Logger.log('📊 VIP API 응답: ${items.length}개 프로필', name: 'AWSProfileService');
+
+      List<ProfileModel> profiles = [];
+      for (final item in items) {
+        try {
+          // 본인 제외
+          if (item['userId'] == currentUserId) {
+            Logger.log('본인 프로필 제외: ${item['name']}', name: 'AWSProfileService');
+            continue;
+          }
+
+          final profile = ProfileModel.fromJson(item);
+          profiles.add(profile);
+          
+          Logger.log('✅ VIP 프로필 파싱 성공: ${profile.name} (${profile.age}세, ${profile.gender})', name: 'AWSProfileService');
+        } catch (e) {
+          Logger.error('VIP 프로필 파싱 실패: $e', name: 'AWSProfileService');
+          Logger.error('문제가 된 데이터: ${json.encode(item)}', name: 'AWSProfileService');
+        }
+      }
+
+      // 랜덤 섞기
+      profiles.shuffle();
+
+      // 캐시에 저장
+      _cacheDiscoverProfiles(cacheKey, profiles);
+
+      Logger.log('🎯 최종 VIP 프로필 리스트: ${profiles.length}개', name: 'AWSProfileService');
+      profiles.asMap().forEach((index, profile) {
+        Logger.log('   [$index] ${profile.name} (${profile.age}세, ${profile.gender}, VIP: ${profile.isVip})', name: 'AWSProfileService');
+      });
+
+      return profiles;
+
+      } catch (e) {
+        Logger.error('❌ 내부 getVipProfiles 오류:', error: e, name: 'AWSProfileService');
+        return [];
+      } finally {
+        _ongoingRequests.remove(cacheKey);
+      }
+    } catch (e) {
+      Logger.error('❌ getVipProfiles 외부 오류:', error: e, name: 'AWSProfileService');
+      return [];
+    }
   }
 
   /// 프로필 이미지 S3 업로드 (개선된 버전)

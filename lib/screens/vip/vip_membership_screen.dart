@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
-import '../../utils/app_dimensions.dart';
+import '../../providers/vip_provider.dart';
+import '../../providers/user_provider.dart';
+
+enum VipTier { gold, silver, bronze }
 
 class VipMembershipScreen extends ConsumerStatefulWidget {
   const VipMembershipScreen({super.key});
@@ -13,602 +15,397 @@ class VipMembershipScreen extends ConsumerStatefulWidget {
   ConsumerState<VipMembershipScreen> createState() => _VipMembershipScreenState();
 }
 
-class _VipMembershipScreenState extends ConsumerState<VipMembershipScreen> {
-  String _selectedTier = 'GOLD';
+class _VipMembershipScreenState extends ConsumerState<VipMembershipScreen> 
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  VipTier selectedTier = VipTier.gold;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        selectedTier = VipTier.values[_tabController.index];
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
   
   @override
   Widget build(BuildContext context) {
+    final vipState = ref.watch(vipProvider);
+    final userState = ref.watch(userProvider);
+    
+    // Get current user's VIP tier
+    String? currentVipTier = userState.vipTier;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 24),
-                    _buildVipTiers(),
-                    const SizedBox(height: 32),
-                    _buildBenefits(),
-                    const SizedBox(height: 32),
-                    _buildPurchaseButton(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ],
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar() {
-    return Container(
-      height: AppDimensions.appBarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingM),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              CupertinoIcons.chevron_left,
-              color: AppColors.textPrimary,
-              size: AppDimensions.iconM,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            'VIP',
-            style: AppTextStyles.h5.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        title: Text(
+          'VIP 이용권',
+          style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
         ),
-        borderRadius: BorderRadius.circular(20),
+        centerTitle: true,
       ),
-      child: Column(
+      body: Column(
         children: [
-          Image.asset(
-            'assets/icons/crown.png',
-            width: 60,
-            height: 60,
-            errorBuilder: (context, error, stackTrace) => const Icon(
-              CupertinoIcons.star_circle_fill,
-              size: 60,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'VIP 멤버십',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '특별한 혜택과 함께 더 많은 만남을 경험하세요',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVipTiers() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          _buildTierCard(
-            tier: 'GOLD',
-            title: '골드 멤버십',
-            duration: '30일',
-            originalPrice: 29900,
-            discountPrice: 19900,
-            discountPercent: 33,
-            color: const Color(0xFFFFD700),
-            isPopular: true,
-          ),
-          const SizedBox(height: 16),
-          _buildTierCard(
-            tier: 'SILVER',
-            title: '실버 멤버십',
-            duration: '14일',
-            originalPrice: 19900,
-            discountPrice: 14900,
-            discountPercent: 25,
-            color: const Color(0xFFC0C0C0),
-          ),
-          const SizedBox(height: 16),
-          _buildTierCard(
-            tier: 'BRONZE',
-            title: '브론즈 멤버십',
-            duration: '7일',
-            originalPrice: 12900,
-            discountPrice: 9900,
-            discountPercent: 23,
-            color: const Color(0xFFCD7F32),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTierCard({
-    required String tier,
-    required String title,
-    required String duration,
-    required int originalPrice,
-    required int discountPrice,
-    required int discountPercent,
-    required Color color,
-    bool isPopular = false,
-  }) {
-    final bool isSelected = _selectedTier == tier;
-    
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _selectedTier = tier),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected ? color : AppColors.cardBorder,
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: isSelected ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ] : [],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // 상단 탭 메뉴 - 등급별 버튼 표시 조건
+          _buildTierTabs(currentVipTier),
+          
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (isSelected)
-                      Icon(
-                        CupertinoIcons.checkmark_circle_fill,
-                        color: color,
-                        size: 24,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$duration 이용권',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Text(
-                      '${_formatPrice(originalPrice)}원',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${_formatPrice(discountPrice)}원',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFF357B),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildTierContent(VipTier.gold),
+                _buildTierContent(VipTier.silver),
+                _buildTierContent(VipTier.bronze),
               ],
             ),
           ),
-        ),
-        if (isPopular)
-          Positioned(
-            top: -8,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTierTabs(String? currentVipTier) {
+    List<Widget> tabs = [];
+    
+    // Gold 등급: Gold 탭만 표시
+    if (currentVipTier == 'GOLD') {
+      tabs = [
+        Tab(text: 'GOLD'),
+      ];
+      _tabController = TabController(length: 1, vsync: this);
+    }
+    // Silver 등급: Silver + VIP 구매 탭 표시
+    else if (currentVipTier == 'SILVER') {
+      tabs = [
+        Tab(text: 'SILVER'),
+        Tab(text: 'VIP 구매'),
+      ];
+      _tabController = TabController(length: 2, vsync: this);
+    }
+    // Bronze 등급: Bronze + VIP 구매 탭 표시
+    else if (currentVipTier == 'BRONZE') {
+      tabs = [
+        Tab(text: 'BRONZE'),
+        Tab(text: 'VIP 구매'),
+      ];
+      _tabController = TabController(length: 2, vsync: this);
+    }
+    // 일반 사용자: 모든 탭 표시
+    else {
+      tabs = [
+        Tab(text: 'GOLD'),
+        Tab(text: 'SILVER'),
+        Tab(text: 'BRONZE'),
+      ];
+      _tabController = TabController(length: 3, vsync: this);
+    }
+    
+    return SizedBox(
+      width: double.infinity,
+      child: TabBar(
+        controller: _tabController,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textSecondary,
+        indicatorColor: AppColors.primary,
+        indicatorWeight: 2,
+        labelStyle: AppTextStyles.h4.copyWith(fontWeight: FontWeight.bold),
+        unselectedLabelStyle: AppTextStyles.h4,
+        tabs: tabs,
+      ),
+    );
+  }
+
+  Widget _buildTierContent(VipTier tier) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          
+          // VIP 프레임 이미지
+          _buildVipFrame(tier),
+          
+          const SizedBox(height: 30),
+          
+          // 티어 선택 버튼
+          _buildTierSelector(tier),
+          
+          const SizedBox(height: 30),
+          
+          // 상품 카드들
+          _buildProductCards(tier),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVipFrame(VipTier tier) {
+    String flameAsset;
+    String tierText;
+    
+    switch (tier) {
+      case VipTier.gold:
+        flameAsset = 'assets/vip/Gold_flame.png';
+        tierText = 'VIP GOLD';
+        break;
+      case VipTier.silver:
+        flameAsset = 'assets/vip/Silver_flame.png';
+        tierText = 'VIP SILVER';
+        break;
+      case VipTier.bronze:
+        flameAsset = 'assets/vip/Bronze_flame.png';
+        tierText = 'VIP BRONZE';
+        break;
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Image.asset(
+          flameAsset,
+          width: 300,
+          height: 200,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 300,
+              height: 200,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF357B),
-                borderRadius: BorderRadius.circular(12),
+                color: _getTierColor(tier).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _getTierColor(tier), width: 2),
               ),
-              child: Text(
-                '인기',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      tierText,
+                      style: AppTextStyles.h2.copyWith(
+                        color: _getTierColor(tier),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '15일 남음',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: _getTierColor(tier),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-        Positioned(
-          top: -8,
-          left: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$discountPercent% 할인',
-              style: AppTextStyles.labelSmall.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildBenefits() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'VIP 멤버십 혜택',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+  Widget _buildTierSelector(VipTier tier) {
+    final isSelected = selectedTier == tier;
+    String buttonAsset;
+    
+    switch (tier) {
+      case VipTier.gold:
+        buttonAsset = isSelected ? 'assets/vip/BS_gold.png' : 'assets/vip/B_gold.png';
+        break;
+      case VipTier.silver:
+        buttonAsset = isSelected ? 'assets/vip/BS_sliver.png' : 'assets/vip/B_silver.png';
+        break;
+      case VipTier.bronze:
+        buttonAsset = isSelected ? 'assets/vip/BS_bronze.png' : 'assets/vip/B_bronze.png';
+        break;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedTier = tier;
+        });
+        _tabController.animateTo(tier.index);
+      },
+      child: Image.asset(
+        buttonAsset,
+        width: 120,
+        height: 50,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: 120,
+            height: 50,
+            decoration: BoxDecoration(
+              color: isSelected ? _getTierColor(tier) : Colors.transparent,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: _getTierColor(tier), width: 2),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitItem(
-            icon: CupertinoIcons.eye,
-            title: '무제한 프로필 열람',
-            description: '모든 프로필을 자유롭게 확인하세요',
-          ),
-          _buildBenefitItem(
-            icon: CupertinoIcons.heart_fill,
-            title: '무제한 좋아요',
-            description: '마음에 드는 상대에게 좋아요를 보내세요',
-          ),
-          _buildBenefitItem(
-            icon: CupertinoIcons.paperplane_fill,
-            title: '슈퍼챗 할인',
-            description: '슈퍼챗 발송 시 30% 할인 혜택',
-          ),
-          _buildBenefitItem(
-            icon: CupertinoIcons.star_circle_fill,
-            title: '프로필 우선 노출',
-            description: '상대방에게 먼저 보여집니다',
-          ),
-        ],
+            child: Center(
+              child: Text(
+                tier.name.toUpperCase(),
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: isSelected ? Colors.white : _getTierColor(tier),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildBenefitItem({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
+  Widget _buildProductCards(VipTier tier) {
+    final products = _getProductsForTier(tier);
+    
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        return _buildProductCard(tier, products[index]);
+      },
+    );
+  }
+
+  Widget _buildProductCard(VipTier tier, Map<String, dynamic> product) {
+    String cardAsset;
+    final days = product['days'] as int;
+    
+    switch (tier) {
+      case VipTier.gold:
+        cardAsset = 'assets/vip/G$days.png';
+        break;
+      case VipTier.silver:
+        cardAsset = 'assets/vip/S$days.png';
+        break;
+      case VipTier.bronze:
+        cardAsset = 'assets/vip/B$days.png';
+        break;
+    }
+
+    return GestureDetector(
+      onTap: () => _onProductSelected(tier, product),
+      child: Image.asset(
+        cardAsset,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: _getTierColor(tier).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _getTierColor(tier), width: 1),
             ),
-            child: Icon(
-              icon,
-              color: AppColors.primary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(
+                  Icons.workspace_premium,
+                  size: 40,
+                  color: _getTierColor(tier),
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  '${product['days']}일',
+                  style: AppTextStyles.h4.copyWith(
+                    color: _getTierColor(tier),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  description,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                  '${product['price']}원',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: _getTierColor(tier),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildPurchaseButton() {
-    final selectedTierData = _getTierData(_selectedTier);
-    
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: _processPurchase,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFF357B),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            elevation: 0,
-          ),
-          child: Text(
-            '${_formatPrice(selectedTierData['discountPrice'])}원 결제하기',
-            style: AppTextStyles.buttonLarge.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Map<String, dynamic> _getTierData(String tier) {
+  Color _getTierColor(VipTier tier) {
     switch (tier) {
-      case 'GOLD':
-        return {
-          'title': '골드 멤버십',
-          'duration': '30일',
-          'originalPrice': 29900,
-          'discountPrice': 19900,
-          'discountPercent': 33,
-        };
-      case 'SILVER':
-        return {
-          'title': '실버 멤버십',
-          'duration': '14일',
-          'originalPrice': 19900,
-          'discountPrice': 14900,
-          'discountPercent': 25,
-        };
-      case 'BRONZE':
-        return {
-          'title': '브론즈 멤버십',
-          'duration': '7일',
-          'originalPrice': 12900,
-          'discountPrice': 9900,
-          'discountPercent': 23,
-        };
-      default:
-        return {
-          'title': '골드 멤버십',
-          'duration': '30일',
-          'originalPrice': 29900,
-          'discountPrice': 19900,
-          'discountPercent': 33,
-        };
+      case VipTier.gold:
+        return const Color(0xFFFFD700);
+      case VipTier.silver:
+        return const Color(0xFFC0C0C0);
+      case VipTier.bronze:
+        return const Color(0xFFCD7F32);
     }
   }
 
-  String _formatPrice(int price) {
-    return price.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match match) => '${match.group(1)},',
-    );
+  List<Map<String, dynamic>> _getProductsForTier(VipTier tier) {
+    switch (tier) {
+      case VipTier.gold:
+        return [
+          {'days': 7, 'price': 9900},
+          {'days': 15, 'price': 19900},
+          {'days': 30, 'price': 39900},
+          {'days': 90, 'price': 99900},
+        ];
+      case VipTier.silver:
+        return [
+          {'days': 7, 'price': 7900},
+          {'days': 15, 'price': 15900},
+          {'days': 30, 'price': 29900},
+          {'days': 90, 'price': 79900},
+        ];
+      case VipTier.bronze:
+        return [
+          {'days': 7, 'price': 4900},
+          {'days': 15, 'price': 9900},
+          {'days': 30, 'price': 19900},
+          {'days': 90, 'price': 49900},
+        ];
+    }
   }
 
-  void _processPurchase() {
-    final tierData = _getTierData(_selectedTier);
-    
+  void _onProductSelected(VipTier tier, Map<String, dynamic> product) {
+    // 결제 탭으로 이동하는 로직 구현
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        contentPadding: const EdgeInsets.all(24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              CupertinoIcons.star_circle_fill,
-              color: Color(0xFFFFD700),
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${tierData['title']} 구매',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${tierData['duration']} 이용권을 구매하시겠습니까?',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      backgroundColor: AppColors.surface,
-                      foregroundColor: AppColors.textSecondary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Text(
-                      '취소',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showPurchaseSuccess();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF357B),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Text(
-                      '구매',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPurchaseSuccess() {
-    final tierData = _getTierData(_selectedTier);
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        contentPadding: const EdgeInsets.all(24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              CupertinoIcons.checkmark_circle_fill,
-              color: AppColors.success,
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '구매 완료!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${tierData['title']} ${tierData['duration']} 이용권이\n성공적으로 구매되었습니다.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF357B),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: const Text(
-                  '확인',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
+        title: Text('${tier.name.toUpperCase()} ${product['days']}일'),
+        content: Text('${product['price']}원 상품을 구매하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: 결제 화면으로 이동
+            },
+            child: const Text('구매'),
+          ),
+        ],
       ),
     );
   }
