@@ -14,7 +14,7 @@ import '../../routes/route_names.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import '../../services/aws_profile_service.dart';
 import '../../models/profile_model.dart';
-import 'mobileok_verification_screen.dart';
+import 'mobileok_api_verification_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -411,7 +411,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 카카오 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOK('소셜로그인', {
+        _navigateToMobileOKAPI('소셜로그인', {
           'socialProvider': 'KAKAO',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -432,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 네이버 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOK('소셜로그인', {
+        _navigateToMobileOKAPI('소셜로그인', {
           'socialProvider': 'NAVER',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -452,7 +452,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(enhancedAuthProvider);
       if (authState.isSignedIn && mounted) {
         // 구글 로그인 성공 시 PASS 본인인증으로 이동
-        _navigateToMobileOK('소셜로그인', {
+        _navigateToMobileOKAPI('소셜로그인', {
           'socialProvider': 'GOOGLE',
           'socialLoginData': authState.currentUser?.toJson(),
         });
@@ -486,18 +486,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _goToSignup() {
-    // 회원가입 시 PASS 본인인증으로 바로 이동
-    _navigateToMobileOK('회원가입', {
-      // 'enableSimulation': true, // 실제 MobileOK 인증 사용
-    });
+    // PASS 본인인증으로 직접 이동
+    _navigateToMobileOKAPI('회원가입', {});
   }
 
-  /// MobileOK 본인인증 화면으로 이동
-  void _navigateToMobileOK(String purpose, Map<String, dynamic> additionalData) {
+
+  /// MobileOK API 본인인증 화면으로 이동
+  void _navigateToMobileOKAPI(String purpose, Map<String, dynamic> additionalData) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MobileOKVerificationScreen(
+        builder: (context) => MobileOKAPIVerificationScreen(
           purpose: purpose,
           userId: ref.read(enhancedAuthProvider).currentUser?.user?.userId,
           additionalData: additionalData,
@@ -507,7 +506,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _findIdPassword() {
-    _showErrorSnackBar('ID/PW 찾기 기능은 준비 중입니다.');
+    context.push(RouteNames.forgotPassword);
   }
 
   void _login() async {

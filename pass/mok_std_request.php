@@ -9,12 +9,16 @@
     }
 ?>
 <?php
-    header("Content-Type:text/html;charset=utf-8");
+    // CORS 헤더 추가
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
+    header("Content-Type: application/json; charset=utf-8");
 
     /* 1. 본인확인 서비스 API 설정 */    
     $mobileOK = new mobileOK_Key_Manager();
     /* 실제 키파일 및 패스워드 설정 */
-    $key_path = __DIR__ . "/../mok_keyInfo.dat 2";
+    $key_path = __DIR__ . "/../mok_keyInfo.dat";
     $password = "Sinsa507!";
     $mobileOK->key_init($key_path, $password);
 
@@ -22,7 +26,7 @@
     $clientPrefix = "61624356-3699-4e48-aa27-41f1652eb928";     // 실제 회원사ID 설정
 
     /* 결과 수신 후 전달 URL 설정 */
-    $result_return_url = "http://localhost:8000/mok_std_result.php";
+    $result_return_url = "http://192.168.45.175:8000/mok_std_result.php";
 
     /* 2. 거래 정보 호출 */
     echo mobileOK_std_request($mobileOK, $result_return_url,$clientPrefix);

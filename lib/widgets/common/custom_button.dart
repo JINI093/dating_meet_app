@@ -12,6 +12,7 @@ enum CustomButtonStyle {
   text,
   gradient,
   disabled,
+  dark,
 }
 
 enum CustomButtonSize {
@@ -246,6 +247,22 @@ class CustomButton extends StatelessWidget {
           textColor: textColor ?? AppColors.textHint,
           textStyle: _getTextStyle().copyWith(
             color: textColor ?? AppColors.textHint,
+          ),
+          borderRadius: AppDimensions.radiusM,
+          height: _getHeight(),
+          width: width,
+          padding: _getPadding(),
+          iconSize: _getIconSize(),
+          iconSpacing: AppDimensions.spacing8,
+          loadingSize: _getLoadingSize(),
+        );
+        
+      case CustomButtonStyle.dark:
+        return _ButtonConfig(
+          backgroundColor: backgroundColor ?? Colors.black,
+          textColor: textColor ?? AppColors.textWhite,
+          textStyle: _getTextStyle().copyWith(
+            color: textColor ?? AppColors.textWhite,
           ),
           borderRadius: AppDimensions.radiusM,
           height: _getHeight(),

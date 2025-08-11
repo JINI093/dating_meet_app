@@ -7,6 +7,9 @@ import '../screens/splash/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/enhanced_login_screen.dart';
 import '../screens/auth/signup_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
+import '../screens/auth/account_recovery_screen.dart';
+import '../screens/auth/find_id_screen.dart';
 import '../screens/auth/terms_screen.dart';
 import '../screens/auth/phone_verification_screen.dart';
 import '../screens/auth/signup_complete_screen.dart';
@@ -71,6 +74,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             additionalData: extra?['additionalData'],
           );
         },
+      ),
+      GoRoute(
+        path: RouteNames.forgotPassword,
+        name: 'forgotPassword',
+        builder: (context, state) => const AccountRecoveryScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.accountRecovery,
+        name: 'accountRecovery',
+        builder: (context, state) => const AccountRecoveryScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.findId,
+        name: 'findId',
+        builder: (context, state) => const FindIdScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.resetPassword,
+        name: 'resetPassword',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: RouteNames.terms,

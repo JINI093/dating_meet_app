@@ -8,6 +8,10 @@ class RouteNames {
   static const String login = '/login';
   static const String enhancedLogin = '/enhanced-login';
   static const String signup = '/signup';
+  static const String forgotPassword = '/forgot-password';
+  static const String accountRecovery = '/account-recovery';
+  static const String findId = '/find-id';
+  static const String resetPassword = '/reset-password';
   static const String terms = '/terms';
   static const String phoneVerification = '/phone-verification';
   static const String signupComplete = '/signup-complete';
@@ -96,6 +100,10 @@ class RouteNames {
     login,
     enhancedLogin,
     signup,
+    forgotPassword,
+    accountRecovery,
+    findId,
+    resetPassword,
     terms,
     phoneVerification,
     signupComplete,
@@ -223,6 +231,10 @@ class RouteNames {
     login: '로그인',
     enhancedLogin: '향상된 로그인',
     signup: '회원가입',
+    forgotPassword: 'ID/PW 찾기',
+    accountRecovery: '계정 복구',
+    findId: '아이디 찾기',
+    resetPassword: '비밀번호 찾기',
     terms: '이용약관',
     phoneVerification: '본인인증',
     signupComplete: '가입완료',

@@ -16,7 +16,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), _proceedToPermission);
+    // 지연 시간을 1초로 단축하여 빠른 진행
+    Future.delayed(const Duration(milliseconds: 800), _proceedToPermission);
   }
 
   void _proceedToPermission() {

@@ -28,7 +28,7 @@ import 'utils/auth_error_handler.dart';
 import 'utils/auth_ux_utils.dart';
 import 'services/screen_capture_service.dart';
 import 'services/google_login_service.dart';
-import 'services/mobileok_verification_service.dart';
+import 'services/mobileok_api_service.dart';
 // import 'models/auth_result.dart'; // Unused import
 
 void main() async {
@@ -61,22 +61,21 @@ void main() async {
     print('⚠️ 환경 변수 로딩 실패: $e');
   }
 
-  // CRITICAL: Amplify 초기화를 앱 시작 전에 완료
-  await _initializeCriticalServices();
-
-  // 앱 시작 - 나머지 초기화는 백그라운드에서 진행
+  // 앱 빠른 시작 - 최소한의 초기화만 진행
   runApp(const ProviderScope(child: MyApp()));
+  
+  // 백그라운드에서 비동기 초기화
+  _initializeCriticalServices().catchError((e) {
+    print('❌ 백그라운드 초기화 실패: $e');
+  });
 }
 
-/// 앱 시작 전 필수 서비스 초기화 (동기적으로 실행)
+/// 앱 시작 전 필수 서비스 초기화 (최소한으로 축소)
 Future<void> _initializeCriticalServices() async {
   try {
     print('🚀 필수 서비스 초기화 시작...');
     
-    // 1. AWS Config 로딩
-    await _loadAWSConfig();
-    
-    // 2. AWS Amplify 설정 (가장 중요)
+    // AWS Amplify만 우선 초기화 (가장 중요한 것만)
     await _configureAmplify();
     
     print('✅ 필수 서비스 초기화 완료');
@@ -86,26 +85,30 @@ Future<void> _initializeCriticalServices() async {
   }
 }
 
-/// 백그라운드 초기화 순서 (필수가 아닌 서비스들) - 병렬 처리
+/// 백그라운드 초기화 순서 (필수가 아닌 서비스들) - 더 나은 병렬 처리
 Future<void> _initializeBackgroundServices() async {
   try {
     print('🔄 백그라운드 서비스 초기화 시작 (병렬 처리)...');
     
-    // 병렬로 초기화 (서로 독립적인 서비스들)
-    await Future.wait([
+    // 더 많은 독립적 서비스들을 병렬로 초기화
+    final futures = <Future<void>>[
       _initializeSocialSDKs().catchError((e) {
         print('소셜 SDK 초기화 실패: $e');
-        return null;
       }),
       _setupDeepLinks().catchError((e) {
         print('딥링크 설정 실패: $e'); 
-        return null;
       }),
       _handleOnlineState().catchError((e) {
         print('온라인 상태 복구 실패: $e');
-        return null;
       }),
-    ]);
+      // AWS Config 검증을 백그라운드로 이동
+      _loadAWSConfig().catchError((e) {
+        print('AWS Config 로딩 실패: $e');
+      }),
+    ];
+    
+    // 모든 서비스를 동시에 초기화 (하나가 실패해도 다른 것들은 계속)
+    await Future.wait(futures, eagerError: false);
     
     print('✅ 백그라운드 서비스 초기화 완료');
   } catch (e) {
@@ -232,13 +235,13 @@ Future<void> _initializeSocialSDKs() async {
       print('⚠️ 구글 로그인 기능이 제한될 수 있습니다.');
     }
     
-    // MobileOK 본인인증 서비스 초기화
+    // MobileOK API 서비스 초기화
     try {
-      final mobileOKService = MobileOKVerificationService();
+      final mobileOKService = MobileOKAPIService();
       await mobileOKService.initialize();
-      print('✅ MobileOK 본인인증 서비스 초기화 완료');
+      print('✅ MobileOKAPIService 초기화 완료');
     } catch (e) {
-      print('❌ MobileOK 본인인증 서비스 초기화 실패: $e');
+      print('❌ MobileOKAPIService 초기화 실패: $e');
     }
     
   } catch (e) {
@@ -430,19 +433,27 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     try {
       print('✅ 앱 초기화 시작');
       
-      // EnhancedAuthProvider 초기화 (타임아웃 설정)
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      await authProvider.initialize().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          print('⚠️ AuthProvider 초기화 타임아웃');
-        },
-      );
+      // 즉시 로딩 완료로 설정하여 빠른 시작
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _isLoading = false;
+        });
+      }
       
-      // 백그라운드에서 비필수 서비스들 초기화 (로딩 속도 개선)
+      // 모든 초기화를 백그라운드에서 비동기 실행
       Future.microtask(() async {
-        // 권한 초기화 (백그라운드에서 실행)
         try {
+          // EnhancedAuthProvider 초기화
+          final authProvider = ref.read(enhancedAuthProvider.notifier);
+          await authProvider.initialize().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              print('⚠️ AuthProvider 초기화 타임아웃');
+            },
+          );
+          
+          // 권한 초기화
           final permissionNotifier = ref.read(permissionProvider.notifier);
           await permissionNotifier.initializePermissions().timeout(
             const Duration(seconds: 10),
@@ -450,24 +461,17 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
               print('⚠️ 권한 초기화 타임아웃');
             },
           );
+          
+          // 백그라운드 서비스 초기화
+          await _initializeBackgroundServices();
+          
+          // 자동 로그인 체크
+          await _checkAutoLogin();
+          
         } catch (e) {
-          print('권한 초기화 실패: $e');
+          print('백그라운드 초기화 실패: $e');
         }
-        
-        // 백그라운드 서비스 초기화
-        await _initializeBackgroundServices();
       });
-      
-      // 자동 로그인 체크 및 사용자 프로필 로드 (백그라운드에서 실행)
-      _checkAutoLogin();
-      
-      // 안전한 setState 호출
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _isLoading = false;
-        });
-      }
       
     } catch (e) {
       print('❌ 앱 초기화 실패: $e');
@@ -622,9 +626,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       supportedLocales: S.supportedLocales,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        // 로딩 화면
+        // 로딩 화면 (매우 짧은 시간만 표시)
         if (_isLoading) {
-          return _buildLoadingScreen();
+          return _buildMinimalLoadingScreen();
         }
         
         // 초기화 실패 시 에러 화면
@@ -638,7 +642,17 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  /// 로딩 화면
+  /// 최소한의 로딩 화면 (빠른 시작용) - 매우 간단한 로딩
+  Widget _buildMinimalLoadingScreen() {
+    return MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.white,
+        body: const SizedBox.shrink(), // 로딩 없이 빈 화면으로 즉시 시작
+      ),
+    );
+  }
+  
+  /// 기존 로딩 화면 (필요시 사용)
   Widget _buildLoadingScreen() {
     return MaterialApp(
       home: Scaffold(

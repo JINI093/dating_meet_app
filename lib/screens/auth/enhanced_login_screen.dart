@@ -1033,13 +1033,6 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
   }
 
   void _findIdPassword() {
-    // TODO: ID/PW 찾기 화면으로 이동
-    showDialog(
-      context: context,
-      builder: (context) => const InfoDialog(
-        title: 'ID/PW 찾기',
-        message: 'ID/PW 찾기 기능은 준비 중입니다.',
-      ),
-    );
+    context.push(RouteNames.forgotPassword);
   }
 } 

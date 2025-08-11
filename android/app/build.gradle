@@ -33,7 +33,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.dating_meet_app"
-    compileSdkVersion 35
+    compileSdk 35
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -51,8 +51,8 @@ android {
 
     defaultConfig {
         applicationId "com.example.dating_meet_app"
-        minSdkVersion 24 // 최소 SDK 버전
-        targetSdkVersion 35
+        minSdkVersion 24 // Amplify 라이브러리 요구사항
+        targetSdkVersion 31 // 더 안정적인 타겟 SDK 버전 (Android 12)
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true // AWS SDK 호환을 위해 추가
@@ -63,20 +63,21 @@ android {
             // 기본 디버그 서명 사용
         }
         release {
-            // 릴리즈 서명 설정 (필요한 경우)
-            // keyAlias keystoreProperties['keyAlias']
-            // keyPassword keystoreProperties['keyPassword']
-            // storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            // storePassword keystoreProperties['storePassword']
+            // 임시 디버그 서명 사용 (테스트용)
+            // 실제 배포시에는 별도 키스토어 필요
+            storeFile file('../debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
         }
     }
 
     buildTypes {
         debug {
-            // 기본 디버그 설정
+            signingConfig signingConfigs.debug
         }
         release {
-            // 기본 릴리즈 설정
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
