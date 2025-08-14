@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'dart:math';
 
-class ReferralCodeScreen extends StatelessWidget {
+import '../../utils/logger.dart';
+
+class ReferralCodeScreen extends ConsumerStatefulWidget {
   const ReferralCodeScreen({super.key});
+  
+  @override
+  ConsumerState<ReferralCodeScreen> createState() => _ReferralCodeScreenState();
+}
+
+class _ReferralCodeScreenState extends ConsumerState<ReferralCodeScreen> {
+  String _referralCode = 'LOADING';
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadOrGenerateReferralCode();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,16 +168,16 @@ class ReferralCodeScreen extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'HX5EQ2',
-                            style: TextStyle(
+                          Text(
+                            _referralCode,
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => _copyToClipboard(context, 'HX5EQ2'),
+                            onTap: () => _copyToClipboard(context, _referralCode),
                             child: const Text(
                               '복사하기',
                               style: TextStyle(
@@ -237,8 +256,8 @@ class ReferralCodeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               
               _buildMethodStep('1', '친구에게 초대 링크를 공유하세요.'),
-              _buildMethodStep('2', '친구가 초대 링크를 누르고 이벤트 다운 받습니다.'),
-              _buildMethodStep('3', '회원가입시 받은 추천인 코드를 입력하면 가입완료 되면서 지급됩니다.'),
+              _buildMethodStep('2', '친구가 초대 링크를 누르고 어플을 다운 받습니다.'),
+              _buildMethodStep('3', '회원가입시 받은 추천인 코드를 입력하여 가입하면 리워드가 지급됩니다.'),
               
               const SizedBox(height: 32),
               
@@ -253,12 +272,12 @@ class ReferralCodeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               
-              _buildNoticeItem('1', '기입시 초대프로를 입력하지 못했을 경우 프로필 정보 수정에서 입력이 가능합니다.'),
-              _buildNoticeItem('2', '한번 입력한 초대한 코드는 수정이 불가능합니다.'),
-              _buildNoticeItem('3', '비정상적인 방법으로 가입을 활용한 경우 획득한 포인트는 전체 회수되며 계정 영구 정지가 될 수 있습니다.'),
+              _buildNoticeItem('1', '가입시 초대코드를 입력하지 못했을 경우 프로필 정보 수정에서 입력이 가능합니다.'),
+              _buildNoticeItem('2', '한번 입력된 추천인 코드는 수정이 불가능합니다.'),
+              _buildNoticeItem('3', '비정상적인 방법으로 기능을 활용한 경우 획득한 포인트는 전체 회수되며 계정 영구 정지와 법적 조치가 취해질 수 있습니다.'),
               _buildNoticeItem('4', '친구 초대 이벤트는 당사의 사정에 따라 사전 고지 없이 변경 또는 종료될 수 있습니다.'),
-              _buildNoticeItem('5', '초대로 가입한 친구가 사용별 서비스에 가입하였을 때는 친구 추천 적립이 되지 않습니다.'),
-              _buildNoticeItem('6', '만 40세 미만의 연구는 참여할 수 없습니다.'),
+              _buildNoticeItem('5', '초대로 가입한 친구가 사귈래 서비스에 가입한적 없는 신규 유저일 경우에만 리워드가 지급됩니다.'),
+              _buildNoticeItem('6', '만 40세 미만의 친구는 참여할 수 없습니다.'),
               
               const SizedBox(height: 100),
             ],
@@ -346,5 +365,98 @@ class ReferralCodeScreen extends StatelessWidget {
         duration: Duration(seconds: 2),
       ),
     );
+  }
+  
+  /// 추천인 코드 로드 또는 생성
+  Future<void> _loadOrGenerateReferralCode() async {
+    try {
+      // 먼저 AWS Cognito에서 확인
+      String? savedCode;
+      
+      if (Amplify.isConfigured) {
+        try {
+          final userAttributes = await Amplify.Auth.fetchUserAttributes();
+          
+          for (final attribute in userAttributes) {
+            if (attribute.userAttributeKey.key == 'custom:referral_code') {
+              savedCode = attribute.value;
+              break;
+            }
+          }
+        } catch (e) {
+          Logger.error('AWS에서 추천인 코드 가져오기 실패: $e', name: 'ReferralCodeScreen');
+        }
+      }
+      
+      // AWS에 없으면 로컬에서 확인
+      if (savedCode == null || savedCode.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        savedCode = prefs.getString('user_referral_code');
+      }
+      
+      // 둘 다 없으면 새로 생성
+      if (savedCode == null || savedCode.isEmpty) {
+        savedCode = _generateReferralCode();
+        
+        // 로컬에 저장
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_referral_code', savedCode);
+        
+        // AWS에 저장 시도
+        if (Amplify.isConfigured) {
+          try {
+            // custom:referral_code attribute가 스키마에 존재하는지 먼저 확인
+            final userAttributes = await Amplify.Auth.fetchUserAttributes();
+            bool hasReferralCodeAttribute = false;
+            
+            for (final attribute in userAttributes) {
+              if (attribute.userAttributeKey.key == 'custom:referral_code') {
+                hasReferralCodeAttribute = true;
+                break;
+              }
+            }
+            
+            if (hasReferralCodeAttribute || userAttributes.isEmpty) {
+              // 속성이 있거나 속성이 하나도 없으면(처음 생성) 시도
+              await Amplify.Auth.updateUserAttribute(
+                userAttributeKey: const CognitoUserAttributeKey.custom('referral_code'),
+                value: savedCode,
+              );
+              Logger.log('AWS에 추천인 코드 저장 완료: $savedCode', name: 'ReferralCodeScreen');
+            } else {
+              Logger.log('AWS custom:referral_code 속성이 없어서 로컬 저장만 수행', name: 'ReferralCodeScreen');
+            }
+          } catch (e) {
+            Logger.error('AWS에 추천인 코드 저장 실패: $e', name: 'ReferralCodeScreen');
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _referralCode = savedCode!;
+        });
+      }
+    } catch (e) {
+      Logger.error('추천인 코드 로드/생성 오류: $e', name: 'ReferralCodeScreen');
+      if (mounted) {
+        setState(() {
+          _referralCode = 'ERROR';
+        });
+      }
+    }
+  }
+  
+  /// 6자리 랜덤 추천인 코드 생성
+  String _generateReferralCode() {
+    const String characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final Random random = Random();
+    String code = '';
+    
+    for (int i = 0; i < 6; i++) {
+      code += characters[random.nextInt(characters.length)];
+    }
+    
+    return code;
   }
 }

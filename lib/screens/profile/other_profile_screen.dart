@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
 import 'dart:io';
@@ -15,6 +16,9 @@ import '../../utils/app_dimensions.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/logger.dart';
 import '../../widgets/sheets/super_chat_bottom_sheet.dart';
+import '../../providers/heart_provider.dart';
+import '../../routes/route_names.dart';
+import 'package:go_router/go_router.dart';
 
 class OtherProfileScreen extends ConsumerStatefulWidget {
   final ProfileModel profile;
@@ -33,275 +37,197 @@ class OtherProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
-  bool _isUnlocking = false;
-  bool _showUnlockDialog = false;
-  
-  static const int unlockCost = 20;
+  final ScrollController _scrollController = ScrollController();
+  final PageController _pageController = PageController();
+  int _currentImageIndex = 0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
+      backgroundColor: Colors.white,
+      body: Column(
         children: [
-          // Profile content
-          _buildProfileContent(),
+          // App Bar
+          _buildAppBar(),
           
-          // Unlock dialog overlay
-          if (_showUnlockDialog) _buildUnlockDialog(),
+          // Scrollable Content
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Profile Images with Page View and Action Buttons
+                  _buildImageSection(),
+                  
+                  // Profile Info Sections
+                  _buildInfoSection(),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildProfileContent() {
-    return Column(
-      children: [
-        // App bar
-        _buildAppBar(),
-        
-        // Profile card
-        Expanded(
-          child: Center(
-            child: _buildProfileCard(),
-          ),
-        ),
-        
-        // Action buttons
-        _buildActionButtons(),
-        
-        SizedBox(height: AppDimensions.safeAreaBottom + AppDimensions.paddingL),
-      ],
-    );
-  }
-
   Widget _buildAppBar() {
     return Container(
-      height: AppDimensions.safeAreaTop + AppDimensions.appBarHeight,
       padding: EdgeInsets.only(
-        top: AppDimensions.safeAreaTop,
-        left: AppDimensions.paddingM,
-        right: AppDimensions.paddingM,
+        top: MediaQuery.of(context).padding.top,
+        left: 16,
+        right: 16,
+        bottom: 16,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: AppColors.cardShadow,
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios),
-            color: AppColors.textPrimary,
+          // Back Button
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: const Icon(
+              CupertinoIcons.chevron_back,
+              size: 24,
+              color: Colors.black,
+            ),
           ),
-          const Spacer(),
-          Text(
-            widget.isLocked ? '프로필 확인' : '${widget.profile.name}님의 프로필',
-            style: AppTextStyles.appBarTitle,
-          ),
-          const Spacer(),
-          const SizedBox(width: 48), // Balance for back button
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileCard() {
-    return Container(
-      width: AppDimensions.profileCardWidth,
-      height: AppDimensions.profileCardHeight,
-      margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingL),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppDimensions.profileCardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: AppDimensions.profileCardElevation,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppDimensions.profileCardRadius),
-        child: Column(
-          children: [
-            // Profile image
-            _buildProfileImage(),
-            
-            // Profile info
-            _buildProfileInfo(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileImage() {
-    return Container(
-      height: AppDimensions.profileImageHeight,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Base image
-          _buildBaseImage(),
           
-          // Blur overlay for locked profiles
-          if (widget.isLocked)
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.1),
-              ),
-            ),
-          
-          // Lock icon overlay
-          if (widget.isLocked)
-            Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: const Center(
-                child: Icon(
-                  Icons.lock,
-                  color: Colors.white,
-                  size: 64,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileInfo() {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingL),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Name and age
-            Row(
-              children: [
-                Text(
-                  widget.profile.name,
-                  style: AppTextStyles.profileName,
-                ),
-                const SizedBox(width: AppDimensions.spacing8),
-                Text(
-                  '${widget.profile.age}살',
-                  style: AppTextStyles.profileAge,
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: AppDimensions.spacing4),
-            
-            // Location
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on,
-                  size: AppDimensions.locationIconSize,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: AppDimensions.spacing4),
-                Text(
-                  widget.profile.location,
-                  style: AppTextStyles.cardSubtitle,
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: AppDimensions.spacing16),
-            
-            // Description or super chat message
-            if (widget.superChatMessage != null)
+          // Profile Name and Age
+          Row(
+            children: [
+              // Profile Image Thumbnail
               Container(
-                padding: const EdgeInsets.all(AppDimensions.paddingM),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: AppColors.superLike.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-                  border: Border.all(
-                    color: AppColors.superLike.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                ),
+                child: ClipOval(
+                  child: _buildProfileThumbnail(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${widget.profile.name}, ${widget.profile.age}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+          
+          // Notification Icon (placeholder for balance)
+          const Icon(
+            CupertinoIcons.bell,
+            size: 24,
+            color: Colors.orange,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    final images = widget.profile.profileImages.isNotEmpty 
+        ? widget.profile.profileImages 
+        : ['assets/icons/profile.png'];
+    
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.5,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentImageIndex = index;
+              });
+            },
+            itemCount: images.length,
+            itemBuilder: (context, index) {
+              return _buildImage(images[index]);
+            },
+          ),
+          
+          // Page Indicators
+          if (images.length > 1)
+            Positioned(
+              bottom: 80,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  images.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentImageIndex == index
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble,
-                          size: AppDimensions.iconS,
-                          color: AppColors.superLike,
-                        ),
-                        const SizedBox(width: AppDimensions.spacing4),
-                        Text(
-                          '슈퍼챗',
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.superLike,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.spacing8),
-                    Text(
-                      widget.superChatMessage!,
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ],
-                ),
-              )
-            else
-              Flexible(
-                child: Text(
-                  widget.isLocked 
-                    ? '안녕하세요! 저는 32살 직장인으로, 요리와 운동을 즐기고 있습니다. 여행도 좋아하고 음악듣기도 좋아하는 편입니다. 서로 친해지면 좋겠네요.'
-                    : (widget.profile.bio ?? ''),
-                  style: AppTextStyles.bodyMedium,
-                  maxLines: widget.isLocked ? 5 : null,
-                  overflow: widget.isLocked ? TextOverflow.ellipsis : null,
-                ),
               ),
-          ],
-        ),
+            ),
+          
+          // Action Buttons positioned at bottom of image
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: _buildActionButtons(),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildActionButtons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingXL),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Pass button
+          // Pass Button
           _buildActionButton(
-            icon: Icons.close,
-            color: AppColors.pass,
-            onPressed: widget.isLocked ? _handleUnlockProfile : _handlePass,
+            iconPath: 'assets/icons/x.png',
+            onTap: _handlePass,
           ),
           
-          // Like button
+          // Super Chat Button
           _buildActionButton(
-            icon: Icons.favorite,
-            color: AppColors.like,
-            onPressed: widget.isLocked ? _handleUnlockProfile : _handleLike,
+            iconPath: 'assets/icons/superchat.png',
+            onTap: _handleSuperchat,
           ),
           
-          // Superchat button
+          // Like Button
           _buildActionButton(
-            icon: Icons.star,
-            color: AppColors.superLike,
-            onPressed: widget.isLocked ? _handleUnlockProfile : _handleSuperchat,
+            iconPath: 'assets/icons/like.png',
+            onTap: _handleLike,
           ),
         ],
       ),
@@ -309,162 +235,234 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
   }
 
   Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
+    required String iconPath,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      width: AppDimensions.likeButtonSize,
-      height: AppDimensions.likeButtonSize,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.3),
-            blurRadius: AppDimensions.actionButtonElevation,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: onTap,
+      child: Image.asset(
+        iconPath,
+        width: 60,
+        height: 60,
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+
+  Widget _buildInfoSection() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 개인정보 섹션
+          _buildSectionTitle('개인정보'),
+          const SizedBox(height: 16),
+          _buildInfoRow('닉네임', widget.profile.name),
+          _buildInfoRow('사는 곳', widget.profile.location),
+          _buildInfoRow('직업', widget.profile.occupation ?? '대기업 디자이너'),
+          _buildInfoRow('키', '${widget.profile.height ?? 165}'),
+          _buildInfoRow('취미', widget.profile.hobbies.isNotEmpty ? widget.profile.hobbies.join(', ') : '기타연주, 악방'),
+          _buildInfoRow('이상형', '키 180이상의 전문직'),
+          
+          const SizedBox(height: 32),
+          
+          // 자기소개 섹션
+          _buildSectionTitle('자기소개'),
+          const SizedBox(height: 16),
+          Text(
+            widget.profile.bio ?? '안녕하세요! 저는 여행과 새로운 경험을 사랑하는 28살 디자이너입니다. 현재는 사람들이 더 편리하고 행복하게 살 수 있는 서비스를 만드는 일을 하고 있어요. 주말에는 엘러티 투어나 요가로 시간을 보내고, 요즘은 베이킹에도 관심이 많아 다양한 나라의 디저트를 만들어보고 있어요. 😊',
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: Colors.black87,
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // 만남유형 섹션
+          _buildSectionTitle('만남유형'),
+          const SizedBox(height: 16),
+          _buildMeetingTypeTags(),
+          
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeetingTypeTags() {
+    // AWS에서 가져온 만남유형 데이터 처리
+    // 데이터가 없으면 "둘 다 가능"으로 기본값 설정
+    final meetingType = widget.profile.mbti ?? '둘 다 가능'; // mbti 필드를 만남유형으로 사용한다고 가정
+    
+    // 모든 만남유형 옵션
+    final allOptions = ['진지한 만남', '가벼운 만남', '둘 다 가능'];
+    
+    // 선택된 옵션 결정
+    String selectedOption;
+    if (meetingType.isEmpty || meetingType == '둘 다 가능') {
+      selectedOption = '둘 다 가능';
+    } else if (allOptions.contains(meetingType)) {
+      selectedOption = meetingType;
+    } else {
+      selectedOption = '둘 다 가능'; // 기본값
+    }
+    
+    return Wrap(
+      spacing: 8,
+      children: allOptions.map((option) => _buildTag(
+        option,
+        isSelected: option == selectedOption,
+      )).toList(),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
           ),
         ],
       ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          color: Colors.white,
-          size: AppDimensions.matchActionIconSize,
-        ),
-      ),
     );
   }
 
-  Widget _buildUnlockDialog() {
+  Widget _buildTag(String text, {bool isSelected = true}) {
     return Container(
-      color: Colors.black.withValues(alpha: 0.5),
-      child: Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width - 48,
-          padding: const EdgeInsets.all(AppDimensions.paddingXL),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusL),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title
-              Text(
-                '프로필 해제',
-                style: AppTextStyles.h4,
-              ),
-              
-              const SizedBox(height: AppDimensions.spacing16),
-              
-              // Blurred profile image
-              Container(
-                width: 120,
-                height: 150,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.cardShadow,
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        widget.profile.profileImages.first,
-                        fit: BoxFit.cover,
-                      ),
-                      BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          color: Colors.black.withValues(alpha: 0.1),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: AppDimensions.spacing24),
-              
-              // Description
-              Text(
-                '나를 좋아요 누른 사람을 확인합니다.\n확인하시겠습니까?',
-                style: AppTextStyles.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: AppDimensions.spacing32),
-              
-              // Unlock button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isUnlocking ? null : _confirmUnlock,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.vip,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: AppDimensions.paddingM),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-                    ),
-                  ),
-                  child: _isUnlocking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.flash_on,
-                            size: 20,
-                          ),
-                          const SizedBox(width: AppDimensions.spacing8),
-                          Text(
-                            '프로필 해제 (${unlockCost}P)',
-                            style: AppTextStyles.buttonMedium,
-                          ),
-                        ],
-                      ),
-                ),
-              ),
-              
-              const SizedBox(height: AppDimensions.spacing12),
-              
-              // Cancel button
-              TextButton(
-                onPressed: () => setState(() => _showUnlockDialog = false),
-                child: Text(
-                  '취소',
-                  style: AppTextStyles.buttonMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.black : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? Colors.black : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: isSelected ? Colors.white : Colors.black,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
   }
 
-  void _handleUnlockProfile() {
-    setState(() => _showUnlockDialog = true);
+  Widget _buildProfileThumbnail() {
+    final imageUrl = widget.profile.profileImages.isNotEmpty
+        ? widget.profile.profileImages.first
+        : '';
+    
+    if (imageUrl.startsWith('http')) {
+      return CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(color: Colors.grey.shade200),
+        errorWidget: (context, url, error) => _buildPlaceholderThumbnail(),
+      );
+    } else if (imageUrl.startsWith('file://')) {
+      final filePath = imageUrl.replaceFirst('file://', '');
+      final file = File(filePath);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    } else if (imageUrl.isNotEmpty && imageUrl.startsWith('assets/')) {
+      return Image.asset(imageUrl, fit: BoxFit.cover);
+    }
+    
+    return _buildPlaceholderThumbnail();
+  }
+
+  Widget _buildPlaceholderThumbnail() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(
+        Icons.person,
+        size: 20,
+        color: Colors.grey.shade400,
+      ),
+    );
+  }
+
+  Widget _buildImage(String imageUrl) {
+    if (imageUrl.startsWith('http')) {
+      return CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey.shade200,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        errorWidget: (context, url, error) => _buildPlaceholderImage(),
+      );
+    } else if (imageUrl.startsWith('file://')) {
+      final filePath = imageUrl.replaceFirst('file://', '');
+      final file = File(filePath);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+        );
+      }
+    } else if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+      );
+    }
+    
+    return _buildPlaceholderImage();
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: Icon(
+          Icons.person,
+          size: 80,
+          color: Colors.grey,
+        ),
+      ),
+    );
   }
 
   Future<void> _handlePass() async {
@@ -494,28 +492,35 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       if (passResult != null) {
         Logger.log('패스 전송 성공! Pass ID: ${passResult.id}', name: 'ProfilePass');
         
+        // 먼저 likes 데이터를 새로고침
+        await ref.read(likesProvider.notifier).loadAllLikes();
+        
         // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
         ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
         
         if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${widget.profile.name}님을 패스했습니다.'),
-              backgroundColor: AppColors.pass,
-            ),
+          // 스낵바를 먼저 표시
+          final snackBar = SnackBar(
+            content: Text('${widget.profile.name}님을 패스했습니다.'),
+            backgroundColor: const Color(0xFF6C6C6C),
+            duration: const Duration(seconds: 2),
           );
+          
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          
+          // 약간의 지연 후 화면 닫기
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Navigator.pop(context);
+          }
         }
-
-        // Refresh likes data
-        ref.read(likesProvider.notifier).loadAllLikes();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('패스 처리에 실패했습니다: ${e.toString()}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -530,7 +535,52 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('로그인이 필요합니다.'),
-              backgroundColor: AppColors.error,
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 먼저 하트가 충분한지 확인
+      final heartState = ref.read(heartProvider);
+      const requiredHearts = 1; // 좋아요를 보내는데 필요한 하트 수
+      
+      if (heartState.currentHearts < requiredHearts) {
+        // 하트가 부족한 경우 알림 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('하트가 부족합니다. (현재: ${heartState.currentHearts}개)'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: '하트 구매',
+                textColor: Colors.white,
+                onPressed: () {
+                  Navigator.pop(context);
+                  print('💝 하트 구매 버튼 클릭됨: ${RouteNames.ticketShop}');
+                  context.push(RouteNames.ticketShop);
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // 하트 소모 처리
+      final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
+        requiredHearts,
+        description: '좋아요 보내기',
+      );
+      
+      if (!heartSpent) {
+        // 하트 소모 실패
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('하트 사용에 실패했습니다. 다시 시도해주세요.'),
+              backgroundColor: Colors.red,
             ),
           );
         }
@@ -543,37 +593,50 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       );
 
       if (success) {
+        // 먼저 likes 데이터를 새로고침
+        await ref.read(likesProvider.notifier).loadAllLikes();
+        
         // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
         ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
         
         if (mounted) {
-          Navigator.pop(context); // Close profile screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${widget.profile.name}님에게 좋아요를 보냈습니다!'),
-              backgroundColor: AppColors.like,
-            ),
+          // 스낵바를 먼저 표시
+          final snackBar = SnackBar(
+            content: Text('${widget.profile.name}님에게 좋아요를 보냈습니다!'),
+            backgroundColor: const Color(0xFFE91E63),
+            duration: const Duration(seconds: 2),
           );
+          
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          
+          // 약간의 지연 후 화면 닫기
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Navigator.pop(context);
+          }
         }
-
-        // Refresh likes data
-        ref.read(likesProvider.notifier).loadAllLikes();
       } else {
+        // 좋아요 전송 실패 시 하트 복구
+        await ref.read(heartProvider.notifier).refreshHearts();
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('좋아요 전송에 실패했습니다.'),
-              backgroundColor: AppColors.error,
+              backgroundColor: Colors.red,
             ),
           );
         }
       }
     } catch (e) {
+      // 오류 발생 시 하트 복구
+      await ref.read(heartProvider.notifier).refreshHearts();
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('좋아요 전송에 실패했습니다: ${e.toString()}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -587,6 +650,32 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('로그인이 필요합니다.')),
+          );
+        }
+        return;
+      }
+
+      // 먼저 하트가 충분한지 확인
+      final heartState = ref.read(heartProvider);
+      const requiredHearts = 3; // 슈퍼챗을 보내는데 필요한 하트 수
+      
+      if (heartState.currentHearts < requiredHearts) {
+        // 하트가 부족한 경우 알림 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('슈퍼챗을 보내려면 하트 $requiredHearts개가 필요합니다. (현재: ${heartState.currentHearts}개)'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: '하트 구매',
+                textColor: Colors.white,
+                onPressed: () {
+                  Navigator.pop(context);
+                  print('💝 하트 구매 버튼 클릭됨: ${RouteNames.ticketShop}');
+                  context.push(RouteNames.ticketShop);
+                },
+              ),
+            ),
           );
         }
         return;
@@ -623,7 +712,7 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('슈퍼챗 실행에 실패했습니다: ${e.toString()}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -636,6 +725,27 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('메시지를 입력해주세요.')),
+          );
+        }
+        return;
+      }
+
+      // 하트 소모 처리
+      const requiredHearts = 3;
+      final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
+        requiredHearts,
+        description: '슈퍼챗 보내기',
+      );
+      
+      if (!heartSpent) {
+        // 하트 소모 실패
+        if (mounted) {
+          Navigator.pop(context); // Bottom sheet 닫기
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('하트 사용에 실패했습니다. 다시 시도해주세요.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
         return;
@@ -657,143 +767,58 @@ class _OtherProfileScreenState extends ConsumerState<OtherProfileScreen> {
       );
 
       if (superchat != null) {
+        // 먼저 likes 데이터를 새로고침
+        await ref.read(likesProvider.notifier).loadAllLikes();
+        
         // 평가한 프로필로 마킹하여 다시 나타나지 않도록 함
         ref.read(discoverProfilesProvider.notifier).markProfileAsEvaluated(widget.profile.id);
         
         if (mounted) {
+          // 먼저 bottom sheet 닫기
+          Navigator.pop(context);
+          
+          // 스낵바를 표시
+          final snackBar = SnackBar(
+            content: Text('${widget.profile.name}님에게 슈퍼챗을 보냈습니다!'),
+            backgroundColor: const Color(0xFF4CAF50),
+            duration: const Duration(seconds: 2),
+          );
+          
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          
+          // 약간의 지연 후 프로필 화면 닫기
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        }
+      } else {
+        // 슈퍼챗 전송 실패 시 하트 복구
+        await ref.read(heartProvider.notifier).refreshHearts();
+        
+        if (mounted) {
           Navigator.pop(context); // Close bottom sheet
-          Navigator.pop(context); // Close profile screen
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${widget.profile.name}님에게 슈퍼챗을 보냈습니다!'),
-              backgroundColor: AppColors.superLike,
+            const SnackBar(
+              content: Text('슈퍼챗 전송에 실패했습니다.'),
+              backgroundColor: Colors.red,
             ),
           );
         }
-
-        // Refresh likes data to show superchat
-        ref.read(likesProvider.notifier).loadAllLikes();
       }
     } catch (e) {
+      // 오류 발생 시 하트 복구
+      await ref.read(heartProvider.notifier).refreshHearts();
+      
       if (mounted) {
         Navigator.pop(context); // Close bottom sheet
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('슈퍼챗 전송에 실패했습니다: ${e.toString()}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Colors.red,
           ),
         );
       }
     }
-  }
-
-  Future<void> _confirmUnlock() async {
-    setState(() => _isUnlocking = true);
-    
-    try {
-      // Check if user has enough points
-      final pointsState = ref.read(pointProvider);
-      if (pointsState.currentPoints < unlockCost) {
-        setState(() => _isUnlocking = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('포인트가 부족합니다.'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-        return;
-      }
-      
-      // Simulate unlocking process
-      await Future.delayed(const Duration(milliseconds: 1500));
-      
-      // Deduct points
-      ref.read(pointProvider.notifier).spendPoints(unlockCost, 'Profile unlock');
-      
-      setState(() {
-        _isUnlocking = false;
-        _showUnlockDialog = false;
-      });
-      
-      // Navigate to unlocked profile
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtherProfileScreen(
-              profile: widget.profile,
-              isLocked: false,
-              superChatMessage: widget.superChatMessage,
-            ),
-          ),
-        );
-      }
-      
-    } catch (e) {
-      setState(() => _isUnlocking = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('프로필 해제에 실패했습니다.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildBaseImage() {
-    final imageUrl = widget.profile.profileImages.isNotEmpty
-        ? widget.profile.profileImages.first
-        : '';
-
-    if (imageUrl.startsWith('http')) {
-      return CachedNetworkImage(
-        imageUrl: imageUrl,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: AppColors.surface,
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-        errorWidget: (context, url, error) => _buildPlaceholderImage(),
-      );
-    } else if (imageUrl.startsWith('file://')) {
-      final filePath = imageUrl.replaceFirst('file://', '');
-      final file = File(filePath);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
-        );
-      } else {
-        return _buildPlaceholderImage();
-      }
-    } else if (imageUrl.isNotEmpty && !imageUrl.startsWith('assets/')) {
-      return _buildPlaceholderImage();
-    } else {
-      return Image.asset(
-        imageUrl.isNotEmpty ? imageUrl : 'assets/icons/profile.png',
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
-      );
-    }
-  }
-
-  Widget _buildPlaceholderImage() {
-    return Container(
-      color: AppColors.surface,
-      child: const Center(
-        child: Icon(
-          Icons.person,
-          size: 80,
-          color: AppColors.textHint,
-        ),
-      ),
-    );
   }
 }

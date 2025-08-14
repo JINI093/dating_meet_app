@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,10 +30,17 @@ import 'utils/auth_ux_utils.dart';
 import 'services/screen_capture_service.dart';
 import 'services/google_login_service.dart';
 import 'services/mobileok_api_service.dart';
+import 'providers/likes_provider.dart';
+import 'providers/notification_provider.dart';
 // import 'models/auth_result.dart'; // Unused import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 디버그 모드에서 isolate 디버깅 비활성화
+  if (kDebugMode) {
+    debugPrint('Starting app in debug mode...');
+  }
   
   // 시스템 UI 설정
   SystemChrome.setSystemUIOverlayStyle(
@@ -428,6 +436,70 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     }
   }
 
+  /// 앱이 포그라운드로 돌아올 때
+  Future<void> _onAppResumed() async {
+    try {
+      print('🔄 앱 복귀 감지 - 데이터 새로고침 시작');
+      
+      // 온라인 상태 복구
+      await AuthErrorHandler.handleOnlineState();
+      
+      // 로그인 상태 재확인
+      final authProvider = ref.read(enhancedAuthProvider.notifier);
+      await authProvider.refreshAuthState();
+      
+      // 로그인 상태 확인
+      final authState = ref.read(enhancedAuthProvider);
+      if (!authState.isSignedIn) {
+        print('ℹ️ 로그인되지 않은 상태 - 데이터 새로고침 생략');
+        return;
+      }
+      
+      // 좋아요 데이터 새로고침
+      final likesNotifier = ref.read(likesProvider.notifier);
+      await likesNotifier.loadAllLikes();
+      
+      // 알림 데이터 새로고침
+      final notificationNotifier = ref.read(notificationProvider.notifier);
+      await notificationNotifier.refreshNotifications();
+      
+      print('✅ 앱 복귀 시 데이터 새로고침 완료');
+    } catch (e) {
+      print('❌ 앱 복귀 시 데이터 새로고침 실패: $e');
+      AuthErrorHandler.logError(e, 'app_resumed');
+    }
+  }
+  
+  /// 앱이 백그라운드로 갈 때
+  Future<void> _onAppPaused() async {
+    try {
+      print('⏸️ 앱이 백그라운드로 이동');
+      
+      // 현재 상태 저장
+      final authProvider = ref.read(enhancedAuthProvider.notifier);
+      await authProvider.saveCurrentState();
+      
+    } catch (e) {
+      print('❌ 앱 일시정지 처리 실패: $e');
+      AuthErrorHandler.logError(e, 'app_paused');
+    }
+  }
+  
+  /// 앱이 종료될 때
+  Future<void> _onAppDetached() async {
+    try {
+      print('🔚 앱 종료');
+      
+      // 정리 작업
+      final authProvider = ref.read(enhancedAuthProvider.notifier);
+      await authProvider.cleanup();
+      
+    } catch (e) {
+      print('❌ 앱 종료 처리 실패: $e');
+      AuthErrorHandler.logError(e, 'app_detached');
+    }
+  }
+
   /// 앱 초기화 (MyApp 내부)
   Future<void> _initializeApp() async {
     try {
@@ -573,43 +645,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   /// 앱이 포그라운드로 돌아올 때
-  Future<void> _onAppResumed() async {
-    try {
-      // 온라인 상태 복구
-      await AuthErrorHandler.handleOnlineState();
-      
-      // 로그인 상태 재확인
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      await authProvider.refreshAuthState();
-      
-    } catch (e) {
-      AuthErrorHandler.logError(e, 'app_resumed');
-    }
-  }
-
-  /// 앱이 백그라운드로 갈 때
-  Future<void> _onAppPaused() async {
-    try {
-      // 현재 상태 저장
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      await authProvider.saveCurrentState();
-      
-    } catch (e) {
-      AuthErrorHandler.logError(e, 'app_paused');
-    }
-  }
-
-  /// 앱이 종료될 때
-  Future<void> _onAppDetached() async {
-    try {
-      // 정리 작업
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      await authProvider.cleanup();
-      
-    } catch (e) {
-      AuthErrorHandler.logError(e, 'app_detached');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

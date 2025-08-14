@@ -125,12 +125,22 @@ class LikesNotifier extends StateNotifier<LikesState> {
   /// 받은 호감 로드
   Future<void> loadReceivedLikes(String userId) async {
     state = state.copyWith(isLoadingReceived: true, error: null);
+    Logger.log('📥 받은 호감 로드 시작 - 사용자 ID: $userId', name: 'LikesProvider');
 
     try {
       final likes = await _likesService.getReceivedLikes(userId: userId);
+      Logger.log('📥 받은 호감 로드 결과: ${likes.length}개', name: 'LikesProvider');
+      
+      // 중복 제거 (ID 기준)
+      final uniqueLikes = <String, LikeModel>{};
+      for (final like in likes) {
+        uniqueLikes[like.id] = like;
+      }
+      final deduplicatedLikes = uniqueLikes.values.toList();
+      Logger.log('📥 중복 제거 후: ${deduplicatedLikes.length}개', name: 'LikesProvider');
       
       // 매칭된 프로필 제외하기
-      final filteredLikes = await _filterMatchedProfiles(likes, userId);
+      final filteredLikes = await _filterMatchedProfiles(deduplicatedLikes, userId);
       Logger.log('📥 받은 호감 매칭된 프로필 제외 후: ${filteredLikes.length}개', name: 'LikesProvider');
       
       final unreadCount = filteredLikes.where((like) => !like.isRead).length;
@@ -158,8 +168,18 @@ class LikesNotifier extends StateNotifier<LikesState> {
       final likes = await _likesService.getSentLikes(userId: userId);
       Logger.log('📤 보낸 호감 로드 결과: ${likes.length}개', name: 'LikesProvider');
       
+      // PASS 타입 제외 및 중복 제거 (ID 기준)
+      final uniqueLikes = <String, LikeModel>{};
+      for (final like in likes) {
+        if (like.likeType != LikeType.pass) {  // PASS 타입 제외
+          uniqueLikes[like.id] = like;
+        }
+      }
+      final deduplicatedLikes = uniqueLikes.values.toList();
+      Logger.log('📤 PASS 타입 제외 및 중복 제거 후: ${deduplicatedLikes.length}개', name: 'LikesProvider');
+      
       // 매칭된 프로필 제외하기
-      final filteredLikes = await _filterMatchedProfiles(likes, userId);
+      final filteredLikes = await _filterMatchedProfiles(deduplicatedLikes, userId);
       Logger.log('📤 매칭된 프로필 제외 후: ${filteredLikes.length}개', name: 'LikesProvider');
       
       state = state.copyWith(

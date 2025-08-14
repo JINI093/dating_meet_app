@@ -41,7 +41,12 @@ class _LikesScreenState extends ConsumerState<LikesScreen>
       print('   - userId: ${authState.currentUser?.user?.userId}');
       print('   - username: ${authState.currentUser?.user?.username}');
       
-      ref.read(likesProvider.notifier).loadAllLikes();
+      if (authState.isSignedIn && authState.currentUser?.user?.userId != null) {
+        print('✅ 로그인 상태 확인됨 - 좋아요 데이터 로드 시작');
+        ref.read(likesProvider.notifier).loadAllLikes();
+      } else {
+        print('❌ 로그인 상태 불확실 - 좋아요 데이터 로드 스킵');
+      }
     });
   }
 
@@ -68,14 +73,32 @@ class _LikesScreenState extends ConsumerState<LikesScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // App Bar (로고만 중앙) - 상단으로 이동
+            // App Bar (로고와 새로고침 버튼) - 상단으로 이동
             SizedBox(
               height: 80,
-              child: Center(
-                child: Image.asset(
-                  'assets/icons/logo.png',
-                  height: 40,
-                  fit: BoxFit.contain,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    Image.asset(
+                      'assets/icons/logo.png',
+                      height: 40,
+                      fit: BoxFit.contain,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () {
+                        print('🔄 수동 새로고침 시작');
+                        ref.read(likesProvider.notifier).loadAllLikes();
+                      },
+                      icon: const Icon(
+                        CupertinoIcons.refresh,
+                        color: AppColors.textSecondary,
+                        size: 24,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -318,7 +341,7 @@ class _LikeTab extends ConsumerWidget {
         .where((like) => !like.isSuperChat)
         .toList();
     final sentLikes = likesState.sentLikes
-        .where((like) => !like.isSuperChat)
+        .where((like) => !like.isSuperChat && like.likeType != LikeType.pass)
         .toList();
 
     return SingleChildScrollView(

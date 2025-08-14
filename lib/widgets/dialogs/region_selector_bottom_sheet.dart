@@ -4,14 +4,12 @@ import '../../core/constants/app_constants.dart';
 import '../../utils/app_colors.dart';
 
 class RegionSelectorBottomSheet extends StatefulWidget {
-  final String? initialSido;
-  final String? initialGugun;
-  final void Function(String sido, String gugun) onSelected;
+  final List<String>? initialSelectedRegions;
+  final void Function(List<String> selectedRegions) onSelected;
 
   const RegionSelectorBottomSheet({
     super.key,
-    this.initialSido,
-    this.initialGugun,
+    this.initialSelectedRegions,
     required this.onSelected,
   });
 
@@ -21,13 +19,15 @@ class RegionSelectorBottomSheet extends StatefulWidget {
 
 class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
   late String _selectedSido;
-  String? _selectedGugun;
+  final Set<String> _selectedRegions = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _selectedSido = widget.initialSido ?? AppConstants.kRegions.keys.first;
-    _selectedGugun = widget.initialGugun;
+    _selectedSido = AppConstants.kRegions.keys.first;
+    if (widget.initialSelectedRegions != null) {
+      _selectedRegions.addAll(widget.initialSelectedRegions!);
+    }
   }
 
   @override
@@ -62,7 +62,7 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
             const Divider(height: 1),
             // 본문
             SizedBox(
-              height: 340,
+              height: 300,
               child: Row(
                 children: [
                   // 시/도
@@ -77,7 +77,6 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
                         return GestureDetector(
                           onTap: () => setState(() {
                             _selectedSido = sido;
-                            _selectedGugun = null;
                           }),
                           child: Container(
                             color: selected ? Colors.white : Colors.transparent,
@@ -101,9 +100,16 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
                       itemCount: guguns.length,
                       itemBuilder: (context, idx) {
                         final gugun = guguns[idx];
-                        final selected = _selectedGugun == gugun;
+                        final fullRegionName = '$_selectedSido $gugun';
+                        final selected = _selectedRegions.contains(fullRegionName);
                         return GestureDetector(
-                          onTap: () => setState(() => _selectedGugun = gugun),
+                          onTap: () => setState(() {
+                            if (selected) {
+                              _selectedRegions.remove(fullRegionName);
+                            } else {
+                              _selectedRegions.add(fullRegionName);
+                            }
+                          }),
                           child: Container(
                             color: Colors.transparent,
                             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -131,33 +137,59 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
               ),
             ),
             // 선택 지역 태그
-            Padding(
+            Container(
+              constraints: const BoxConstraints(maxHeight: 120),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('선택 지역', style: TextStyle(fontWeight: FontWeight.w500)),
-                  const SizedBox(width: 12),
-                  if (_selectedSido.isNotEmpty && _selectedGugun != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.primary),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$_selectedSido $_selectedGugun',
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => setState(() => _selectedGugun = null),
-                            child: const Icon(CupertinoIcons.xmark_circle_fill, color: AppColors.primary, size: 18),
-                          ),
-                        ],
+                  Row(
+                    children: [
+                      const Text('선택 지역', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 8),
+                      Text('(${_selectedRegions.length}개)', 
+                           style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      const Spacer(),
+                      if (_selectedRegions.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedRegions.clear()),
+                          child: const Text('전체 해제', 
+                                          style: TextStyle(color: AppColors.primary, fontSize: 14)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_selectedRegions.isNotEmpty)
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _selectedRegions.map((region) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.primary),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    region,
+                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _selectedRegions.remove(region)),
+                                    child: const Icon(CupertinoIcons.xmark_circle_fill, color: AppColors.primary, size: 18),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                 ],
@@ -171,16 +203,19 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
+                    backgroundColor: _selectedRegions.isNotEmpty ? AppColors.textPrimary : AppColors.textSecondary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                   ),
-                  onPressed: (_selectedSido.isNotEmpty && _selectedGugun != null)
+                  onPressed: _selectedRegions.isNotEmpty
                       ? () {
-                          widget.onSelected(_selectedSido, _selectedGugun!);
+                          widget.onSelected(_selectedRegions.toList());
                           Navigator.pop(context);
                         }
                       : null,
-                  child: const Text('설정', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white)),
+                  child: Text(
+                    _selectedRegions.isEmpty ? '지역을 선택해주세요' : '설정 (${_selectedRegions.length}개)',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+                  ),
                 ),
               ),
             ),

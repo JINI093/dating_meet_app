@@ -5,6 +5,7 @@ import '../services/notification_service.dart';
 import '../services/aws_notification_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
+import 'likes_provider.dart';
 
 
 // Notification State
@@ -103,6 +104,24 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     AppLogger.d('NotificationProvider', '📡 알림 폴링 시작 (${_pollingInterval.inSeconds}초 간격)');
   }
 
+  /// 좋아요 데이터 새로고침 (좋아요 알림 수신 시)
+  void _refreshLikesData() {
+    try {
+      // LikesProvider의 loadAllLikes 호출 (백그라운드에서 실행)
+      Future.microtask(() async {
+        try {
+          final likesNotifier = ref.read(likesProvider.notifier);
+          await likesNotifier.loadAllLikes();
+          AppLogger.d('NotificationProvider', '✅ 좋아요 데이터 새로고침 완료');
+        } catch (e) {
+          AppLogger.e('NotificationProvider', '좋아요 데이터 새로고침 실패', e);
+        }
+      });
+    } catch (e) {
+      AppLogger.e('NotificationProvider', '좋아요 데이터 새로고침 시작 실패', e);
+    }
+  }
+
   /// 최근 알림 폴링
   Future<void> _pollRecentNotifications() async {
     try {
@@ -129,6 +148,16 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         );
         
         AppLogger.d('NotificationProvider', '🔔 새 알림 ${newNotifications.length}개 수신');
+        
+        // 좋아요 관련 알림이 있으면 좋아요 데이터 새로고침
+        final likeNotifications = newNotifications.where(
+          (n) => n.type == NotificationType.newLike || n.type == NotificationType.newSuperChat
+        ).toList();
+        
+        if (likeNotifications.isNotEmpty) {
+          AppLogger.d('NotificationProvider', '💕 좋아요 알림 ${likeNotifications.length}개 감지 - 좋아요 데이터 새로고침');
+          _refreshLikesData();
+        }
         
         // 로컬 알림 표시
         for (final notification in newNotifications) {

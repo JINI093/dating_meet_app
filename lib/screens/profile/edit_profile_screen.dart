@@ -672,19 +672,28 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _selectLocation() async {
-    await showModalBottomSheet<void>(
+    final result = await showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => RegionSelectorBottomSheet(
-        onSelected: (sido, gugun) {
-          setState(() {
-            _selectedSido = sido;
-            _selectedGugun = gugun;
-            _locationController.text = '$sido $gugun';
-          });
-          _markChanged();
-          Navigator.pop(context); // Close the bottom sheet
+        initialSelectedRegions: _locationController.text.isNotEmpty 
+            ? [_locationController.text]
+            : null,
+        onSelected: (selectedRegions) {
+          if (selectedRegions.isNotEmpty) {
+            // For profile editing, we only use the first selected region
+            final selectedRegion = selectedRegions.first;
+            final parts = selectedRegion.split(' ');
+            if (parts.length >= 2) {
+              setState(() {
+                _selectedSido = parts[0];
+                _selectedGugun = parts[1];
+                _locationController.text = selectedRegion;
+              });
+              _markChanged();
+            }
+          }
         },
       ),
     );

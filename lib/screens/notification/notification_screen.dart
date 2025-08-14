@@ -50,13 +50,6 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           ),
         ),
         actions: [
-          // 개발용: 테스트 알림 생성 버튼
-          IconButton(
-            onPressed: () {
-              _createTestNotification();
-            },
-            icon: const Icon(CupertinoIcons.add, color: Colors.black),
-          ),
           if (notifications.isNotEmpty)
             TextButton(
               onPressed: () {

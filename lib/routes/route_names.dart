@@ -15,6 +15,11 @@ class RouteNames {
   static const String terms = '/terms';
   static const String phoneVerification = '/phone-verification';
   static const String signupComplete = '/signup-complete';
+  
+  // 새로운 회원가입 플로우
+  static const String signupIdInput = '/signup-id-input';
+  static const String signupPasswordInput = '/signup-password-input';
+  static const String signupCompleteInfo = '/signup-complete-info';
 
   // Onboarding
   static const String intro = '/intro';
@@ -53,6 +58,7 @@ class RouteNames {
 
   // Point Routes
   static const String pointShop = '/point-shop';
+  static const String ticketShop = '/ticket-shop';
   static const String pointHistory = '/point-history';
   static const String purchase = '/purchase';
   static const String pointSettings = '/point-settings';
@@ -107,6 +113,9 @@ class RouteNames {
     terms,
     phoneVerification,
     signupComplete,
+    signupIdInput,
+    signupPasswordInput,
+    signupCompleteInfo,
   ];
 
   static const List<String> onboardingRoutes = [

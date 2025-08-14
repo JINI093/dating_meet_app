@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../utils/app_colors.dart';
+import '../../routes/route_names.dart';
 
 class OnboardingTutorialScreen extends ConsumerStatefulWidget {
   const OnboardingTutorialScreen({super.key});
@@ -97,7 +98,7 @@ class _OnboardingTutorialScreenState extends ConsumerState<OnboardingTutorialScr
   }
 
   void _completeTutorial() {
-    // GoRouter 사용 시
-    context.go('/profile-setup');
+    // 튜토리얼 완료 후 홈 화면으로 이동
+    context.go(RouteNames.home);
   }
 }

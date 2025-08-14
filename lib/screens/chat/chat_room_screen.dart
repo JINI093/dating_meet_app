@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:screenshot/screenshot.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
@@ -32,6 +33,7 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
 class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _messageController = TextEditingController();
+  final ScreenshotController _screenshotController = ScreenshotController();
   bool _isComposing = false;
   late String _chatId;
 
@@ -185,19 +187,22 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     final messages = ref.watch(currentChatMessagesProvider);
     final isOtherUserTyping = ref.watch(isOtherUserTypingProvider(_chatId));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          // Messages List
-          Expanded(
-            child: _buildMessagesList(messages, isOtherUserTyping),
-          ),
-          
-          // Input Field
-          _buildInputArea(),
-        ],
+    return Screenshot(
+      controller: _screenshotController,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: _buildAppBar(),
+        body: Column(
+          children: [
+            // Messages List
+            Expanded(
+              child: _buildMessagesList(messages, isOtherUserTyping),
+            ),
+            
+            // Input Field
+            _buildInputArea(),
+          ],
+        ),
       ),
     );
   }
@@ -567,25 +572,325 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   void _showReportDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('신고하기'),
-        content: const Text('이 사용자를 신고하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '불쾌함을 느끼셨다면\n신고해주세요!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '사칭하는 업체나 채전한 환경을 만들기 위해\n위원님들을 관리하고 있습니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // 신고 옵션들
+              _buildReportOption('성희롱, 모욕적인 단어를 사용해요', () {
+                Navigator.pop(context);
+                _showReportConfirmDialog('성희롱, 모욕적인 단어를 사용해요');
+              }),
+              const SizedBox(height: 12),
+              _buildReportOption('충분 및 광고 목적이에요', () {
+                Navigator.pop(context);
+                _showReportConfirmDialog('충분 및 광고 목적이에요');
+              }),
+              const SizedBox(height: 12),
+              _buildReportOption('불쾌한 사진을 보냈어요', () {
+                Navigator.pop(context);
+                _showReportConfirmDialog('불쾌한 사진을 보냈어요');
+              }),
+              const SizedBox(height: 12),
+              _buildReportOption('다른 메신저로 유도해요', () {
+                Navigator.pop(context);
+                _showReportConfirmDialog('다른 메신저로 유도해요');
+              }),
+              
+              const SizedBox(height: 24),
+              
+              // 취소 버튼
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  '취소',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement report functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('신고가 접수되었습니다.')),
-              );
-            },
-            child: const Text('신고'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportOption(String text, VoidCallback onTap) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF4081),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
           ),
-        ],
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          elevation: 0,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showReportConfirmDialog(String reason) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // X 버튼
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.grey,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              const Text(
+                '불쾌함을 느끼셨다면\n신고해주세요!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // 접수하기 버튼
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await _captureAndShowResult(reason);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF4081),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    '캡처하기',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _captureAndShowResult(String reason) async {
+    try {
+      // 스크린샷 캡처
+      final capturedImage = await _screenshotController.capture();
+      
+      if (capturedImage != null && mounted) {
+        // 신고 정보와 텍스트 필드를 포함한 결과 다이얼로그 표시
+        _showReportResultDialog(reason);
+        
+        // 실제 신고 처리
+        _submitReport(reason);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('캡처 중 오류가 발생했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showReportResultDialog(String reason) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '불쾌함을 느끼셨다면\n신고해주세요!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              const Text(
+                '사칭하는 업체나 쾌적한 환경을 만들기 위해\n위원님들을 관리하고 있습니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  height: 1.4,
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // 신고 사유 표시
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '신고사유 : ',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      reason,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // 텍스트 입력 필드
+              Container(
+                height: 120,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: const Color(0xFFFF4081),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const TextField(
+                  maxLines: null,
+                  expands: true,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '',
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // 취소 버튼
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  '취소',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    
+    // 3초 후 자동으로 다이얼로그 닫기
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
+  void _submitReport(String reason) {
+    // TODO: Implement actual report functionality with reason
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('신고가 접수되었습니다: $reason'),
+        backgroundColor: AppColors.success,
       ),
     );
   }

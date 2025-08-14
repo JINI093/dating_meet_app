@@ -39,26 +39,31 @@ class InquiryScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Column(
                   children: [
-                    // 3D 하트 이모지와 텍스트
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          child: const Text(
-                            '💖',
-                            style: TextStyle(fontSize: 50),
+                    // 로고 이미지
+                    Image.asset(
+                      'assets/icons/logo.png',
+                      height: 80,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 200,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF6B9D),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                        const Text(
-                          '사랑해',
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF6B9D),
+                          child: const Center(
+                            child: Text(
+                              'LOGO',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -109,7 +114,7 @@ class InquiryScreen extends StatelessWidget {
               Container(
                 alignment: Alignment.centerLeft,
                 child: const Text(
-                  '• 제목: [문의 유형] 간략한 내용으로 표기 부탁드립니다\n• 답변: 영수 후 영업일 기준 5~7일내 순차적으로\n  답변드리고 있습니다.',
+                  '• 제목: [문의 유형] 간략한 내용으로 표기 부탁드립니다\n• 답변: 접수 후 영업일 기준 5~7일내 순차적으로\n  답변드리고 있습니다.',
                   style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFF666666),

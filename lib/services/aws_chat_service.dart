@@ -405,9 +405,9 @@ class AWSChatService {
       final lastCheck = _lastMessageCheck[matchId];
       if (lastCheck == null) return;
 
-      // 캐시된 메시지 개수 확인
+      // 캐시된 메시지 확인
       final cachedMessages = _messageCache[matchId] ?? [];
-      final previousCount = cachedMessages.length;
+      final cachedMessageIds = cachedMessages.map((m) => m.messageId).toSet();
 
       // 최신 메시지 조회
       final messages = await getMessages(
@@ -416,10 +416,18 @@ class AWSChatService {
         limit: 50,
       );
 
-      // 새 메시지가 있는지 확인
-      if (messages.length > previousCount) {
-        final newMessages = messages.skip(previousCount).toList();
+      // 실제로 새로운 메시지만 필터링 (ID 기반)
+      final newMessages = messages.where((message) {
+        // 이미 캐시에 있는 메시지는 제외
+        if (cachedMessageIds.contains(message.messageId)) {
+          return false;
+        }
         
+        // 마지막 체크 시간 이후에 생성된 메시지만 포함
+        return message.createdAt.isAfter(lastCheck);
+      }).toList();
+      
+      if (newMessages.isNotEmpty) {
         for (final message in newMessages) {
           // 자신이 보낸 메시지가 아닌 경우에만 스트림에 추가
           if (message.senderId != currentUserId) {
@@ -428,10 +436,14 @@ class AWSChatService {
             
             // 자동 읽음 처리
             await _markMessageAsRead(message.messageId, currentUserId);
+          } else {
+            Logger.log('📤 내가 보낸 메시지 감지됨 - 스트림 추가 생략: ${message.content}', name: 'AWSChatService');
           }
         }
       }
 
+      // 캐시 업데이트
+      _messageCache[matchId] = messages;
       _lastMessageCheck[matchId] = DateTime.now();
     } catch (e) {
       Logger.error('새 메시지 확인 오류', error: e, name: 'AWSChatService');

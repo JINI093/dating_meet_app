@@ -49,7 +49,7 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
         .where((like) => like.isSuperChat)
         .toList();
     final sentLikes = likesState.sentLikes
-        .where((like) => !like.isSuperChat)
+        .where((like) => !like.isSuperChat && like.likeType != LikeType.pass)
         .toList();
     
     return Scaffold(

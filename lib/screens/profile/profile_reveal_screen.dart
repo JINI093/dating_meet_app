@@ -363,7 +363,7 @@ class _ProfileRevealScreenState extends State<ProfileRevealScreen> {
                 const SizedBox(height: 12),
                 
                 const Text(
-                  '사칭하는 업체나 게시한 환경을 무들기 위해\n허위님들을 관리하고 있습니다.',
+                  '사귈래는 언제나 쾌적한 환경을 만들기 위해\n회원님들을 관리하고 있습니다.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,

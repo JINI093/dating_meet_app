@@ -5,6 +5,7 @@ import '../models/superchat_model.dart';
 import '../services/aws_superchat_service.dart';
 import '../services/aws_likes_service.dart';
 import '../services/superchat_priority_service.dart';
+import '../services/superchat_service.dart';
 import '../utils/logger.dart';
 import 'enhanced_auth_provider.dart';
 
@@ -19,6 +20,9 @@ class SuperchatState {
   final String? error;
   final int remainingDailySuperchats;
   final int totalUnreadSuperchats;
+  final int currentSuperChats; // 현재 보유 슈퍼챗 수
+  final List<SuperChatPackage> packages; // 슈퍼챗 패키지 목록
+  final List<SuperChatTransaction> transactions; // 슈퍼챗 거래 내역
 
   const SuperchatState({
     this.receivedSuperchats = const [],
@@ -30,6 +34,9 @@ class SuperchatState {
     this.error,
     this.remainingDailySuperchats = 5,
     this.totalUnreadSuperchats = 0,
+    this.currentSuperChats = 0,
+    this.packages = const [],
+    this.transactions = const [],
   });
 
   SuperchatState copyWith({
@@ -42,6 +49,9 @@ class SuperchatState {
     String? error,
     int? remainingDailySuperchats,
     int? totalUnreadSuperchats,
+    int? currentSuperChats,
+    List<SuperChatPackage>? packages,
+    List<SuperChatTransaction>? transactions,
   }) {
     return SuperchatState(
       receivedSuperchats: receivedSuperchats ?? this.receivedSuperchats,
@@ -53,6 +63,9 @@ class SuperchatState {
       error: error,
       remainingDailySuperchats: remainingDailySuperchats ?? this.remainingDailySuperchats,
       totalUnreadSuperchats: totalUnreadSuperchats ?? this.totalUnreadSuperchats,
+      currentSuperChats: currentSuperChats ?? this.currentSuperChats,
+      packages: packages ?? this.packages,
+      transactions: transactions ?? this.transactions,
     );
   }
 }
@@ -63,6 +76,7 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
   final AWSSuperchatService _superchatService = AWSSuperchatService();
   final AWSLikesService _likesService = AWSLikesService();
   final SuperchatPriorityService _priorityService = SuperchatPriorityService();
+  final SuperChatService _superChatService = SuperChatService();
 
   SuperchatNotifier(this.ref) : super(const SuperchatState());
 
@@ -72,8 +86,27 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
 
     try {
       await _superchatService.initialize();
+      
+      // 슈퍼챗 구매 관련 초기화
+      final packages = _superChatService.getSuperChatPackages();
+      final currentSuperChats = await _superChatService.getCurrentSuperChats();
+      final transactions = await _superChatService.getSuperChatTransactions();
+      
+      state = state.copyWith(
+        packages: packages,
+        currentSuperChats: currentSuperChats,
+        transactions: transactions,
+      );
+      
       await loadAllSuperchats();
-      state = state.copyWith(isLoading: false);
+      
+      // 명시적으로 로딩 완료 상태로 설정
+      state = state.copyWith(
+        isLoading: false,
+        isLoadingReceived: false,
+        isLoadingSent: false,
+        isSending: false,
+      );
     } catch (e) {
       Logger.error('슈퍼챗 초기화 오류', error: e, name: 'SuperchatProvider');
       state = state.copyWith(
@@ -350,6 +383,94 @@ class SuperchatNotifier extends StateNotifier<SuperchatState> {
     state = const SuperchatState();
   }
 
+  /// 슈퍼챗 구매
+  Future<bool> purchaseSuperChats(SuperChatPackage package) async {
+    try {
+      // 로딩 상태는 UI에서 관리하도록 하고, 여기서는 데이터만 처리
+      final success = await _superChatService.purchaseSuperChats(package);
+      
+      if (success) {
+        // 현재 슈퍼챗 수와 거래 내역 업데이트
+        final newSuperChats = await _superChatService.getCurrentSuperChats();
+        final newTransactions = await _superChatService.getSuperChatTransactions();
+        
+        state = state.copyWith(
+          currentSuperChats: newSuperChats,
+          transactions: newTransactions,
+          isLoading: false, // 명시적으로 false 설정
+          error: null,
+        );
+        
+        Logger.log('✅ 슈퍼챗 구매 성공: ${package.totalCount}개', name: 'SuperchatProvider');
+        return true;
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: '슈퍼챗 구매에 실패했습니다.',
+        );
+        return false;
+      }
+    } catch (e) {
+      Logger.error('슈퍼챗 구매 오류: $e', name: 'SuperchatProvider');
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  /// 슈퍼챗 사용
+  Future<bool> spendSuperChats(int amount, {String? description}) async {
+    try {
+      if (state.currentSuperChats < amount) {
+        state = state.copyWith(error: '슈퍼챗이 부족합니다. (현재: ${state.currentSuperChats}개)');
+        return false;
+      }
+
+      final success = await _superChatService.spendSuperChats(amount, description: description);
+      
+      if (success) {
+        // 현재 슈퍼챗 수와 거래 내역 업데이트
+        final newSuperChats = await _superChatService.getCurrentSuperChats();
+        final newTransactions = await _superChatService.getSuperChatTransactions();
+        
+        state = state.copyWith(
+          currentSuperChats: newSuperChats,
+          transactions: newTransactions,
+          error: null,
+        );
+        
+        Logger.log('✅ 슈퍼챗 사용 성공: $amount개', name: 'SuperchatProvider');
+        return true;
+      } else {
+        state = state.copyWith(error: '슈퍼챗 사용에 실패했습니다.');
+        return false;
+      }
+    } catch (e) {
+      Logger.error('슈퍼챗 사용 오류: $e', name: 'SuperchatProvider');
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  /// 슈퍼챗 정보 새로고침
+  Future<void> refreshSuperChats() async {
+    try {
+      final currentSuperChats = await _superChatService.getCurrentSuperChats();
+      final transactions = await _superChatService.getSuperChatTransactions();
+      
+      state = state.copyWith(
+        currentSuperChats: currentSuperChats,
+        transactions: transactions,
+        error: null,
+      );
+    } catch (e) {
+      Logger.error('슈퍼챗 새로고침 실패: $e', name: 'SuperchatProvider');
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
   /// 슈퍼챗 우선순위 계산
   int _calculatePriority(int pointsUsed) {
     // 포인트에 따른 우선순위 계산
@@ -436,4 +557,19 @@ final superchatStatsProvider = Provider<Map<String, int>>((ref) {
 final priorityStatsProvider = Provider<Map<String, dynamic>>((ref) {
   final superchatNotifier = ref.read(superchatProvider.notifier);
   return superchatNotifier.getPriorityStatistics();
+});
+
+/// 현재 보유 슈퍼챗 수 프로바이더
+final currentSuperChatsProvider = Provider<int>((ref) {
+  return ref.watch(superchatProvider).currentSuperChats;
+});
+
+/// 슈퍼챗 패키지 목록 프로바이더
+final superChatPackagesProvider = Provider<List<SuperChatPackage>>((ref) {
+  return ref.watch(superchatProvider).packages;
+});
+
+/// 슈퍼챗 거래 내역 프로바이더
+final superChatTransactionsProvider = Provider<List<SuperChatTransaction>>((ref) {
+  return ref.watch(superchatProvider).transactions;
 });

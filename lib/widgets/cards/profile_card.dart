@@ -10,11 +10,13 @@ import '../../models/profile_model.dart';
 class ProfileCard extends StatelessWidget {
   final ProfileModel profile;
   final VoidCallback? onTap;
+  final int popularityRank;
 
   const ProfileCard({
     super.key,
     required this.profile,
     this.onTap,
+    this.popularityRank = 0,
   });
 
   @override
@@ -163,33 +165,53 @@ class ProfileCard extends StatelessWidget {
   }
 
   Widget _buildPopBadge() {
+    // 인기도 순위가 0이거나 10위 초과인 경우 표시하지 않음
+    if (popularityRank <= 0 || popularityRank > 10) {
+      return const SizedBox.shrink();
+    }
+    
     return Image.asset(
-      'assets/icons/pop.png',
+      'assets/icons/$popularityRank.png',
       width: 80,
       height: 80,
       errorBuilder: (context, error, stackTrace) {
+        // 이미지가 없는 경우 순위 표시 배지
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFD700),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFD4AF37), width: 1),
+            gradient: LinearGradient(
+              colors: popularityRank <= 3 
+                ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
+                : popularityRank <= 5
+                  ? [const Color(0xFFC0C0C0), const Color(0xFF808080)]
+                  : [const Color(0xFFCD7F32), const Color(0xFF8B4513)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.workspace_premium,
+                popularityRank <= 3 ? Icons.star : Icons.trending_up,
                 color: Colors.white,
-                size: 16,
+                size: 18,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Text(
-                '1',
+                '$popularityRank',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 16,
                 ),
               ),
             ],
@@ -206,15 +228,24 @@ class ProfileCard extends StatelessWidget {
       height: 80,
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          padding: const EdgeInsets.all(6),
+          width: 80,
+          height: 80,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFF4CAF50),
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: const Icon(
             CupertinoIcons.checkmark_shield_fill,
             color: Colors.white,
-            size: 16,
+            size: 48,
           ),
         );
       },
@@ -228,15 +259,24 @@ class ProfileCard extends StatelessWidget {
       height: 80,
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          padding: const EdgeInsets.all(8),
+          width: 80,
+          height: 80,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFFFD700),
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: const Icon(
             CupertinoIcons.star_fill,
             color: Colors.white,
-            size: 16,
+            size: 48,
           ),
         );
       },

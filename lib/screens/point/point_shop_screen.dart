@@ -19,15 +19,25 @@ class PointShopScreen extends ConsumerStatefulWidget {
 }
 
 class _PointShopScreenState extends ConsumerState<PointShopScreen> {
+  PageController? _pageController;
+  int _currentPage = 0;
+  
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Force refresh points when entering point shop
         ref.read(pointsProvider.notifier).refreshPoints();
       }
     });
+  }
+  
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -151,6 +161,29 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
   }
 
   Widget _buildPointsIntro() {
+    final bannerData = [
+      {
+        'emoji': '👀',
+        'title': '이용권을 맘껏 열람하세요!',
+        'subtitle': '회원님은 프로필을 마음껏 확인할 수 있습니다.',
+      },
+      {
+        'emoji': '💝',
+        'title': '특별한 혜택을 누리세요!',
+        'subtitle': '포인트로 다양한 기능을 이용해보세요.',
+      },
+      {
+        'emoji': '✨',
+        'title': '더 많은 매칭 기회를!',
+        'subtitle': '포인트로 더 많은 사람들과 만나보세요.',
+      },
+      {
+        'emoji': '🎁',
+        'title': '보너스 포인트까지!',
+        'subtitle': '패키지 구매시 추가 포인트를 받으세요.',
+      },
+    ];
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
@@ -165,86 +198,79 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  '👀',
-                  style: TextStyle(fontSize: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            height: 100,
+            child: PageView.builder(
+              controller: _pageController ?? PageController(),
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              itemCount: bannerData.length,
+              itemBuilder: (context, index) {
+                final banner = bannerData[index];
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
                     children: [
                       Text(
-                        '이용권을 맘껏 열람하세요!',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
+                        banner['emoji']!,
+                        style: const TextStyle(fontSize: 24),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        '회원님은 프로필을 마음껏 확인할 수 있습니다.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF666666),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              banner['title']!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              banner['subtitle']!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
           // 페이지 인디케이터
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
+            children: List.generate(bannerData.length, (index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF357B),
+                decoration: BoxDecoration(
+                  color: _currentPage == index 
+                      ? const Color(0xFFFF357B) 
+                      : const Color(0xFFE0E0E0),
                   shape: BoxShape.circle,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0E0E0),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0E0E0),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0E0E0),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
+              );
+            }),
           ),
         ],
       ),
@@ -311,6 +337,7 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
         GestureDetector(
           onTap: () => _showPurchaseConfirmation(points, bonusPoints, price, bonusPercent),
           child: Container(
+            height: 160, // 모든 박스의 높이를 통일
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -336,40 +363,42 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                   ),
                 ),
                 // 포인트 표시
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    children: [
-                      Text(
-                        '+${points}P',
-                        style: const TextStyle(
-                          color: Color(0xFFFF357B),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      if (bonusPoints > 0) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF357B),
-                            borderRadius: BorderRadius.circular(8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '+${points}P',
+                          style: const TextStyle(
+                            color: Color(0xFFFF357B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                          child: Text(
-                            '+${bonusPoints}P',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 9,
+                        ),
+                        if (bonusPoints > 0) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF357B),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '+${bonusPoints}P',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
                 // 하단 가격 영역
                 Container(
                   width: double.infinity,

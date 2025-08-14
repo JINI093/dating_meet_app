@@ -29,6 +29,8 @@ import '../../providers/user_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/points_provider.dart';
 import '../../utils/logger.dart';
+import '../profile/other_profile_screen.dart';
+import '../../providers/heart_provider.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -42,7 +44,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   final DailyCounterService _dailyCounterService = DailyCounterService();
   
   // Filter states
-  String _selectedRegion = '지역';
+  List<String> _selectedRegions = [];
   String _selectedDistance = '범위';
   String _selectedPopularity = '인기';
   final bool _isVipFilterActive = false;
@@ -56,6 +58,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ref.read(matchProvider.notifier).setCurrentIndex(0);
       // 포인트 데이터 로드
       ref.read(pointsProvider.notifier).loadUserPoints();
+      // 하트 데이터 로드
+      ref.read(heartProvider.notifier).refreshHearts();
     });
   }
 
@@ -145,7 +149,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
               
               const SizedBox(width: AppDimensions.spacing8),
-              
+
               // Points
               GestureDetector(
                 onTap: () {
@@ -209,8 +213,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         children: [
           // 지역 필터
           _buildFilterChip(
-            _selectedRegion,
-            isSelected: _selectedRegion != '지역',
+            _selectedRegions.isEmpty 
+                ? '지역' 
+                : _selectedRegions.length == 1 
+                    ? _selectedRegions.first 
+                    : '지역 ${_selectedRegions.length}개',
+            isSelected: _selectedRegions.isNotEmpty,
             onTap: () => _showRegionSelectorBottomSheet(),
           ),
           const SizedBox(width: 4),
@@ -233,7 +241,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           GestureDetector(
             onTap: () => context.go('/vip'),
             child: Image.asset(
-              'assets/icons/VIP Frame.png',
+              'assets/icons/vip_sv.png',
               width: 40,
               height: 40,
             ),
@@ -309,6 +317,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (profiles.isEmpty) {
       return _buildEmptyState();
     }
+    
+    // 프로필을 좋아요 수 기준으로 정렬하여 순위 계산
+    final sortedProfiles = List<ProfileModel>.from(profiles)
+      ..sort((a, b) => b.likeCount.compareTo(a.likeCount));
+    
+    // 각 프로필의 순위를 매핑
+    final profileRankMap = <String, int>{};
+    for (int i = 0; i < sortedProfiles.length; i++) {
+      profileRankMap[sortedProfiles[i].id] = i + 1;
+    }
+    
     return Stack(
       children: [
         Positioned.fill(
@@ -318,9 +337,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               controller: _swiperController,
               itemCount: profiles.length,
               itemBuilder: (context, index) {
+                final profile = profiles[index];
+                final rank = profileRankMap[profile.id] ?? 0;
+                
                 return ProfileCard(
-                  profile: profiles[index],
-                  onTap: () => _showProfileDetail(profiles[index]),
+                  profile: profile,
+                  popularityRank: rank,
+                  onTap: () => _showProfileDetail(profile),
                 );
               },
               onIndexChanged: (index) {
@@ -359,78 +382,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // Pass Button - Gray X
+        // Pass Button
         GestureDetector(
           onTap: _onPassTap,
-          child: Container(
+          child: Image.asset(
+            'assets/icons/x.png',
             width: 60,
             height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFF6C6C6C),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              CupertinoIcons.xmark,
-              color: Colors.white,
-              size: 24,
-            ),
+            fit: BoxFit.contain,
           ),
         ),
         
-        // Super Chat Button - Green
+        // Super Chat Button
         GestureDetector(
           onTap: _onSuperChatTap,
-          child: Container(
+          child: Image.asset(
+            'assets/icons/superchat.png',
             width: 60,
             height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              CupertinoIcons.paperplane_fill,
-              color: Colors.white,
-              size: 24,
-            ),
+            fit: BoxFit.contain,
           ),
         ),
         
-        // Like Button - Pink Heart
+        // Like Button
         GestureDetector(
           onTap: _onLikeTap,
-          child: Container(
+          child: Image.asset(
+            'assets/icons/like.png',
             width: 60,
             height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE91E63),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              CupertinoIcons.heart_fill,
-              color: Colors.white,
-              size: 24,
-            ),
+            fit: BoxFit.contain,
           ),
         ),
       ],
@@ -573,6 +554,55 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _onLikeTap() async {
     try {
+      // 먼저 하트가 충분한지 확인
+      final heartState = ref.read(heartProvider);
+      const requiredHearts = 1; // 좋아요를 보내는데 필요한 하트 수
+      
+      if (heartState.currentHearts < requiredHearts) {
+        // 하트가 부족한 경우 알림 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('하트가 부족합니다. (현재: ${heartState.currentHearts}개)'),
+              backgroundColor: AppColors.error,
+              action: SnackBarAction(
+                label: '하트 구매',
+                textColor: Colors.white,
+                onPressed: () {
+                  print('💝 하트 구매 버튼 클릭됨: ${RouteNames.ticketShop}');
+                  try {
+                    context.push(RouteNames.ticketShop);
+                  } catch (e) {
+                    print('❌ 라우트 이동 오류: $e');
+                  }
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // 하트 소모 처리
+      final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
+        requiredHearts,
+        description: '좋아요 보내기',
+      );
+      
+      if (!heartSpent) {
+        // 하트 소모 실패
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('하트 사용에 실패했습니다. 다시 시도해주세요.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // 좋아요 보내기
       final result = await ref.read(matchProvider.notifier).likeProfile();
       if (result != null && mounted) {
         _swiperController.next();
@@ -589,6 +619,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _onSuperChatTap() async {
     try {
+      // 먼저 하트가 충분한지 확인
+      final heartState = ref.read(heartProvider);
+      const requiredHearts = 3; // 슈퍼챗을 보내는데 필요한 하트 수
+      
+      if (heartState.currentHearts < requiredHearts) {
+        // 하트가 부족한 경우 알림 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('슈퍼챗을 보내려면 하트 $requiredHearts개가 필요합니다. (현재: ${heartState.currentHearts}개)'),
+              backgroundColor: AppColors.error,
+              action: SnackBarAction(
+                label: '하트 구매',
+                textColor: Colors.white,
+                onPressed: () {
+                  print('💝 하트 구매 버튼 클릭됨: ${RouteNames.ticketShop}');
+                  try {
+                    context.push(RouteNames.ticketShop);
+                  } catch (e) {
+                    print('❌ 라우트 이동 오류: $e');
+                  }
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
       final currentProfile = ref.read(matchProvider).currentProfile;
       if (currentProfile == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -613,6 +672,26 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
       
       if (result != null && result.isNotEmpty) {
+        // 하트 소모 처리
+        final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
+          requiredHearts,
+          description: '슈퍼챗 보내기',
+        );
+        
+        if (!heartSpent) {
+          // 하트 소모 실패
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('하트 사용에 실패했습니다. 다시 시도해주세요.'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          return;
+        }
+        
+        // 슈퍼챗 보내기
         final matchResult = await ref.read(matchProvider.notifier).superChatProfile(result);
         if (matchResult != null && mounted) {
           _swiperController.next();
@@ -629,7 +708,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _showProfileDetail(ProfileModel profile) {
-    // TODO: 프로필 상세 화면으로 이동
+    // 프로필 상세 화면으로 이동
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OtherProfileScreen(profile: profile),
+      ),
+    );
   }
   
   Future<void> _incrementDailyProfileCounter() async {
@@ -651,27 +736,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _showRegionSelectorBottomSheet() async {
-    final result = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<List<String>>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => RegionSelectorBottomSheet(
-        initialSido: _selectedRegion == '지역' ? null : _selectedRegion,
-        initialGugun: null,
-        onSelected: (sido, gugun) {
+        initialSelectedRegions: _selectedRegions,
+        onSelected: (selectedRegions) {
           setState(() {
-            _selectedRegion = '$sido $gugun';
+            _selectedRegions = selectedRegions;
           });
-          Navigator.pop(context, '$sido $gugun');
         },
       ),
     );
-    if (result != null && result != _selectedRegion) {
+    if (result != null) {
       setState(() {
-        _selectedRegion = result;
+        _selectedRegions = result;
       });
       await ref.read(matchProvider.notifier).applyFilters({
-        'region': result,
+        'regions': result,
       });
     }
   }
@@ -921,18 +1004,6 @@ class _PopularitySheet extends StatelessWidget {
             onTap: () => onSelect('좋아요 많은 순'),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-                elevation: 0,
-              ),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('설정', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );

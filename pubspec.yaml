@@ -43,6 +43,13 @@ dependencies:
   cached_network_image: ^3.3.1
   photo_view: ^0.15.0
   flutter_image_compress: ^2.3.0
+  screenshot: ^3.0.0
+  
+  # 관리자 페이지
+  fl_chart: ^0.68.0
+  data_table_2: ^2.5.15
+  csv: ^6.0.0
+  excel: ^4.0.6
 
   # 소셜 로그인 (최신 안정 버전)
   google_sign_in: ^6.1.5
@@ -51,7 +58,7 @@ dependencies:
   naver_login_sdk: ^2.3.0  # 더 안정적인 네이버 로그인 SDK
 
   # 전화번호 인증 (AWS SNS 사용)
-  # aws_sns_api: ^1.0.0  # 버전 충돌로 임시 비활성화
+  # aws_sns_api: ^5.1.0
   crypto: ^3.0.5
   
   # 생체 인증

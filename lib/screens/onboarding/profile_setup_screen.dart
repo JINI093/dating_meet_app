@@ -51,6 +51,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   // Gender
   String? _selectedGender;
   
+  // Meeting Type
+  String? _selectedMeetingType;
+  
   // Image picker
   final ImagePicker _imagePicker = ImagePicker();
   
@@ -89,6 +92,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         if (widget.signupData!['name'] != null) {
           _nameController.text = widget.signupData!['name'];
         }
+        
+        // PASS 인증 정보에서 생년월일 자동 입력
+        final mobileOKVerification = widget.signupData!['mobileOKVerification'] as Map<String, dynamic>?;
+        if (mobileOKVerification != null && mobileOKVerification['birthDate'] != null) {
+          final birthDateStr = mobileOKVerification['birthDate'] as String;
+          if (birthDateStr.length == 8) {
+            _selectedYear = birthDateStr.substring(0, 4);
+            _selectedMonth = birthDateStr.substring(4, 6);
+            _selectedDay = birthDateStr.substring(6, 8);
+          }
+        }
+        
         // 전화번호도 있으면 참조용으로 사용 (필요한 경우)
         // if (widget.signupData!['phone'] != null) {
         //   // 전화번호 관련 필드가 있다면 여기서 설정
@@ -282,6 +297,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             
             const SizedBox(height: 24),
             
+            // 만남 유형 섹션
+            _buildMeetingTypeSection(),
+            
+            const SizedBox(height: 24),
+            
             // 직업 섹션
             _buildJobSection(),
             
@@ -316,13 +336,58 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '프로필 사진',
-          style: AppTextStyles.bodyLarge.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+        // 타이틀과 가이드를 같은 줄에 배치
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '프로필 사진',
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            GestureDetector(
+              onTap: _showProfileGuide,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.help_outline,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '프로필 사진 등록 가이드',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.open_in_new,
+                      color: AppColors.primary,
+                      size: 14,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         
@@ -334,7 +399,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             crossAxisCount: 3,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.0,
+            childAspectRatio: 103 / 136, // 103*136 비율
           ),
           itemCount: 9,
           itemBuilder: (context, index) {
@@ -344,11 +409,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         
         const SizedBox(height: 12),
         
+        // 하단 안내 문구
         Text(
-          '프로필 사진 등록 가이드를 참고해주세요',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          '프로필 사진 등록 가이드를 참고해주세요.',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
           ),
           textAlign: TextAlign.center,
         ),
@@ -358,78 +425,95 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   Widget _buildPhotoSlot(int index) {
     final hasImage = index < _profileImages.length && _profileImages[index] != null;
-    final isRequired = index < 3;
+    final isRequired = index < 3; // 상단 3개는 필수
     
     return GestureDetector(
       onTap: () => _pickImage(index),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isRequired ? AppColors.primary : AppColors.divider,
-            width: isRequired ? 2 : 1,
+      child: SizedBox(
+        width: 103,
+        height: 136,
+        child: CustomPaint(
+          painter: DashedBorderPainter(
+            color: Colors.grey.shade400,
+            strokeWidth: 1.0,
+            dashLength: 6.0,
+            gapLength: 3.0,
           ),
-        ),
-        child: hasImage
-          ? Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    _profileImages[index]!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () => _removeImage(index),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.xmark,
-                        color: Colors.white,
-                        size: 16,
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            margin: const EdgeInsets.all(1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey.shade50,
+            ),
+            child: hasImage
+              ? Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        _profileImages[index]!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
                       ),
                     ),
-                  ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _removeImage(index),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Stack(
+                  children: [
+                    Center(
+                      child: Text(
+                        isRequired ? '필수' : '선택',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  isRequired ? '필수' : '선택',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: isRequired ? AppColors.primary : AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: isRequired ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: isRequired ? AppColors.primary : AppColors.textPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.plus,
-                    color: AppColors.textWhite,
-                    size: 14,
-                  ),
-                ),
-              ],
-            ),
+          ),
+        ),
       ),
     );
   }
@@ -936,6 +1020,77 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 
+  Widget _buildMeetingTypeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '만남 유형',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            const Text(
+              '필수',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        // 태그 형태의 선택 버튼들
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildMeetingTypeTag('진지한 만남'),
+            _buildMeetingTypeTag('가벼운 만남'),
+            _buildMeetingTypeTag('둘 다 가능'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMeetingTypeTag(String value) {
+    final isSelected = _selectedMeetingType == value;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedMeetingType = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.grey.shade300,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          value,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildJobSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,18 +1539,28 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   void _showLocationPicker() async {
-    await showModalBottomSheet(
+    final currentLocation = _selectedSido != null && _selectedGugun != null 
+        ? '$_selectedSido $_selectedGugun' 
+        : null;
+    
+    final result = await showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => RegionSelectorBottomSheet(
-        initialSido: _selectedSido,
-        initialGugun: _selectedGugun,
-        onSelected: (sido, gugun) {
-          setState(() {
-            _selectedSido = sido;
-            _selectedGugun = gugun;
-          });
+        initialSelectedRegions: currentLocation != null ? [currentLocation] : null,
+        onSelected: (selectedRegions) {
+          if (selectedRegions.isNotEmpty) {
+            // For profile setup, we only use the first selected region
+            final selectedRegion = selectedRegions.first;
+            final parts = selectedRegion.split(' ');
+            if (parts.length >= 2) {
+              setState(() {
+                _selectedSido = parts[0];
+                _selectedGugun = parts[1];
+              });
+            }
+          }
         },
       ),
     );
@@ -1630,6 +1795,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
     
+    // 만남유형 검증
+    if (_selectedMeetingType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('만남 유형을 선택해주세요.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    
     final profileNotifier = ref.read(profileSetupProvider.notifier);
     
     // Update profile data
@@ -1639,6 +1815,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     profileNotifier.updateGender(_selectedGender);
     profileNotifier.updateLocation('$_selectedSido $_selectedGugun');
     profileNotifier.updateJob(_selectedJob!);
+    profileNotifier.updateMeetingType(_selectedMeetingType!);
     profileNotifier.updateIntroduction(_introController.text);
     profileNotifier.updateHobbies(_selectedHobbies);
     
@@ -1653,10 +1830,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         ),
       );
       
-      // 프로필 저장 성공 시에만 홈으로 이동
+      // 프로필 저장 성공 시에만 튜토리얼 화면으로 이동
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
-          context.go(RouteNames.home);
+          context.go(RouteNames.onboardingTutorial);
         }
       });
     } else {
@@ -1671,5 +1848,124 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         );
       }
     }
+  }
+
+  void _showProfileGuide() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/images/guide.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      padding: const EdgeInsets.all(40),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'guide.png 이미지를\n찾을 수 없습니다',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashLength;
+  final double gapLength;
+
+  DashedBorderPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.dashLength,
+    required this.gapLength,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    path.addRRect(RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(8),
+    ));
+
+    final dashedPath = _createDashedPath(path, dashLength, gapLength);
+    canvas.drawPath(dashedPath, paint);
+  }
+
+  Path _createDashedPath(Path source, double dashLength, double gapLength) {
+    final dashedPath = Path();
+    final pathMetrics = source.computeMetrics();
+
+    for (final pathMetric in pathMetrics) {
+      double distance = 0.0;
+      bool draw = true;
+
+      while (distance < pathMetric.length) {
+        final length = draw ? dashLength : gapLength;
+        final segment = pathMetric.extractPath(
+          distance,
+          distance + length,
+        );
+
+        if (draw) {
+          dashedPath.addPath(segment, Offset.zero);
+        }
+
+        distance += length;
+        draw = !draw;
+      }
+    }
+
+    return dashedPath;
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return false;
   }
 }

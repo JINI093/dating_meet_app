@@ -70,3 +70,12 @@ amplifytools.xcconfig
 .secret-*
 **.sample
 #amplify-do-not-edit-end
+
+
+#md파일들
+adminpage.md
+AWS_SETUP_GUIDE.md
+develop.md
+prd.md
+dating_meet_app_edit_log.txt
+SMS_SETUP_GUIDE.md

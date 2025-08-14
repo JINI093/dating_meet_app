@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/auth_result.dart' as AppAuthResult;
 import '../config/aws_auth_config.dart';
 import '../utils/auth_validators.dart';
+import 'sms_service.dart';
 
 /// AWS Cognito 인증 서비스
 /// 실제 AWS Cognito와 연동하여 사용자 인증을 처리합니다.
@@ -888,15 +889,21 @@ class AWSCognitoService {
       final normalizedPhone = _normalizePhoneNumber(phoneNumber);
       print('정규화된 전화번호: $normalizedPhone');
       
-      // TODO: 실제 SMS 서비스 연동 (AWS SNS 또는 다른 SMS 서비스)
-      // 현재는 시뮬레이션만 수행
-      await Future.delayed(const Duration(seconds: 2));
+      // SMS 서비스 사용
+      final smsService = SMSService();
+      final result = await smsService.sendVerificationCode(normalizedPhone);
       
-      // 임시로 성공 응답 반환
-      return AppAuthResult.AuthResult.success(
-        user: null,
-        loginMethod: 'SMS_ID_RECOVERY',
-      );
+      if (result.success) {
+        print('✅ 아이디 찾기 SMS 전송 성공');
+        return AppAuthResult.AuthResult.success(
+          user: null,
+          loginMethod: 'SMS_ID_RECOVERY',
+        );
+      } else {
+        return AppAuthResult.AuthResult.failure(
+          error: result.error ?? 'SMS 전송에 실패했습니다.',
+        );
+      }
       
     } catch (e) {
       return _handleAuthError(e, 'SMS 전송');
@@ -913,18 +920,25 @@ class AWSCognitoService {
       
       final normalizedPhone = _normalizePhoneNumber(phoneNumber);
       
-      // TODO: 실제 SMS 코드 검증 및 사용자 ID 조회
-      // 현재는 시뮬레이션만 수행
-      await Future.delayed(const Duration(seconds: 2));
+      // SMS 서비스로 코드 검증
+      final smsService = SMSService();
+      final verificationResult = await smsService.verifyCode(
+        phoneNumber: normalizedPhone,
+        inputCode: verificationCode,
+      );
       
-      // 코드 검증 (임시로 123456만 허용)
-      if (verificationCode != '123456') {
-        return AppAuthResult.AuthResult.failure(error: '인증번호가 올바르지 않습니다.');
+      if (!verificationResult.success) {
+        return AppAuthResult.AuthResult.failure(
+          error: verificationResult.error ?? '인증번호가 올바르지 않습니다.',
+        );
       }
       
-      // 임시로 휴대폰 번호 기반 아이디 생성
+      // TODO: 실제 사용자 ID 조회 (DynamoDB에서 phone_number로 검색)
+      // 현재는 시뮬레이션 데이터 반환
       final lastFour = normalizedPhone.substring(normalizedPhone.length - 4);
-      final maskedId = 'user${lastFour}****';
+      final maskedId = 'user$lastFour****';
+      
+      print('✅ 아이디 찾기 성공: $maskedId');
       
       return AppAuthResult.AuthResult.success(
         user: null,

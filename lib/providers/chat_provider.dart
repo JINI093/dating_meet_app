@@ -463,10 +463,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
               // 같은 messageId 또는 localId가 있는지 확인
               return (message.messageId.isNotEmpty && msg.messageId == message.messageId) ||
                      (message.localId != null && msg.localId == message.localId) ||
-                     // 같은 내용, 발송자, 시간(3초 이내)
+                     // 같은 내용, 발송자, 시간(5초 이내)
                      (msg.senderId == message.senderId && 
                       msg.content == message.content &&
-                      msg.createdAt.difference(message.createdAt).abs().inSeconds <= 3);
+                      msg.createdAt.difference(message.createdAt).abs().inSeconds <= 5);
             });
             
             if (isDuplicate) {
@@ -532,10 +532,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
         return true;
       }
       
-      // 3. 내용, 발송자, 시간이 매우 유사한 경우 (1초 이내)
+      // 3. 내용, 발송자, 시간이 매우 유사한 경우 (5초 이내로 확장)
       if (msg.senderId == message.senderId && 
           msg.content == message.content &&
-          msg.createdAt.difference(message.createdAt).abs().inSeconds <= 1) {
+          msg.createdAt.difference(message.createdAt).abs().inSeconds <= 5) {
         developer.log('⚠️  유사한 메시지 발견 - 중복으로 판단: ${message.content}', name: 'ChatProvider');
         return true;
       }

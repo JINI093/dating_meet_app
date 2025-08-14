@@ -1,0 +1,32 @@
+{
+  "name": "dating-app-sms-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for SMS sending via multiple providers",
+  "main": "send_sms_function.js",
+  "scripts": {
+    "test": "jest",
+    "package": "zip -r send_sms_function.zip . -x '*.git*' 'node_modules/.cache/*' 'coverage/*' '*.test.js' 'README.md'",
+    "deploy": "aws lambda update-function-code --function-name SendSMSFunction --zip-file fileb://send_sms_function.zip",
+    "create-function": "aws lambda create-function --function-name SendSMSFunction --runtime nodejs18.x --role arn:aws:iam::YOUR_ACCOUNT_ID:role/LambdaExecutionRole --handler send_sms_function.handler --zip-file fileb://send_sms_function.zip --timeout 30 --memory-size 256"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1490.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "sms",
+    "sns",
+    "twilio",
+    "korea-telecom"
+  ],
+  "author": "Dating App Development Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

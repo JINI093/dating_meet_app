@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'route_names.dart';
+import '../admin/routes/admin_router.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/enhanced_login_screen.dart';
@@ -13,6 +14,9 @@ import '../screens/auth/find_id_screen.dart';
 import '../screens/auth/terms_screen.dart';
 import '../screens/auth/phone_verification_screen.dart';
 import '../screens/auth/signup_complete_screen.dart';
+import '../screens/auth/signup_id_input_screen.dart';
+import '../screens/auth/signup_password_input_screen.dart';
+import '../screens/auth/signup_complete_info_screen.dart';
 import '../screens/onboarding/onboarding_tutorial_screen.dart';
 import '../screens/onboarding/profile_setup_screen.dart';
 import '../screens/bottom_navigation/bottom_navigation_screen.dart';
@@ -32,7 +36,9 @@ import '../screens/vip/vip_dating_screen.dart';
 import '../widgets/navigation/vip_route_guard.dart';
 import '../screens/chat/chat_list_screen.dart';
 import '../screens/profile/my_profile_screen.dart';
+import '../screens/profile/other_profile_screen.dart';
 import '../screens/point/point_shop_screen.dart';
+import '../screens/point/ticket_shop_screen.dart';
 import '../models/match_model.dart';
 import '../models/profile_model.dart';
 import '../screens/point_exchange/point_exchange_main_screen.dart';
@@ -114,6 +120,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final signupData = state.extra as Map<String, dynamic>?;
           return SignupCompleteScreen(signupData: signupData);
+        },
+      ),
+      
+      // 새로운 회원가입 플로우 라우트
+      GoRoute(
+        path: RouteNames.signupIdInput,
+        name: 'signupIdInput',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return SignupIdInputScreen(
+            mobileOKVerification: extra?['mobileOKVerification'],
+            additionalData: extra?['additionalData'],
+          );
+        },
+      ),
+      GoRoute(
+        path: RouteNames.signupPasswordInput,
+        name: 'signupPasswordInput',
+        builder: (context, state) {
+          final signupData = state.extra as Map<String, dynamic>?;
+          return SignupPasswordInputScreen(signupData: signupData);
+        },
+      ),
+      GoRoute(
+        path: RouteNames.signupCompleteInfo,
+        name: 'signupCompleteInfo',
+        builder: (context, state) {
+          final signupData = state.extra as Map<String, dynamic>?;
+          return SignupCompleteInfoScreen(signupData: signupData);
         },
       ),
 
@@ -293,14 +328,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       //   name: 'editProfile',
       //   builder: (context, state) => const EditProfileScreen(),
       // ),
-      // GoRoute(
-      //   path: '${RouteNames.otherProfile}/:userId',
-      //   name: 'otherProfile',
-      //   builder: (context, state) {
-      //     final userId = state.pathParameters['userId']!;
-      //     return OtherProfileScreen(userId: userId);
-      //   },
-      // ),
+      GoRoute(
+        path: RouteNames.otherProfile,
+        name: 'otherProfile',
+        builder: (context, state) {
+          final profile = state.extra as ProfileModel;
+          return OtherProfileScreen(profile: profile);
+        },
+      ),
       // GoRoute(
       //   path: RouteNames.profileVerification,
       //   name: 'profileVerification',
@@ -319,6 +354,36 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.pointShop,
         name: 'pointShop',
         builder: (context, state) => const PointShopScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.ticketShop,
+        name: 'ticketShop',
+        builder: (context, state) {
+          print('🎫 TicketShop 라우트 호출됨: ${RouteNames.ticketShop}');
+          try {
+            return const TicketShopScreen(initialTabIndex: 0);
+          } catch (e) {
+            print('❌ TicketShopScreen 생성 오류: $e');
+            return Scaffold(
+              appBar: AppBar(title: const Text('이용권 구매')),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('TicketShopScreen 로딩 중 오류가 발생했습니다.'),
+                    const SizedBox(height: 16),
+                    Text('오류: $e'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('뒤로가기'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        },
       ),
       // GoRoute(
       //   path: RouteNames.pointHistory,
@@ -523,6 +588,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PrivacyListScreen(),
       ),
 
+      // Admin Routes
+      ...AdminRouter.adminRoutes,
+
       // Error Routes
       // GoRoute(
       //   path: RouteNames.maintenance,
@@ -532,6 +600,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     errorBuilder: (context, state) => const NotFoundScreen(),
     redirect: (context, state) {
+      // Admin authentication redirect
+      if (state.matchedLocation.startsWith('/admin')) {
+        // TODO: Check admin authentication status
+        // For now, allow access to admin routes
+      }
+      
       // TODO: 인증 상태에 따른 리다이렉트 로직 구현
       // 현재는 모든 라우트를 허용
       return null;

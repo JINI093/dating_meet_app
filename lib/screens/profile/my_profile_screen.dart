@@ -6,6 +6,10 @@ import '../../utils/app_colors.dart';
 import '../../models/profile_model.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/points_provider.dart';
+import '../../providers/heart_provider.dart';
+import '../../providers/superchat_provider.dart';
+import '../../providers/recommend_card_provider.dart';
+import '../../providers/profile_view_provider.dart';
 import 'edit_profile_screen.dart';
 import '../point/point_shop_screen.dart';
 import 'block_contacts_screen.dart';
@@ -15,6 +19,7 @@ import 'notice_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'faq_screen.dart';
 import 'referral_code_screen.dart';
+import 'coupon_status_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../../routes/route_names.dart';
 import '../point/ticket_shop_screen.dart';
@@ -35,6 +40,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ref.read(userProvider.notifier).initializeUser();
         // 포인트 데이터 로드
         ref.read(pointsProvider.notifier).loadUserPoints();
+        // 하트 및 이용권 데이터 초기화
+        ref.read(heartProvider.notifier).refreshHearts();
+        ref.read(superchatProvider.notifier).initialize();
+        ref.read(recommendCardProvider.notifier).initialize();
+        ref.read(profileViewProvider.notifier).initialize();
       }
     });
   }
@@ -414,8 +424,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 30),
+          // 내 이용권 보유 현황 타이틀
+          const Center(
+            child: Text(
+              '내 이용권 보유 현황',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 이용권 현황
+          _buildTicketStatusSection(),
           const SizedBox(height: 8),
-          // 주의사항
+          // 주의사항 2
           const Align(
             alignment: Alignment.center,
             child: Text(
@@ -527,13 +552,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Widget _buildMenuList() {
     return Column(
       children: [
+        _buildMenuItem('내 쿠폰 현황', '보유하고 있는 쿠폰을 확인할 수 있습니다', () => _navigateToCouponStatus()),
+        _buildMenuItem('포인트 현황', '포인트 충전/적립/사용 내역을 알 수 있습니다', () => _navigateToPointHistory()),
+        _buildMenuItem('추천인 코드 확인', '', () => _navigateToReferralCode()),
+        _buildMenuItem('공지사항', '서비스 이용에 대한 알림이나 변경사항을 알려드립니다', () => _navigateToNotice()),
+        _buildMenuItem('자주 묻는 질문', '서비스 이용에 대한 자주 묻는 질문을 알려드립니다.', () => _navigateToFaq()),
         _buildMenuItem('지인차단', '만나고 싶지 않은 지인을 차단합니다.', () => _navigateToBlockContacts()),
         _buildMenuItem('문의하기', '서비스에 궁금한 점이 있다면?', () => _navigateToInquiry()),
-        _buildMenuItem('포인트 현황', '포인트 충전/적립/사용 내역을 알 수 있습니다', () => _navigateToPointHistory()),
-        _buildMenuItem('공지사항', '서비스 이용에 대한 알림이나 변경사항을 알려드립니다', () => _navigateToNotice()),
         _buildMenuItem('개인정보취급방침', '서비스에 활용되는 개인정보에 대해 알려드립니다', () => _navigateToPrivacyPolicy()),
-        _buildMenuItem('자주 묻는 질문', '서비스 이용에 대한 자주 묻는 질문을 알려드립니다.', () => _navigateToFaq()),
-        _buildMenuItem('추천인 코드 확인', '', () => _navigateToReferralCode()),
         _buildMenuItem('로그아웃', '', () => _showLogoutDialog()),
       ],
     );
@@ -626,6 +652,101 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
 
+  Widget _buildTicketStatusSection() {
+    final heartState = ref.watch(heartProvider);
+    final superchatState = ref.watch(superchatProvider);
+    final recommendCardState = ref.watch(recommendCardProvider);
+    final profileViewState = ref.watch(profileViewProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildTicketItem(
+                icon: CupertinoIcons.heart,
+                label: '좋아요',
+                count: heartState.currentHearts,
+              ),
+              _buildTicketItem(
+                icon: CupertinoIcons.paperplane,
+                label: '슈퍼챗',
+                count: superchatState.currentSuperChats,
+              ),
+              _buildTicketItem(
+                icon: CupertinoIcons.square_grid_2x2,
+                label: '추천카드 더보기',
+                count: recommendCardState.currentRecommendCards,
+              ),
+              _buildTicketItem(
+                icon: CupertinoIcons.doc_person,
+                label: '프로필 열람권',
+                count: profileViewState.currentProfileViewTickets,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketItem({
+    required IconData icon,
+    required String label,
+    required int count,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 66,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 12,
+                  color: const Color(0xFF666666),
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF666666),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSmallButton(String label, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -684,6 +805,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       context,
       CupertinoPageRoute(
         builder: (context) => const TicketShopScreen(initialTabIndex: 4), // VIP 탭 (index 4)
+      ),
+    );
+  }
+
+  void _navigateToCouponStatus() {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => const CouponStatusScreen(),
       ),
     );
   }
