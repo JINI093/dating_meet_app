@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
+import '../../providers/points_provider.dart';
 
 class SuperChatPurchaseScreen extends ConsumerStatefulWidget {
   const SuperChatPurchaseScreen({super.key});
@@ -396,7 +397,7 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
             elevation: 0,
           ),
           child: Text(
-            '${_formatPrice(selectedPackageData['price'])}원 결제하기',
+            '${selectedPackageData['points']}P로 구매하기',
             style: AppTextStyles.buttonLarge.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -409,15 +410,15 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
   Map<String, dynamic> _getPackageData(String count) {
     switch (count) {
       case '10':
-        return {'count': '10', 'price': 9900, 'bonus': 0};
+        return {'count': 10, 'points': 90, 'bonus': 0};
       case '30':
-        return {'count': '30', 'price': 27900, 'bonus': 5};
+        return {'count': 30, 'points': 250, 'bonus': 5};
       case '50':
-        return {'count': '50', 'price': 44900, 'bonus': 10};
+        return {'count': 50, 'points': 400, 'bonus': 10};
       case '100':
-        return {'count': '100', 'price': 79900, 'bonus': 25};
+        return {'count': 100, 'points': 750, 'bonus': 25};
       default:
-        return {'count': '10', 'price': 9900, 'bonus': 0};
+        return {'count': 10, 'points': 90, 'bonus': 0};
     }
   }
 
@@ -430,15 +431,255 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
 
   void _processPurchase() {
     final packageData = _getPackageData(_selectedPackage);
-    
+    final pointsState = ref.read(pointsProvider);
+    final requiredPoints = packageData['points'] as int;
+    final chatCount = packageData['count'] as int;
+    final bonusPercent = packageData['bonus'] as int;
+
+    // 포인트 부족 확인
+    if (!pointsState.canSpend(requiredPoints)) {
+      _showInsufficientPointsDialog(requiredPoints, pointsState.currentPoints);
+      return;
+    }
+
+    // 슈퍼챗 구매 확인 다이얼로그
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
         ),
-        contentPadding: const EdgeInsets.all(24),
+        title: Text(
+          '슈퍼챗 ${chatCount}개 구매',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF3FE37F),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '슈퍼챗 ${chatCount}개를 구매하시겠습니까?',
+              style: AppTextStyles.bodyMedium,
+            ),
+            if (bonusPercent > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '보너스 ${bonusPercent}% 추가 제공!',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: const Color(0xFF3FE37F),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('필요 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${requiredPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('보유 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${pointsState.currentPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('구매 후 잔액:', style: AppTextStyles.bodyMedium),
+                Text('${pointsState.currentPoints - requiredPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('취소', style: AppTextStyles.buttonMedium.copyWith(
+              color: AppColors.textSecondary,
+            )),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _processSuperChatPurchase(chatCount, requiredPoints, bonusPercent);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3FE37F),
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+              ),
+            ),
+            child: Text('구매', style: AppTextStyles.buttonMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInsufficientPointsDialog(int required, int current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        title: Text(
+          '포인트 부족',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.error,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '슈퍼챗 구매를 위한 포인트가 부족합니다.',
+              style: AppTextStyles.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('필요 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${required}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('보유 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${current}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('부족 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${required - current}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('취소', style: AppTextStyles.buttonMedium.copyWith(
+              color: AppColors.textSecondary,
+            )),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // 포인트 상점으로 이동
+              Navigator.of(context).pushNamed('/point-shop');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+              ),
+            ),
+            child: Text('포인트 구매', style: AppTextStyles.buttonMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _processSuperChatPurchase(int chatCount, int points, int bonusPercent) async {
+    // 로딩 다이얼로그 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3FE37F)),
+            ),
+            const SizedBox(height: AppDimensions.spacing16),
+            Text('슈퍼챗 구매 중...', style: AppTextStyles.bodyMedium),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // 포인트 차감
+      final success = await ref.read(pointsProvider.notifier).spendForSuperchat(points);
+
+      if (success) {
+        // 슈퍼챗 추가 (보너스 포함) - 기존 SuperChat 시스템 연동
+        final totalChats = chatCount + (chatCount * bonusPercent ~/ 100);
+        // await ref.read(superChatProvider.notifier).addSuperChats(totalChats);
+
+        if (!mounted) return;
+        
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        
+        // 성공 다이얼로그
+        _showPurchaseSuccess(totalChats, points);
+      } else {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        _showPurchaseError('슈퍼챗 구매에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+      _showPurchaseError(e.toString());
+    }
+  }
+
+  void _showPurchaseSuccess(int totalChats, int points) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -457,30 +698,20 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
             ),
             const SizedBox(height: 16),
             Text(
-              '슈퍼챗 ${packageData['count']}개 구매',
-              style: const TextStyle(
-                fontSize: 20,
+              '슈퍼챗 구매 완료!',
+              style: AppTextStyles.h6.copyWith(
                 fontWeight: FontWeight.bold,
+                color: const Color(0xFF3FE37F),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '${packageData['count']}개의 슈퍼챗을 구매하시겠습니까?',
+              '${totalChats}개의 슈퍼챗을 받았습니다.',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            if (packageData['bonus'] > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                '보너스 ${packageData['bonus']}개 포함!',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: const Color(0xFF3FE37F),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
             const SizedBox(height: 24),
             Row(
               children: [
@@ -505,8 +736,8 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
-                      _showPurchaseSuccess();
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(); // 슈퍼챗 구매 화면도 닫기
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3FE37F),
@@ -517,7 +748,7 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
                       ),
                     ),
                     child: const Text(
-                      '구매',
+                      '확인',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -530,67 +761,36 @@ class _SuperChatPurchaseScreenState extends ConsumerState<SuperChatPurchaseScree
     );
   }
 
-  void _showPurchaseSuccess() {
-    final packageData = _getPackageData(_selectedPackage);
-    final totalCount = int.parse(packageData['count']) + (packageData['bonus'] as int);
-    
+  void _showPurchaseError(String message) {
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
         ),
-        contentPadding: const EdgeInsets.all(24),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              CupertinoIcons.checkmark_circle_fill,
-              color: AppColors.success,
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '구매 완료!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '슈퍼챗 $totalCount개가\n성공적으로 구매되었습니다.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3FE37F),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: const Text(
-                  '확인',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          '구매 실패',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.error,
+          ),
         ),
+        content: Text(
+          message,
+          style: AppTextStyles.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              '확인',
+              style: AppTextStyles.buttonMedium.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

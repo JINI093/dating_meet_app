@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
+import '../../providers/points_provider.dart';
+import '../../providers/vip_provider.dart';
+import '../../models/vip_model.dart';
 
 enum VipTier { gold, silver, bronze }
 
@@ -293,7 +296,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${product['price']}원',
+                  '${product['points']}P',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: _getTierColor(tier),
                   ),
@@ -321,49 +324,395 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
     switch (tier) {
       case VipTier.gold:
         return [
-          {'days': 7, 'price': 9900},
-          {'days': 15, 'price': 19900},
-          {'days': 30, 'price': 39900},
-          {'days': 90, 'price': 99900},
+          {'days': 7, 'points': 990},
+          {'days': 15, 'points': 1990},
+          {'days': 30, 'points': 3990},
+          {'days': 90, 'points': 9990},
         ];
       case VipTier.silver:
         return [
-          {'days': 7, 'price': 7900},
-          {'days': 15, 'price': 15900},
-          {'days': 30, 'price': 29900},
-          {'days': 90, 'price': 79900},
+          {'days': 7, 'points': 790},
+          {'days': 15, 'points': 1590},
+          {'days': 30, 'points': 2990},
+          {'days': 90, 'points': 7990},
         ];
       case VipTier.bronze:
         return [
-          {'days': 7, 'price': 4900},
-          {'days': 15, 'price': 9900},
-          {'days': 30, 'price': 19900},
-          {'days': 90, 'price': 49900},
+          {'days': 7, 'points': 490},
+          {'days': 15, 'points': 990},
+          {'days': 30, 'points': 1990},
+          {'days': 90, 'points': 4990},
         ];
     }
   }
 
   void _onProductSelected(VipTier tier, Map<String, dynamic> product) {
-    // 결제 탭으로 이동하는 로직 구현
+    final pointsState = ref.read(pointsProvider);
+    final requiredPoints = product['points'] as int;
+    final days = product['days'] as int;
+
+    // 포인트 부족 확인
+    if (!pointsState.canSpend(requiredPoints)) {
+      _showInsufficientPointsDialog(requiredPoints, pointsState.currentPoints);
+      return;
+    }
+
+    // VIP 구매 확인 다이얼로그
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${tier.name.toUpperCase()} ${product['days']}일'),
-        content: Text('${product['price']}원 상품을 구매하시겠습니까?'),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        title: Text(
+          'VIP ${tier.name.toUpperCase()} ${days}일',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _getTierColor(tier),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'VIP ${tier.name.toUpperCase()} 멤버십 ${days}일을 구매하시겠습니까?',
+              style: AppTextStyles.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('필요 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${requiredPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('보유 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${pointsState.currentPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('구매 후 잔액:', style: AppTextStyles.bodyMedium),
+                Text('${pointsState.currentPoints - requiredPoints}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: Text('취소', style: AppTextStyles.buttonMedium.copyWith(
+              color: AppColors.textSecondary,
+            )),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // TODO: 결제 화면으로 이동
+              _processPurchase(tier, days, requiredPoints);
             },
-            child: const Text('구매'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+              ),
+            ),
+            child: Text('구매', style: AppTextStyles.buttonMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            )),
           ),
         ],
       ),
     );
+  }
+
+  void _showInsufficientPointsDialog(int required, int current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        title: Text(
+          '포인트 부족',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.error,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '포인트가 부족합니다.',
+              style: AppTextStyles.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('필요 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${required}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('보유 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${current}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                )),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('부족 포인트:', style: AppTextStyles.bodyMedium),
+                Text('${required - current}P', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.bold,
+                )),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('취소', style: AppTextStyles.buttonMedium.copyWith(
+              color: AppColors.textSecondary,
+            )),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // 포인트 상점으로 이동
+              Navigator.of(context).pushNamed('/point-shop');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+              ),
+            ),
+            child: Text('포인트 구매', style: AppTextStyles.buttonMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _processPurchase(VipTier tier, int days, int points) async {
+    // 로딩 다이얼로그 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+            const SizedBox(height: AppDimensions.spacing16),
+            Text('VIP 구매 중...', style: AppTextStyles.bodyMedium),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // 포인트 차감 및 VIP 활성화
+      final success = await ref.read(pointsProvider.notifier).spendForVip(
+        points,
+        tier.name.toUpperCase(),
+      );
+
+      if (success) {
+        // VIP 활성화 (VIP Provider 사용)
+        final vipPlan = VipPlan(
+          id: '${tier.name.toLowerCase()}_${days}d',
+          name: 'VIP ${tier.name.toUpperCase()}',
+          description: 'VIP ${tier.name.toUpperCase()} ${days}일 멤버십',
+          durationDays: days,
+          originalPrice: points,
+          discountPrice: points, // 이미 포인트로 결제됨
+          discountPercent: 0,
+          features: [
+            '무제한 좋아요',
+            '프로필 노출 증가',
+            '읽음 확인',
+            '나를 좋아요한 사람 확인',
+          ],
+          type: days >= 30 ? VipPlanType.monthly : VipPlanType.weekly,
+        );
+        
+        await ref.read(vipProvider.notifier).purchaseVipPlan(vipPlan);
+
+        if (!mounted) return;
+        
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        
+        // 성공 다이얼로그
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.workspace_premium,
+                  color: _getTierColor(tier),
+                  size: 64,
+                ),
+                const SizedBox(height: AppDimensions.spacing16),
+                Text(
+                  'VIP ${tier.name.toUpperCase()} 구매 완료!',
+                  style: AppTextStyles.h6.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: _getTierColor(tier),
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spacing8),
+                Text(
+                  '${days}일간 VIP 혜택을 누려보세요!',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spacing24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(); // VIP 구매 화면도 닫기
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textWhite,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
+                      ),
+                    ),
+                    child: Text(
+                      '확인',
+                      style: AppTextStyles.buttonMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        
+        // 실패 다이얼로그
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+            ),
+            title: Text(
+              '구매 실패',
+              style: AppTextStyles.h5.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.error,
+              ),
+            ),
+            content: Text(
+              'VIP 구매에 실패했습니다. 잠시 후 다시 시도해주세요.',
+              style: AppTextStyles.bodyMedium,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  '확인',
+                  style: AppTextStyles.buttonMedium.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+      
+      // 에러 다이얼로그
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+          ),
+          title: Text(
+            '오류 발생',
+            style: AppTextStyles.h5.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.error,
+            ),
+          ),
+          content: Text(
+            e.toString(),
+            style: AppTextStyles.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                '확인',
+                style: AppTextStyles.buttonMedium.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

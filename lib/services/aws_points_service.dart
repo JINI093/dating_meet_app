@@ -103,8 +103,8 @@ class AWSPointsService {
         variables: {
           'input': {
             'userId': userId,
-            'currentPoints': 302,
-            'totalEarned': 302,
+            'currentPoints': 0,
+            'totalEarned': 0,
             'totalSpent': 0,
             'lastUpdated': now,
           }

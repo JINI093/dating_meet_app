@@ -42,8 +42,8 @@ class UserPointsModel {
   factory UserPointsModel.initial(String userId) {
     return UserPointsModel(
       userId: userId,
-      currentPoints: 302, // 초기 포인트 302로 설정
-      totalEarned: 302,
+      currentPoints: 0, // 초기 포인트 0으로 설정
+      totalEarned: 0,
       totalSpent: 0,
       lastUpdated: DateTime.now(),
       transactions: [],
