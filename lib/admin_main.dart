@@ -29,7 +29,7 @@ class AdminApp extends StatelessWidget {
 
 /// 관리자 전용 라우터 설정
 final _adminRouter = GoRouter(
-  initialLocation: '/admin/users',
+  initialLocation: '/admin/dashboard',
   debugLogDiagnostics: true,
   routes: AdminRouter.adminRoutes,
   errorBuilder: (context, state) => Scaffold(

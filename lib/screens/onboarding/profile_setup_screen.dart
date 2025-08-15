@@ -1868,7 +1868,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.asset(
-                  'assets/images/guide.png',
+                  'assets/images/profile_guide.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(

@@ -59,6 +59,8 @@
 	<string>이 앱은 마이크 사용을 위해 권한이 필요합니다.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>사귈래 앱에서 중요한 알림을 받기 위해 권한이 필요합니다.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>지인차단 기능을 위해 연락처 접근 권한이 필요합니다.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -104,5 +106,25 @@
 	<string>eDDXsl2Wb3</string>
 	<key>NAVER_CLIENT_NAME</key>
 	<string>사귈래</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>127.0.0.1</key>
+			<dict>
+				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

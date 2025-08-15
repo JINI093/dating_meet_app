@@ -77,7 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>?;
           return SignupScreen(
             mobileOKVerification: extra?['mobileOKVerification'],
-            additionalData: extra?['additionalData'],
+            additionalData: extra,
           );
         },
       ),
@@ -110,8 +110,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.phoneVerification,
         name: 'phoneVerification',
         builder: (context, state) {
-          final phoneNumber = state.extra as String?;
-          return PhoneVerificationScreen(phoneNumber: phoneNumber);
+          final extra = state.extra as Map<String, dynamic>?;
+          return PhoneVerificationScreen(agreedTerms: extra);
         },
       ),
       GoRoute(
@@ -620,8 +620,8 @@ extension AppRouterExtension on GoRouter {
   void goToLogin() => go(RouteNames.login);
   void goToSignup() => go(RouteNames.signup);
   void goToTerms() => go(RouteNames.terms);
-  void goToPhoneVerification(String phoneNumber) {
-    go(RouteNames.phoneVerification, extra: phoneNumber);
+  void goToPhoneVerification(Map<String, dynamic>? agreedTerms) {
+    go(RouteNames.phoneVerification, extra: agreedTerms);
   }
   void goToSignupComplete() => go(RouteNames.signupComplete);
 

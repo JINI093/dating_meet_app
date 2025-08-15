@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
@@ -58,7 +58,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
       body: Column(
         children: [
           // 상단 탭 메뉴 (좌우 여백 삭제)
-          Container(
+          SizedBox(
             width: double.infinity,
             child: TabBar(
               controller: _tabController,
@@ -147,7 +147,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
               width: 300,
               height: 200,
               decoration: BoxDecoration(
-                color: _getTierColor(tier).withOpacity(0.1),
+                color: _getTierColor(tier).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: _getTierColor(tier), width: 2),
               ),
@@ -274,7 +274,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
         errorBuilder: (context, error, stackTrace) {
           return Container(
             decoration: BoxDecoration(
-              color: _getTierColor(tier).withOpacity(0.1),
+              color: _getTierColor(tier).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _getTierColor(tier), width: 1),
             ),
@@ -351,13 +351,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
     final requiredPoints = product['points'] as int;
     final days = product['days'] as int;
 
-    // 포인트 부족 확인
-    if (!pointsState.canSpend(requiredPoints)) {
-      _showInsufficientPointsDialog(requiredPoints, pointsState.currentPoints);
-      return;
-    }
-
-    // VIP 구매 확인 다이얼로그
+    // 구매 방법 선택 다이얼로그
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -366,7 +360,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
           borderRadius: BorderRadius.circular(AppDimensions.radiusL),
         ),
         title: Text(
-          'VIP ${tier.name.toUpperCase()} ${days}일',
+          'VIP ${tier.name.toUpperCase()} $days일',
           style: AppTextStyles.h5.copyWith(
             fontWeight: FontWeight.bold,
             color: _getTierColor(tier),
@@ -377,7 +371,158 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'VIP ${tier.name.toUpperCase()} 멤버십 ${days}일을 구매하시겠습니까?',
+              '구매 방법을 선택해주세요.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // 인앱결제 옵션
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                // 인앱결제 VIP 화면으로 이동
+                context.push('/vip/iap-purchase');
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.payment,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '인앱결제 (추천)',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'App Store / Google Play 결제',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: AppColors.textSecondary,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // 포인트 결제 옵션
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                if (pointsState.canSpend(requiredPoints)) {
+                  _showPointsPurchaseConfirmation(tier, days, requiredPoints, pointsState);
+                } else {
+                  _showInsufficientPointsDialog(requiredPoints, pointsState.currentPoints);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.stars,
+                      color: Colors.orange,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '포인트 결제',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${requiredPoints}P (보유: ${pointsState.currentPoints}P)',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: AppColors.textSecondary,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('취소', style: AppTextStyles.buttonMedium.copyWith(
+              color: AppColors.textSecondary,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPointsPurchaseConfirmation(VipTier tier, int days, int requiredPoints, PointsState pointsState) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+        ),
+        title: Text(
+          'VIP ${tier.name.toUpperCase()} $days일',
+          style: AppTextStyles.h5.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _getTierColor(tier),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'VIP ${tier.name.toUpperCase()} 멤버십 $days일을 포인트로 구매하시겠습니까?',
               style: AppTextStyles.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -562,7 +707,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
         final vipPlan = VipPlan(
           id: '${tier.name.toLowerCase()}_${days}d',
           name: 'VIP ${tier.name.toUpperCase()}',
-          description: 'VIP ${tier.name.toUpperCase()} ${days}일 멤버십',
+          description: 'VIP ${tier.name.toUpperCase()} $days일 멤버십',
           durationDays: days,
           originalPrice: points,
           discountPrice: points, // 이미 포인트로 결제됨
@@ -608,7 +753,7 @@ class _VipPurchaseScreenState extends ConsumerState<VipPurchaseScreen> with Sing
                 ),
                 const SizedBox(height: AppDimensions.spacing8),
                 Text(
-                  '${days}일간 VIP 혜택을 누려보세요!',
+                  '$days일간 VIP 혜택을 누려보세요!',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),

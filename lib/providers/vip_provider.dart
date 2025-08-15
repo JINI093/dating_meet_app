@@ -160,24 +160,35 @@ class VipNotifier extends StateNotifier<VipState> {
       final vipStartDate = DateTime.now();
       final vipEndDate = vipStartDate.add(Duration(days: plan.durationDays));
       
-      // Update profile to VIP status in AWS
-      final updatedProfile = await _profileService.updateProfile(
-        profileId: profile.id,
-        additionalData: {
-          'isVip': true,
-          'isPremium': plan.name.contains('PREMIUM') || plan.name.contains('GOLD'),
-          'vipStartDate': vipStartDate.toIso8601String(),
-          'vipEndDate': vipEndDate.toIso8601String(),
-          'vipPlan': plan.name,
-          'vipTier': _getVipTierFromPlan(plan.name),
-        },
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          Logger.log('프로필 업데이트 타임아웃 - 로컬 상태만 업데이트', name: 'VipProvider');
-          return null;
-        },
-      );
+      // Update profile to VIP status in AWS (with error handling)
+      ProfileModel? updatedProfile;
+      try {
+        updatedProfile = await _profileService.updateProfile(
+          profileId: profile.id,
+          additionalData: {
+            'isVip': true,
+            'isPremium': plan.name.contains('PREMIUM') || plan.name.contains('GOLD'),
+            'vipStartDate': vipStartDate.toIso8601String(),
+            'vipEndDate': vipEndDate.toIso8601String(),
+            'vipPlan': plan.name,
+            'vipTier': _getVipTierFromPlan(plan.name),
+          },
+        ).timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {
+            Logger.log('프로필 업데이트 타임아웃 - 로컬 상태만 업데이트', name: 'VipProvider');
+            return null;
+          },
+        );
+      } catch (e) {
+        if (e.toString().contains('not authorized') || e.toString().contains('Unauthorized')) {
+          Logger.log('AWS 권한 오류 감지 - 로컬 VIP 상태만 업데이트: $e', name: 'VipProvider');
+        } else {
+          Logger.log('프로필 업데이트 실패 - 로컬 상태만 업데이트: $e', name: 'VipProvider');
+        }
+        // 권한 오류여도 로컬 상태는 업데이트 진행
+        updatedProfile = null;
+      }
       
       // Create new subscription
       final newSubscription = VipSubscription(

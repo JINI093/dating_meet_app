@@ -66,8 +66,37 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void initState() {
     super.initState();
     
-    // MobileOK 인증 데이터가 있으면 바로 아이디 입력 단계부터 시작
-    if (widget.mobileOKVerification != null) {
+    // 새로운 회원가입 플로우: 약관 동의 → PASS 인증 → 아이디/비밀번호 입력
+    if (widget.additionalData != null) {
+      final passResult = widget.additionalData!['passResult'];
+      final agreedTerms = widget.additionalData!['agreedTerms'];
+      
+      if (passResult != null) {
+        // PASS 인증 결과를 mobileOKData로 저장
+        _mobileOKData = {
+          'name': passResult.name,
+          'phoneNumber': passResult.phoneNumber,
+          'birthDate': passResult.birthDate,
+          'gender': passResult.gender,
+          'ci': passResult.ci,
+          'di': passResult.di,
+          'agreedTerms': agreedTerms,
+        };
+        
+        // 바로 아이디 입력 단계부터 시작
+        currentStep = SignupStep.idInput;
+        
+        // PASS 인증 데이터로 필드 미리 채우기
+        if (passResult.name != null) {
+          _nameController.text = passResult.name!;
+        }
+        if (passResult.phoneNumber != null) {
+          _phoneController.text = passResult.phoneNumber!;
+        }
+      }
+    }
+    // 기존 MobileOK 인증 데이터가 있으면 바로 아이디 입력 단계부터 시작 (이전 버전 호환성)
+    else if (widget.mobileOKVerification != null) {
       _mobileOKData = widget.mobileOKVerification;
       currentStep = SignupStep.idInput;
       

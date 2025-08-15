@@ -47,6 +47,7 @@ class RouteNames {
   static const String vipPlans = '/vip/plans';
   static const String vipMembership = '/vip/membership';
   static const String vipPurchase = '/vip/purchase';
+  static const String vipIAPPurchase = '/vip/iap-purchase';
 
   // Chat Routes
   static const String chatRoom = '/chat-room';
@@ -61,6 +62,8 @@ class RouteNames {
   static const String ticketShop = '/ticket-shop';
   static const String pointHistory = '/point-history';
   static const String purchase = '/purchase';
+  static const String pointsPurchase = '/points-purchase';
+  static const String heartsPurchase = '/hearts-purchase';
   static const String pointSettings = '/point-settings';
   static const String withdrawal = '/withdrawal';
 

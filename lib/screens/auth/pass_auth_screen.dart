@@ -6,6 +6,7 @@ import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../routes/route_names.dart';
+import '../../services/pass_verification_service.dart';
 
 class PassAuthScreen extends ConsumerStatefulWidget {
   final String purpose;
@@ -100,23 +101,37 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
     return true;
   }
 
-  void _startPassAuth() {
+  void _startPassAuth() async {
     if (!_canProceed()) {
       _showErrorDialog('통신사를 선택하고 필수 약관에 동의해주세요.');
       return;
     }
 
-    // PASS 인증 시작
-    _showLoadingDialog();
-    
-    // 실제 PASS 인증 로직
-    // TODO: PASS SDK 연동
-    
-    // 시뮬레이션
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      _showLoadingDialog();
+      
+      // 웹뷰 기반 PASS 인증 시작
+      final passService = PassVerificationService();
+      await passService.initialize();
+      
       Navigator.of(context).pop(); // 로딩 닫기
-      _handleAuthSuccess();
-    });
+      
+      final result = await passService.startWebPassVerification(
+        context: context,
+        purpose: widget.purpose,
+        additionalParams: widget.additionalData,
+      );
+
+      if (result.success) {
+        _handleAuthSuccess(result);
+      } else {
+        _showErrorDialog(result.error ?? '인증에 실패했습니다.');
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      print('PASS 인증 오류: $e');
+      _showErrorDialog('인증 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   }
 
   void _startSmsAuth() {
@@ -136,15 +151,18 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
     );
   }
 
-  void _handleAuthSuccess() {
+  void _handleAuthSuccess(PassVerificationResult passResult) {
     // 인증 성공 처리
     final result = {
       'success': true,
       'telecom': _selectedTelecom,
-      'name': '홍길동', // 실제 인증 결과
-      'phone': '01012345678',
-      'birthDate': '19900101',
-      'gender': 'M',
+      'name': passResult.name, // 실제 인증 결과
+      'phone': passResult.phoneNumber,
+      'birthDate': passResult.birthDate,
+      'gender': passResult.gender,
+      'ci': passResult.ci,
+      'di': passResult.di,
+      'txId': passResult.txId,
     };
 
     // 다음 화면으로 이동

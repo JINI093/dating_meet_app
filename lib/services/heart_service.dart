@@ -134,6 +134,66 @@ class HeartService {
     }
   }
 
+  /// 하트 추가 (인앱결제나 보상으로)
+  Future<bool> addHearts(int amount, {String? description}) async {
+    try {
+      Logger.log('하트 추가 시작: +$amount개', name: 'HeartService');
+
+      // 현재 하트 수 가져오기
+      final currentHearts = await getCurrentHearts();
+      final newHearts = currentHearts + amount;
+
+      // 로컬 저장
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('user_hearts', newHearts);
+
+      // AWS에 저장 (custom attribute가 없으면 건너뛰기)
+      if (Amplify.isConfigured) {
+        try {
+          // custom:hearts attribute가 스키마에 존재하는지 먼저 확인
+          final userAttributes = await Amplify.Auth.fetchUserAttributes();
+          bool hasHeartsAttribute = false;
+          
+          for (final attribute in userAttributes) {
+            if (attribute.userAttributeKey.key == 'custom:hearts') {
+              hasHeartsAttribute = true;
+              break;
+            }
+          }
+          
+          if (hasHeartsAttribute) {
+            await Amplify.Auth.updateUserAttribute(
+              userAttributeKey: const CognitoUserAttributeKey.custom('hearts'),
+              value: newHearts.toString(),
+            );
+            Logger.log('AWS에 하트 추가 정보 저장 완료', name: 'HeartService');
+          } else {
+            Logger.log('AWS custom:hearts 속성이 없어서 로컬 저장만 수행', name: 'HeartService');
+          }
+        } catch (e) {
+          Logger.error('AWS 하트 추가 저장 실패: $e', name: 'HeartService');
+          // AWS 실패해도 로컬은 성공으로 처리
+        }
+      }
+
+      // 추가 내역 저장
+      await _saveHeartTransaction(HeartTransaction(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: await _getCurrentUserId(),
+        amount: amount,
+        type: 'add',
+        description: description ?? '하트 $amount개 추가',
+        timestamp: DateTime.now(),
+      ));
+
+      Logger.log('✅ 하트 추가 완료: $currentHearts → $newHearts', name: 'HeartService');
+      return true;
+    } catch (e) {
+      Logger.error('❌ 하트 추가 실패: $e', name: 'HeartService');
+      return false;
+    }
+  }
+
   /// 하트 사용 (하트 보내기)
   Future<bool> spendHearts(int amount, {String? description}) async {
     try {

@@ -15,6 +15,8 @@ import '../../services/multi_auth_service.dart';
 import '../../services/aws_profile_service.dart';
 import '../../widgets/dialogs/info_dialog.dart';
 import '../../models/auth_result.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/likes_provider.dart';
 
 enum LoginMethod { idPassword, phone, social }
 
@@ -960,6 +962,9 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
     // 로그인 성공 처리
     await _saveLoginPreferences();
     
+    // 사용자 프로바이더 초기화
+    await _initializeUserProviders();
+    
     // TODO: 서버에서 첫 로그인 여부 확인 구현 필요
     // 현재는 프로필 설정 여부로 판단
     bool isFirstLogin = await _checkIfFirstLogin();
@@ -970,6 +975,37 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
       } else {
         context.go(RouteNames.home);
       }
+    }
+  }
+
+  /// 사용자 프로바이더 초기화
+  Future<void> _initializeUserProviders() async {
+    try {
+      print('🔄 사용자 프로바이더 초기화 시작...');
+      
+      final userNotifier = ref.read(userProvider.notifier);
+      await userNotifier.initializeUser().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 사용자 프로필 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 사용자 프로필 로드 완료');
+      
+      // 좋아요 데이터 초기화
+      print('🔄 좋아요 데이터 로드 시작...');
+      final likesNotifier = ref.read(likesProvider.notifier);
+      await likesNotifier.initialize().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 좋아요 데이터 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 좋아요 데이터 로드 완료');
+    } catch (e) {
+      print('❌ 사용자 프로바이더 초기화 실패: $e');
     }
   }
 

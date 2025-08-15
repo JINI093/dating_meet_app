@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:card_swiper/card_swiper.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
@@ -27,10 +28,14 @@ import '../../widgets/navigation/vip_route_guard.dart';
 import '../../services/daily_counter_service.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
+import '../../providers/likes_provider.dart';
+import '../../models/like_model.dart';
 import '../../providers/points_provider.dart';
 import '../../utils/logger.dart';
 import '../profile/other_profile_screen.dart';
 import '../../providers/heart_provider.dart';
+import '../../widgets/dialogs/daily_match_end_dialog.dart';
+import '../../providers/recommend_card_provider.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -45,9 +50,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   
   // Filter states
   List<String> _selectedRegions = [];
-  String _selectedDistance = '범위';
+  double _selectedDistance = 15.0; // km 단위로 변경
+  bool _isDistanceFilterActive = false; // 거리 필터 활성화 상태
   String _selectedPopularity = '인기';
   final bool _isVipFilterActive = false;
+  Position? _userPosition;
   int _swipeCount = 0;
 
   @override
@@ -60,6 +67,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ref.read(pointsProvider.notifier).loadUserPoints();
       // 하트 데이터 로드
       ref.read(heartProvider.notifier).refreshHearts();
+      // 추천카드 데이터 로드
+      ref.read(recommendCardProvider.notifier).initialize();
     });
   }
 
@@ -209,8 +218,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
           // 지역 필터
           _buildFilterChip(
             _selectedRegions.isEmpty 
@@ -224,8 +235,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           const SizedBox(width: 4),
           // 거리 필터
           _buildFilterChip(
-            _selectedDistance,
-            isSelected: _selectedDistance != '범위',
+            _isDistanceFilterActive ? '${_selectedDistance.round()}km' : '거리',
+            isSelected: _isDistanceFilterActive,
             selectedColor: Colors.pink,
             onTap: () => _showDistanceFilter(),
           ),
@@ -241,12 +252,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           GestureDetector(
             onTap: () => context.go('/vip'),
             child: Image.asset(
-              'assets/icons/vip_sv.png',
+              'assets/icons/VIP Frame.png',
               width: 40,
               height: 40,
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 12),
           // 상점 버튼
           _buildFilterChip(
             '상점',
@@ -254,6 +265,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             onTap: () => context.go(RouteNames.pointShop),
           ),
         ],
+        ),
       ),
     );
   }
@@ -427,6 +439,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Widget _buildEmptyState() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDailyMatchEndDialog(context);
+    });
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -458,6 +474,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildErrorState(String error) {
     // "오늘의 매칭이 모두 끝났습니다" 메시지인 경우 특별한 UI 표시
     if (error.contains('오늘의 매칭이 모두 끝났습니다')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDailyMatchEndDialog(context);
+      });
+      
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -554,7 +574,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _onLikeTap() async {
     try {
-      // 먼저 하트가 충분한지 확인
+      // 먼저 현재 프로필 확인
+      final currentProfile = ref.read(matchProvider).currentProfile;
+      if (currentProfile == null) return;
+      
+      // 이미 좋아요를 누른 프로필인지 확인
+      final sentLikesState = ref.read(likesProvider);
+      final alreadyLiked = sentLikesState.sentLikes.any((like) => 
+        like.toProfileId == currentProfile.id && like.likeType != LikeType.pass
+      );
+      
+      if (alreadyLiked) {
+        // 이미 좋아요를 누른 상대
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '이미 좋아요를 누른 상대입니다',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textWhite,
+                ),
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusS),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // 하트가 충분한지 확인
       final heartState = ref.read(heartProvider);
       const requiredHearts = 1; // 좋아요를 보내는데 필요한 하트 수
       
@@ -785,22 +837,31 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   void _showDistanceFilter() async {
     try {
-      final result = await showModalBottomSheet<String>(
+      final result = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (context) => DistanceFilterSheet(
-          selectedDistance: _selectedDistance,
+          currentDistance: _selectedDistance,
         ),
       );
       
-      if (result != null && result != _selectedDistance) {
+      if (result != null) {
+        final distance = result['distance'] as double;
+        final position = result['position'] as Position?;
+        final isLocationEnabled = result['isLocationEnabled'] as bool;
+        
         setState(() {
-          _selectedDistance = result;
+          _selectedDistance = distance;
+          _userPosition = position;
+          _isDistanceFilterActive = true; // 거리 필터 활성화
         });
-        // Apply filter
+        
+        // Apply filter with distance and location
         await ref.read(matchProvider.notifier).applyFilters({
-          'distance': result,
+          'distance': distance,
+          'userPosition': position,
+          'isLocationEnabled': isLocationEnabled,
         });
       }
     } catch (e) {

@@ -6,8 +6,10 @@ import '../../providers/vip_provider.dart';
 import '../../models/vip_model.dart';
 import '../../providers/heart_provider.dart';
 import '../../models/heart_model.dart';
+import '../../providers/purchase_provider.dart';
 import '../../services/superchat_service.dart';
 import '../../models/superchat_model.dart';
+import '../../providers/recommend_card_provider.dart';
 
 class TicketShopScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
@@ -36,6 +38,11 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
     _tabController.addListener(() {
       setState(() {});
+    });
+    
+    // 추천카드 데이터 초기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(recommendCardProvider.notifier).initialize();
     });
   }
 
@@ -1011,13 +1018,18 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                     color: Colors.black,
                   ),
                 ),
-                const Text(
-                  '0개',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF666666),
-                  ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final currentRecommendCards = ref.watch(currentRecommendCardsProvider);
+                    return Text(
+                      '${currentRecommendCards}개',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF666666),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -1228,9 +1240,20 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         ),
       );
 
-      // 하트 구매 처리
-      final heartNotifier = ref.read(heartProvider.notifier);
-      final success = await heartNotifier.purchaseHearts(package);
+      // 인앱결제용 제품 ID 생성 (하트 수량 기준으로)
+      String productId;
+      if (package.baseCount <= 10) {
+        productId = 'dating_hearts_10';
+      } else if (package.baseCount <= 50) {
+        productId = 'dating_hearts_50';
+      } else if (package.baseCount <= 100) {
+        productId = 'dating_hearts_100';
+      } else {
+        productId = 'dating_hearts_500';
+      }
+
+      // PurchaseProvider를 통해 인앱결제 시작
+      final success = await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
 
       // 로딩 다이얼로그 닫기
       if (mounted) Navigator.of(context).pop();
@@ -1262,6 +1285,14 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  const Text(
+                    '인앱결제로 안전하게 구매되었습니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green,
+                    ),
+                  ),
                 ],
               ),
               actions: [

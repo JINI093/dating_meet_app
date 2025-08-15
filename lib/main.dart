@@ -610,6 +610,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       );
       
       print('✅ 사용자 프로필 로드 완료');
+      
+      // 좋아요 데이터 초기화
+      print('🔄 좋아요 데이터 로드 시작...');
+      final likesNotifier = ref.read(likesProvider.notifier);
+      await likesNotifier.initialize().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 좋아요 데이터 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 좋아요 데이터 로드 완료');
     } catch (e) {
       print('❌ 사용자 프로필 로드 실패: $e');
     }

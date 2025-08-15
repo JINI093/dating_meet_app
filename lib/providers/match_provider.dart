@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/profile_model.dart';
 import '../models/match_model.dart';
 import '../models/like_model.dart';
@@ -7,12 +8,14 @@ import '../services/aws_profile_service.dart';
 import '../services/aws_likes_service.dart';
 import '../services/enhanced_superchat_service.dart';
 import '../services/aws_match_service.dart';
+import '../services/location_service.dart';
 import '../utils/logger.dart';
 import 'notification_provider.dart';
 import 'matches_provider.dart';
 import 'likes_provider.dart';
 import 'enhanced_auth_provider.dart';
 import 'discover_profiles_provider.dart';
+import '../services/contact_service.dart';
 
 // Match Result Model
 class MatchResult {
@@ -276,26 +279,168 @@ class MatchNotifier extends StateNotifier<MatchState> {
       }
       
       final currentUserId = authState.currentUser!.user!.userId;
+      print('👤 현재 사용자 ID: $currentUserId');
+      
       // 내 프로필에서 성별 조회
       final myProfile = await _profileService.getProfile(currentUserId);
       String? targetGender = filters['gender'] as String?;
+      
+      // 필터에서 성별이 지정되지 않은 경우 이성을 자동으로 설정
       if (targetGender == null && myProfile != null && myProfile.gender != null) {
-        if (myProfile.gender == '남성' || myProfile.gender == 'M') {
+        print('👥 내 성별: ${myProfile.gender}');
+        if (myProfile.gender == '남성' || myProfile.gender == 'M' || myProfile.gender == 'male') {
           targetGender = '여성';
-        } else if (myProfile.gender == '여성' || myProfile.gender == 'F') {
+        } else if (myProfile.gender == '여성' || myProfile.gender == 'F' || myProfile.gender == 'female') {
           targetGender = '남성';
         }
+        print('🎯 타겟 성별: $targetGender');
       }
+      // Handle multiple regions if provided
+      List<String>? regions = filters['regions'] as List<String>?;
+      String? location = filters['region'] as String?;
+      
+      // If multiple regions are selected, use the first one for now
+      // In the future, we can enhance this to query multiple regions
+      if (regions != null && regions.isNotEmpty) {
+        location = regions.first;
+      }
+      
+      // Get distance and position info for GPS-based filtering
+      double? maxDistance;
+      final distanceValue = filters['distance'];
+      if (distanceValue is double) {
+        maxDistance = distanceValue;
+      } else if (distanceValue is String) {
+        maxDistance = double.tryParse(distanceValue);
+      } else if (distanceValue != null) {
+        maxDistance = distanceValue as double?;
+      }
+      Position? userPosition = filters['userPosition'] as Position?;
+      bool isLocationEnabled = filters['isLocationEnabled'] as bool? ?? false;
+      
+      print('📍 GPS 필터링 설정:');
+      print('   거리 제한: ${maxDistance}km');
+      print('   위치 활성화: $isLocationEnabled');
+      print('   사용자 위치: ${userPosition?.latitude}, ${userPosition?.longitude}');
+      
       // Apply filters to AWS query
       var filteredProfiles = await _profileService.getDiscoverProfiles(
         currentUserId: currentUserId,
         gender: targetGender,
         minAge: filters['minAge'] as int?,
         maxAge: filters['maxAge'] as int?,
-        maxDistance: filters['distance'] as double?,
-        location: filters['region'] as String?,
+        maxDistance: maxDistance,
+        location: location,
         limit: 20,
       );
+      
+      // If regions are selected, apply additional client-side filtering
+      if (regions != null && regions.isNotEmpty) {
+        final originalCount = filteredProfiles.length;
+        print('🏠 지역 필터 적용 전: $originalCount명');
+        print('🎯 선택된 지역: $regions');
+        
+        filteredProfiles = filteredProfiles.where((profile) {
+          final profileLocation = profile.location.trim();
+          bool matched = regions.any((region) {
+            final filterRegion = region.trim();
+            
+            // 완전 일치 검사
+            if (profileLocation == filterRegion) {
+              print('✅ 완전 일치: $profileLocation = $filterRegion');
+              return true;
+            }
+            
+            // 부분 일치 검사 (지역명이 포함되어 있는지)
+            if (profileLocation.contains(filterRegion)) {
+              print('✅ 부분 일치: $profileLocation contains $filterRegion');
+              return true;
+            }
+            
+            // 시/도 단위 매칭 (예: "서울"로 검색하면 "서울 강남구"도 매칭)
+            final regionParts = filterRegion.split(' ');
+            if (regionParts.isNotEmpty) {
+              final province = regionParts[0];
+              if (profileLocation.startsWith(province)) {
+                print('✅ 시/도 매칭: $profileLocation starts with $province');
+                return true;
+              }
+            }
+            
+            // 구/군 단위 매칭 (예: "강남구"로 검색하면 "서울 강남구"도 매칭)
+            if (regionParts.length > 1) {
+              final district = regionParts[1];
+              if (profileLocation.contains(district)) {
+                print('✅ 구/군 매칭: $profileLocation contains $district');
+                return true;
+              }
+            }
+            
+            return false;
+          });
+          
+          if (!matched) {
+            print('❌ 매칭 실패: $profileLocation (필터: $regions)');
+          }
+          
+          return matched;
+        }).toList();
+        
+        print('🏠 지역 필터 적용 후: ${filteredProfiles.length}명');
+      }
+      
+      // 자기 자신 제외 및 성별 필터링 강화
+      filteredProfiles = filteredProfiles.where((profile) {
+        // 1. 자기 자신 제외
+        if (profile.id == currentUserId) {
+          print('🚫 자기 자신 제외: ${profile.name}');
+          return false;
+        }
+        
+        // 2. 성별 필터링 (타겟 성별이 설정된 경우)
+        if (targetGender != null && profile.gender != null) {
+          final profileGender = profile.gender!.trim();
+          bool genderMatch = false;
+          
+          if (targetGender == '여성') {
+            genderMatch = profileGender == '여성' || profileGender == 'F' || profileGender == 'female';
+          } else if (targetGender == '남성') {
+            genderMatch = profileGender == '남성' || profileGender == 'M' || profileGender == 'male';
+          }
+          
+          if (!genderMatch) {
+            print('🚫 성별 불일치: ${profile.name} (${profile.gender}) - 타겟: $targetGender');
+            return false;
+          } else {
+            print('✅ 성별 일치: ${profile.name} (${profile.gender})');
+          }
+        }
+        
+        return true;
+      }).toList();
+      
+      print('👥 최종 필터링 후: ${filteredProfiles.length}명');
+      
+      // GPS 기반 거리 필터링 (위치 정보가 있는 경우)
+      if (isLocationEnabled && userPosition != null && maxDistance != null) {
+        print('📍 GPS 거리 필터링 시작...');
+        final locationService = LocationService();
+        
+        filteredProfiles = filteredProfiles.where((profile) {
+          // 프로필에 위치 정보가 있는지 확인
+          if (profile.location.isEmpty) {
+            print('❌ 위치 정보 없음: ${profile.name}');
+            return false;
+          }
+          
+          // TODO: 프로필의 위치를 좌표로 변환하는 로직 추가 필요
+          // 현재는 거리 필터를 통과시킴 (향후 개선 필요)
+          print('✅ GPS 필터 통과: ${profile.name} (${profile.location})');
+          return true;
+        }).toList();
+        
+        print('📍 GPS 거리 필터링 후: ${filteredProfiles.length}명');
+      }
       
       // Apply sorting
       if (filters.containsKey('popularity') && filters['popularity'] != null) {
@@ -359,6 +504,20 @@ class MatchNotifier extends StateNotifier<MatchState> {
       }
       
       final fromUserId = authState.currentUser!.user!.userId;
+      
+      // 이미 좋아요를 누른 프로필인지 확인
+      final sentLikesState = ref.read(likesProvider);
+      final alreadyLiked = sentLikesState.sentLikes.any((like) => 
+        like.toProfileId == currentProfile.id && like.likeType != LikeType.pass
+      );
+      
+      if (alreadyLiked) {
+        // 이미 좋아요를 누른 상대
+        return MatchResult(
+          isMatch: false,
+          message: '이미 좋아요를 누른 상대입니다',
+        );
+      }
       
       // 서버사이드 좋아요 전송 (향상된 검증 및 매칭 처리)
       final sentLike = await _likesService.sendLike(
@@ -587,7 +746,7 @@ class MatchNotifier extends StateNotifier<MatchState> {
     }
   }
 
-  /// 이미 평가한 프로필과 매칭된 프로필 필터링
+  /// 이미 평가한 프로필과 매칭된 프로필 필터링 (연락처 차단 포함)
   Future<List<ProfileModel>> _filterEvaluatedProfiles(List<ProfileModel> profiles, String currentUserId) async {
     try {
       // 보낸 좋아요/패스 목록 조회
@@ -601,18 +760,52 @@ class MatchNotifier extends StateNotifier<MatchState> {
       // 제외할 프로필 ID 통합
       final excludedProfileIds = {...evaluatedProfileIds, ...matchedProfileIds};
       
-      print('제외할 프로필 ID: ${excludedProfileIds.length}개 (평가: ${evaluatedProfileIds.length}개, 매칭: ${matchedProfileIds.length}개)');
+      // 연락처 차단 필터링 추가
+      final contactService = ContactService();
+      final filteredByContactBlocking = <ProfileModel>[];
       
-      // 필터링 수행
-      final filteredProfiles = profiles
+      for (final profile in profiles) {
+        // 이미 평가하거나 매칭된 프로필 제외
+        if (excludedProfileIds.contains(profile.id)) {
+          continue;
+        }
+        
+        // 연락처 차단 확인
+        if (profile.phoneNumber != null && profile.phoneNumber!.isNotEmpty) {
+          final isBlocked = await contactService.isContactBlocked(profile.phoneNumber!);
+          if (isBlocked) {
+            Logger.log('차단된 연락처로 인해 프로필 제외: ${profile.name} (${profile.phoneNumber})', 
+                name: 'MatchProvider');
+            continue;
+          }
+        }
+        
+        filteredByContactBlocking.add(profile);
+      }
+      
+      Logger.log('프로필 필터링 완료: 원본 ${profiles.length}개 → 최종 ${filteredByContactBlocking.length}개', 
+          name: 'MatchProvider');
+      Logger.log('제외된 프로필: 평가 ${evaluatedProfileIds.length}개, 매칭 ${matchedProfileIds.length}개, 연락처차단 ${profiles.length - excludedProfileIds.length - filteredByContactBlocking.length}개', 
+          name: 'MatchProvider');
+      
+      return filteredByContactBlocking;
+    } catch (e) {
+      Logger.error('프로필 필터링 오류: $e', name: 'MatchProvider');
+      // 오류 발생 시 기본 필터링만 수행
+      final excludedProfileIds = <String>{};
+      try {
+        final sentLikes = await _likesService.getSentLikes(userId: currentUserId);
+        final evaluatedProfileIds = sentLikes.map((like) => like.toProfileId).toSet();
+        final matches = await _matchService.getUserMatches(userId: currentUserId);
+        final matchedProfileIds = matches.map((match) => match.profile.id).toSet();
+        excludedProfileIds.addAll({...evaluatedProfileIds, ...matchedProfileIds});
+      } catch (e2) {
+        Logger.error('기본 필터링도 실패: $e2', name: 'MatchProvider');
+      }
+      
+      return profiles
           .where((profile) => !excludedProfileIds.contains(profile.id))
           .toList();
-      
-      return filteredProfiles;
-    } catch (e) {
-      print('프로필 필터링 오류: $e');
-      // 오류 발생 시 원래 프로필 목록 반환
-      return profiles;
     }
   }
 

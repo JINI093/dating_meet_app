@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/likes_provider.dart';
+import '../../providers/vip_provider.dart';
+import '../../models/vip_model.dart';
 
 
 // Bottom Navigation State Provider
@@ -66,6 +69,7 @@ class BottomNavigationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(bottomNavigationProvider);
     final userState = ref.watch(userProvider);
+    final unreadLikesCount = ref.watch(unreadLikesCountProvider);
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     // Determine current index based on route
@@ -86,11 +90,11 @@ class BottomNavigationScreen extends ConsumerWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: _buildBottomNavigationBar(context, ref, routeIndex, userState),
+      bottomNavigationBar: _buildBottomNavigationBar(context, ref, routeIndex, userState, unreadLikesCount),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, WidgetRef ref, int currentIndex, userState) {
+  Widget _buildBottomNavigationBar(BuildContext context, WidgetRef ref, int currentIndex, userState, int unreadLikesCount) {
     // 사용자 프로필 이미지 가져오기
     String? profileImageUrl;
     if (userState.currentUser?.profileImages != null && userState.currentUser!.profileImages.isNotEmpty) {
@@ -127,6 +131,7 @@ class BottomNavigationScreen extends ConsumerWidget {
               index,
               currentIndex == index,
               profileImageUrl: profileImageUrl,
+              unreadLikesCount: unreadLikesCount,
             ),
           ),
         ),
@@ -141,6 +146,7 @@ class BottomNavigationScreen extends ConsumerWidget {
     int index,
     bool isActive, {
     String? profileImageUrl,
+    int? unreadLikesCount,
   }) {
     Widget iconWidget;
     if (index == 2) {
@@ -153,6 +159,9 @@ class BottomNavigationScreen extends ConsumerWidget {
     } else if (index == 4) {
       // 프로필: 원형 프로필 이미지 또는 기본 아바타
       iconWidget = _buildProfileImage(profileImageUrl, isActive);
+    } else if (index == 1) {
+      // 좋아요: 뱃지가 있는 하트 아이콘
+      iconWidget = _buildLikesIcon(isActive, unreadLikesCount ?? 0);
     } else {
       iconWidget = Icon(
         isActive ? (item.activeIcon ?? item.icon) : item.icon,
@@ -177,9 +186,31 @@ class BottomNavigationScreen extends ConsumerWidget {
 
   void _onNavItemTap(BuildContext context, WidgetRef ref, int index, String route) {
     ref.read(bottomNavigationProvider.notifier).setIndex(index);
-    final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
-    if (currentRoute != route) {
-      context.go(route);
+    
+    // VIP 버튼 클릭 시 특별 처리
+    if (index == 2) { // VIP 탭
+      final vipState = ref.read(vipProvider);
+      final userState = ref.read(userProvider);
+      
+      // VIP 상태 확인
+      final isVip = _checkVipStatus(userState, vipState);
+      
+      if (isVip) {
+        // VIP 사용자는 기존 VIP 화면으로
+        final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
+        if (currentRoute != route) {
+          context.go(route);
+        }
+      } else {
+        // 비VIP 사용자는 바로 구매 화면으로
+        context.go('/vip/purchase');
+      }
+    } else {
+      // 다른 탭들은 기존 방식대로 처리
+      final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
+      if (currentRoute != route) {
+        context.go(route);
+      }
     }
   }
 
@@ -227,6 +258,68 @@ class BottomNavigationScreen extends ConsumerWidget {
         color: AppColors.textSecondary,
       ),
     );
+  }
+
+  /// VIP 상태 확인
+  bool _checkVipStatus(UserState userState, VipState vipState) {
+    // 1. VIP 상태에서 확인
+    if (vipState.isVipUser && vipState.currentSubscription != null) {
+      final subscription = vipState.currentSubscription!;
+      // 구독이 활성화되어 있고 만료되지 않았는지 확인
+      if (subscription.status == VipSubscriptionStatus.active &&
+          subscription.endDate.isAfter(DateTime.now())) {
+        return true;
+      }
+    }
+    
+    // 2. 사용자 프로필에서 확인
+    if (userState.currentUser?.isVip == true) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  Widget _buildLikesIcon(bool isActive, int unreadCount) {
+    final icon = Icon(
+      isActive ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+      color: isActive ? Colors.black : Colors.grey,
+      size: 28,
+    );
+
+    if (unreadCount > 0) {
+      return Stack(
+        children: [
+          icon,
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: const BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 18,
+                minHeight: 18,
+              ),
+              child: Text(
+                unreadCount > 99 ? '99+' : unreadCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return icon;
   }
 }
 

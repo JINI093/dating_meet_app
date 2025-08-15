@@ -1,5 +1,4 @@
 import 'package:dating_app_40s/core/constants/app_constants.dart';
-import 'package:dating_app_40s/screens/auth/signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +14,8 @@ import '../../providers/enhanced_auth_provider.dart';
 import '../../services/aws_profile_service.dart';
 import '../../models/profile_model.dart';
 import 'mobileok_api_verification_screen.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/likes_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -64,17 +65,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           // 실제 컨텐츠만 SafeArea로 감싸기
           SafeArea(
-            child: Column(
-              children: [
-                _buildLogoSection(),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: AppConstants.normalAnimation,
-                    child: _buildLoginContent(),
-                  ),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - 
+                            MediaQuery.of(context).padding.top - 
+                            MediaQuery.of(context).padding.bottom,
                 ),
-                _buildFooter(),
-              ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      children: [
+                        const SizedBox(height: 120), // 앱바와 로고 사이 간격 줄임
+                        _buildLogoSection(),
+                        // 로고와 버튼 사이 간격 제거
+                        AnimatedSwitcher(
+                          duration: AppConstants.normalAnimation,
+                          child: _buildLoginContent(),
+                        ),
+                      ],
+                    ),
+                    _buildFooter(),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -83,16 +98,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildLogoSection() {
-    return Center(
-        child: Image.asset(
+    return Column(
+      children: [
+        Image.asset(
           'assets/icons/logo.png',
-          width: 300,
-          height: 300,
+          width: 333,
+          height: 95,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return const SizedBox.shrink();
           },
         ),
+        const SizedBox(height: 48), // 로고와 버튼 사이 간격
+      ],
     );
   }
 
@@ -113,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         horizontal: AppDimensions.paddingS,
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           // ID Login Button
           _SocialLoginButton(
@@ -182,6 +200,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             textColor: AppColors.textWhite,
             onTap: _loginWithGoogle,
           ),
+          
+          const SizedBox(height: 8), // 구글 로그인과 회원가입 버튼 사이 간격
         ],
       ),
     );
@@ -350,7 +370,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingL),
+      padding: const EdgeInsets.only(
+        left: AppDimensions.paddingL,
+        right: AppDimensions.paddingL,
+        bottom: AppDimensions.paddingL,
+      ),
       child: Column(
         children: [
           // Footer Links
@@ -388,7 +412,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ],
           ),
           
-          const SizedBox(height: AppDimensions.spacing8),
+          const SizedBox(height: 56), // Copyright과의 간격 56px
           
           // Copyright
           Text(
@@ -486,10 +510,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _goToSignup() {
-    // PASS 본인인증으로 직접 이동
-    _navigateToMobileOKAPI('회원가입', {});
+    // 약관 동의 페이지로 이동
+    context.push(RouteNames.terms);
   }
-
 
   /// MobileOK API 본인인증 화면으로 이동
   void _navigateToMobileOKAPI(String purpose, Map<String, dynamic> additionalData) {
@@ -523,6 +546,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final success = await authNotifier.signInWithCredentials(username, password);
     
     if (success && mounted) {
+      // 사용자 프로바이더 초기화
+      await _initializeUserProviders();
+      
       // 실제 프로필 데이터 존재 여부 확인
       await _checkProfileAndNavigate();
     } else {
@@ -540,6 +566,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         _showErrorSnackBar(errorMessage);
       }
+    }
+  }
+
+  /// 사용자 프로바이더 초기화
+  Future<void> _initializeUserProviders() async {
+    try {
+      print('🔄 사용자 프로바이더 초기화 시작...');
+      
+      final userNotifier = ref.read(userProvider.notifier);
+      await userNotifier.initializeUser().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 사용자 프로필 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 사용자 프로필 로드 완료');
+      
+      // 좋아요 데이터 초기화
+      print('🔄 좋아요 데이터 로드 시작...');
+      final likesNotifier = ref.read(likesProvider.notifier);
+      await likesNotifier.initialize().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️ 좋아요 데이터 로드 타임아웃');
+        },
+      );
+      
+      print('✅ 좋아요 데이터 로드 완료');
+    } catch (e) {
+      print('❌ 사용자 프로바이더 초기화 실패: $e');
     }
   }
 
@@ -667,34 +724,41 @@ class _SocialLoginButton extends StatelessWidget {
                 ? Border.all(color: borderColor!, width: 1)
                 : null,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              if (icon != null)
-                Icon(
-                  icon,
-                  color: textColor,
-                  size: AppDimensions.socialButtonIconSize,
-                ),
-              if (iconAsset != null)
-                Image.asset(
-                  iconAsset!,
-                  width: AppDimensions.socialButtonIconSize,
-                  height: AppDimensions.socialButtonIconSize,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      CupertinoIcons.circle,
-                      color: textColor,
-                      size: AppDimensions.socialButtonIconSize,
-                    );
-                  },
-                ),
-              const SizedBox(width: AppDimensions.spacing12),
-              Text(
-                text,
-                style: AppTextStyles.buttonMedium.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
+              // 아이콘을 왼쪽에 고정
+              Positioned(
+                left: 20,
+                child: icon != null
+                    ? Icon(
+                        icon,
+                        color: textColor,
+                        size: AppDimensions.socialButtonIconSize,
+                      )
+                    : iconAsset != null
+                        ? Image.asset(
+                            iconAsset!,
+                            width: AppDimensions.socialButtonIconSize,
+                            height: AppDimensions.socialButtonIconSize,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                CupertinoIcons.circle,
+                                color: textColor,
+                                size: AppDimensions.socialButtonIconSize,
+                              );
+                            },
+                          )
+                        : const SizedBox.shrink(),
+              ),
+              // 텍스트는 중앙에 배치
+              Center(
+                child: Text(
+                  text,
+                  style: AppTextStyles.buttonMedium.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
