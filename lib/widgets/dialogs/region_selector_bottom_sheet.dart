@@ -97,9 +97,57 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
                   // 구/군
                   Expanded(
                     child: ListView.builder(
-                      itemCount: guguns.length,
+                      itemCount: guguns.length + 1, // "전체" 옵션 추가를 위해 +1
                       itemBuilder: (context, idx) {
-                        final gugun = guguns[idx];
+                        if (idx == 0) {
+                          // "전체" 옵션
+                          final allRegionsForSido = guguns.map((gugun) => '$_selectedSido $gugun').toSet();
+                          final allSelected = allRegionsForSido.isNotEmpty && 
+                                            allRegionsForSido.every((region) => _selectedRegions.contains(region));
+                          
+                          return Column(
+                            children: [
+                              GestureDetector(
+                                onTap: () => setState(() {
+                                  if (allSelected) {
+                                    // 전체 해제
+                                    _selectedRegions.removeWhere((region) => allRegionsForSido.contains(region));
+                                  } else {
+                                    // 전체 선택
+                                    _selectedRegions.addAll(allRegionsForSido);
+                                  }
+                                }),
+                                child: Container(
+                                  color: Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        '전체',
+                                        style: TextStyle(
+                                          color: allSelected ? AppColors.primary : AppColors.textPrimary,
+                                          fontWeight: allSelected ? FontWeight.bold : FontWeight.w600,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (allSelected)
+                                        const Icon(CupertinoIcons.check_mark, color: AppColors.primary, size: 20),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 20),
+                                height: 1,
+                                color: AppColors.divider,
+                              ),
+                            ],
+                          );
+                        }
+                        
+                        // 일반 구/군 옵션
+                        final gugun = guguns[idx - 1];
                         final fullRegionName = '$_selectedSido $gugun';
                         final selected = _selectedRegions.contains(fullRegionName);
                         return GestureDetector(

@@ -193,6 +193,7 @@ flutter:
     - assets/background/
     - assets/point/
     - assets/vip/
+    - assets/html/
     
     # - assets/animations/
     # - assets/sounds/

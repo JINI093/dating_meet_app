@@ -205,7 +205,7 @@ class _PhoneVerificationScreenState extends ConsumerState<PhoneVerificationScree
   void _startPassVerification() async {
     try {
       final passService = PassVerificationService();
-      final result = await passService.startWebPassVerification(
+      final result = await passService.startDirectPassVerification(
         context: context,
         purpose: '회원가입',
       );

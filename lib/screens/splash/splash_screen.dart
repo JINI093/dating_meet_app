@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/permission_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -33,14 +34,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _showPermissionSequence() async {
     final permissionState = ref.read(permissionProvider);
     
-    // 권한이 이미 초기화되었고 요청이 완료된 경우, 바로 로그인 화면으로 이동
+    // 권한이 이미 초기화되었고 요청이 완료된 경우, 자동로그인 체크
     if (permissionState.isInitialized && 
         permissionState.permissions != null && 
         permissionState.permissions!.allRequested) {
-      print('권한이 이미 요청되었음. 로그인 화면으로 이동');
-      if (mounted) {
-        context.go('/login');
-      }
+      print('권한이 이미 요청되었음. 자동로그인 체크');
+      await _checkAutoLogin();
       return;
     }
     
@@ -53,18 +52,49 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       // 초기화 후 상태 다시 확인
       final updatedState = ref.read(permissionProvider);
       if (updatedState.permissions != null && updatedState.permissions!.allRequested) {
-        print('권한 초기화 완료. 로그인 화면으로 이동');
-        if (mounted) {
-          context.go('/login');
-        }
+        print('권한 초기화 완료. 자동로그인 체크');
+        await _checkAutoLogin();
         return;
       }
     }
     
-    // 여기까지 도달하면 권한 요청이 완료되었으므로 로그인 화면으로 이동
-    print('권한 처리 완료. 로그인 화면으로 이동');
-    if (mounted) {
-      context.go('/login');
+    // 여기까지 도달하면 자동로그인 체크
+    print('권한 처리 완료. 자동로그인 체크');
+    await _checkAutoLogin();
+  }
+  
+  Future<void> _checkAutoLogin() async {
+    try {
+      final authProvider = ref.read(enhancedAuthProvider.notifier);
+      final authState = ref.read(enhancedAuthProvider);
+      
+      print('자동로그인 활성화 여부: ${authState.isAutoLoginEnabled}');
+      
+      if (authState.isAutoLoginEnabled) {
+        print('자동로그인 시도 중...');
+        final result = await authProvider.checkAutoLogin();
+        
+        if (result.success) {
+          print('자동로그인 성공 - 메인화면으로 이동');
+          if (mounted) {
+            context.go('/main');
+          }
+          return;
+        } else {
+          print('자동로그인 실패: ${result.error}');
+        }
+      }
+      
+      // 자동로그인 실패 또는 비활성화 시 로그인 화면으로
+      print('로그인 화면으로 이동');
+      if (mounted) {
+        context.go('/login');
+      }
+    } catch (e) {
+      print('자동로그인 체크 에러: $e');
+      if (mounted) {
+        context.go('/login');
+      }
     }
   }
 

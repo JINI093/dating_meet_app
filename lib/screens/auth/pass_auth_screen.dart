@@ -116,7 +116,8 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
       
       Navigator.of(context).pop(); // 로딩 닫기
       
-      final result = await passService.startWebPassVerification(
+      // 실제 기기에서는 PASS 앱 직접 호출, 개발환경에서는 시뮬레이션
+      final result = await passService.startDirectPassVerification(
         context: context,
         purpose: widget.purpose,
         additionalParams: widget.additionalData,

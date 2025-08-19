@@ -1,0 +1,15 @@
+# 마이닷홈용 최소한의 설정
+Options -Indexes
+
+# PHP 설정
+php_flag display_errors Off
+php_flag log_errors On
+
+# MIME 타입 설정  
+AddType application/x-httpd-php .php
+
+# 보안 설정
+<Files "mok_keyInfo.dat">
+    Order Deny,Allow
+    Deny from all
+</Files>

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../models/profile_model.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/points_provider.dart';
 import '../../providers/heart_provider.dart';
 import '../../providers/superchat_provider.dart';
@@ -444,7 +445,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           const Align(
             alignment: Alignment.center,
             child: Text(
-              '* 내가 받은 좋아요/슈퍼챗 수는 매일 1일 초기화됩니다.',
+              '* 내가 받은 좋아요/슈퍼챗 수는 매월 1일 초기화됩니다.',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF999999),
@@ -907,12 +908,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  void _logout() {
+  void _logout() async {
     // 사용자 상태 초기화
     ref.read(userProvider.notifier).logout();
     
+    // Auth Provider를 통한 로그아웃 처리
+    final authNotifier = ref.read(enhancedAuthProvider.notifier);
+    
+    // 자동 로그인 설정 해제
+    await authNotifier.setAutoLoginEnabled(false);
+    
+    // 로그아웃 처리
+    await authNotifier.signOut();
+    
     // 로그인 페이지로 이동 (모든 스택 제거)
-    context.go(RouteNames.login);
+    if (mounted) {
+      context.go(RouteNames.login);
+    }
   }
 
   void _showWithdrawalBottomSheet() {

@@ -1,6 +1,6 @@
 <?php
     // 각 버전 별 맞는 mobileOKManager-php를 사용
-    $mobileOK_path = "./mobileOK_manager_phpseclib_v3.0_v1.0.2.php";
+    $mobileOK_path = "./mobileOK_manager_phpseclib_v1.0_v1.0.2.php";
 
     if(!file_exists($mobileOK_path)) {
         die('1000|mobileOK_Key_Manager파일이 존재하지 않습니다.');
@@ -11,6 +11,9 @@
 
 <?php
     header("Content-Type:text/html;charset=utf-8");
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
 
     /* 1. 본인확인 인증결과 MOKToken API 요청 URL */
     /* 개발 및 테스트 시 개발 URL 적용 / 운영 환경에 적용 시 운영 URL 설정 필요 */        
@@ -18,15 +21,13 @@
     // $MOK_RESULT_REQUEST_URL = "https://cert.mobile-ok.com/gui/service/v1/result/request";  //운영
 
     // (/* 7.2 : 페이지 이동 : redirect 방식, 이용기관 지정 페이지로 이동 */) 이용시 이동 URL
-    $MOK_RESULT_REDIRECT_URL = "https://sagilrae.com/mok/result_page.php";
+    $MOK_RESULT_REDIRECT_URL = "https://withroyal.dothome.co.kr/result_page.php";  // withroyal.dothome.co.kr
 
     /* 2. 본인확인 서비스 API 설정 */
     $mobileOK = new mobileOK_Key_Manager();
-    /* [변경필요] 키파일 및 키파일 패스워드는 드림시큐리티에서 제공한 mok_keyinfo.dat 경로 및 패스워드를 지정 */
-    /* 키파일은 반드시 서버의 안전한 로컬경로에 별도 저장. 웹URL 경로에 파일이 있을경우 키파일이 외부에 노출될 수 있음 주의 */
-    /* 키파일은 개발용과 운영용으로 구분 ➔ 개발 및 테스트 시 개발용 키파일을 이용 / 운영 환경에 적용 시 운영용 키파일로 변경 적용 필요 */                
+    /* 마이닷홈 호스팅용 키파일 경로 설정 */
     $key_path = "./mok_keyInfo.dat";
-    $password = "Sinsa507!";
+    $password = "Sinsa507!";  // MOBILEOK_KEY_PASSWORD
     $mobileOK->key_init($key_path, $password);
 ?>
 
@@ -43,7 +44,7 @@
 
         /* 4. 본인확인 결과 타입별 결과 처리 */
         if (isset($request_array->encryptMOKKeyToken)) {
-            /* 4.1 본인확인 결과 타입 : MOKToken */
+            /* 본인확인 결과 타입 : MOKToken */
             $encrypt_MOK_token = $request_array->encryptMOKKeyToken;
             $result_request_array = array(
                 "encryptMOKKeyToken" => $encrypt_MOK_token
@@ -67,6 +68,7 @@
         }
 
         /* 5-1 본인확인 결과정보 복호화 */
+		
 		/* 이용기관 거래 ID */
         $client_tx_id = isset($decrypt_result_array->clientTxId) ? $decrypt_result_array->clientTxId : null;
 		
@@ -132,15 +134,27 @@
         //   ➔ 검증 완료 시 사용자에 대한 본인확인 완료
         // - CI 일치 여부 검증 권장
 
-        /* 8. 본인확인 결과 응답 */
-
-        // 복호화된 개인정보는 DB보관 또는 세션보관하여 개인정보 저장시 본인확인에서 획득한 정보로 저장하도록 처리 필요
-        // 개인정보를 웹브라우져에 전달할 경우 외부 해킹에 의해 유출되지 않도록 보안처리 필요
+        /* 8. 본인확인 결과 응답 - Flutter 앱을 위한 완전한 정보 반환 */
 
         $result_array = array(
-            "resultCode" => "2000"
-            , "resultMsg" => "성공"
-            , "userName" => $user_name
+            "resultCode" => "2000",
+            "resultMsg" => "성공",
+            "txId" => $tx_id,
+            "clientTxId" => $client_tx_id,
+            "siteID" => $site_id,
+            "providerId" => $provider_id,
+            "serviceType" => $service_type,
+            "userName" => $user_name,
+            "userPhone" => $user_phone,
+            "userBirthday" => $user_birthday,
+            "userGender" => $user_gender,
+            "userNation" => $user_nation,
+            "ci" => $ci,
+            "di" => $di,
+            "reqAuthType" => $req_auth_type,
+            "reqDate" => $req_date,
+            "issuer" => $issuer,
+            "issueDate" => $issue_date
         );
         $result_json = json_encode($result_array, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

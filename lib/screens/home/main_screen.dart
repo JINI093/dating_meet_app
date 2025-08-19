@@ -218,54 +218,64 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-          // 지역 필터
-          _buildFilterChip(
-            _selectedRegions.isEmpty 
-                ? '지역' 
-                : _selectedRegions.length == 1 
-                    ? _selectedRegions.first 
-                    : '지역 ${_selectedRegions.length}개',
-            isSelected: _selectedRegions.isNotEmpty,
-            onTap: () => _showRegionSelectorBottomSheet(),
-          ),
-          const SizedBox(width: 4),
-          // 거리 필터
-          _buildFilterChip(
-            _isDistanceFilterActive ? '${_selectedDistance.round()}km' : '거리',
-            isSelected: _isDistanceFilterActive,
-            selectedColor: Colors.pink,
-            onTap: () => _showDistanceFilter(),
-          ),
-          const SizedBox(width: 4),
-          // 인기 필터
-          _buildFilterChip(
-            _selectedPopularity,
-            isSelected: _selectedPopularity != '인기',
-            onTap: () => _showPopularityCustomSheet(),
-          ),
-          const SizedBox(width: 12),
-          // VIP Frame 버튼
-          GestureDetector(
-            onTap: () => context.go('/vip'),
-            child: Image.asset(
-              'assets/icons/VIP Frame.png',
-              width: 40,
-              height: 40,
+      child: Stack(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // 지역 필터
+                _buildFilterChip(
+                  _selectedRegions.isEmpty 
+                      ? '지역' 
+                      : _selectedRegions.length == 1 
+                          ? _selectedRegions.first 
+                          : '지역 ${_selectedRegions.length}개',
+                  isSelected: _selectedRegions.isNotEmpty,
+                  onTap: () => _showRegionSelectorBottomSheet(),
+                ),
+                const SizedBox(width: 4),
+                // 거리 필터
+                _buildFilterChip(
+                  _isDistanceFilterActive ? '${_selectedDistance.round()}km' : '거리',
+                  isSelected: _isDistanceFilterActive,
+                  selectedColor: Colors.pink,
+                  onTap: () => _showDistanceFilter(),
+                ),
+                const SizedBox(width: 4),
+                // 인기 필터
+                _buildFilterChip(
+                  _selectedPopularity,
+                  isSelected: _selectedPopularity != '인기',
+                  onTap: () => _showPopularityCustomSheet(),
+                ),
+                const SizedBox(width: 12),
+                // VIP Frame 버튼
+                GestureDetector(
+                  onTap: () => context.go('/ticket-shop?tab=4'),
+                  child: Image.asset(
+                    'assets/icons/VIP Frame.png',
+                    width: 40,
+                    height: 40,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          // 상점 버튼
-          _buildFilterChip(
-            '상점',
-            isSelected: false,
-            onTap: () => context.go(RouteNames.pointShop),
+          // 상점 버튼을 오른쪽에 고정
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _buildFilterChip(
+                '상점',
+                isSelected: false,
+                onTap: () => context.go(RouteNames.pointShop),
+              ),
+            ),
           ),
         ],
-        ),
       ),
     );
   }

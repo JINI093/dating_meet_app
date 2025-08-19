@@ -20,6 +20,7 @@ class RouteNames {
   static const String signupIdInput = '/signup-id-input';
   static const String signupPasswordInput = '/signup-password-input';
   static const String signupCompleteInfo = '/signup-complete-info';
+  static const String javaPassAuth = '/java-pass-auth';
 
   // Onboarding
   static const String intro = '/intro';

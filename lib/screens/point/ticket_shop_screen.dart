@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../providers/vip_provider.dart';
 import '../../models/vip_model.dart';
@@ -61,7 +62,13 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.chevron_left, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         centerTitle: true,
         title: const Text(
@@ -76,31 +83,32 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       body: Column(
         children: [
           // 탭 바
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              indicatorColor: Colors.black,
-              indicatorWeight: 2,
-              labelColor: Colors.black,
-              unselectedLabelColor: const Color(0xFF999999),
-              labelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
-              ),
-              tabs: const [
-                Tab(text: '하트'),
-                Tab(text: '슈퍼챗'),
-                Tab(text: '프로필 열람권'),
-                Tab(text: '추천카드 더보기'),
-                Tab(text: 'VIP'),
-              ],
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            padding: EdgeInsets.zero,
+            indicatorPadding: EdgeInsets.zero,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+            indicatorColor: Colors.black,
+            indicatorWeight: 2,
+            labelColor: Colors.black,
+            unselectedLabelColor: const Color(0xFF999999),
+            labelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.normal,
+            ),
+            tabs: const [
+              Tab(text: '하트'),
+              Tab(text: '슈퍼챗'),
+              Tab(text: '프로필 열람권'),
+              Tab(text: '추천카드 더보기'),
+              Tab(text: 'VIP'),
+            ],
           ),
           // 탭 컨텐츠
           Expanded(
@@ -805,7 +813,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
           ),
           const SizedBox(height: 20),
           // 프로필 열람권 패키지 목록
-          _buildProfileViewPackageItem(1, 0, 10),
+          _buildProfileViewPackageItem(1, 0, 20),
           const SizedBox(height: 12),
           _buildProfileViewPackageItem(3, 1, 60, imageNumber: 1),
           const SizedBox(height: 12),

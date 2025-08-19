@@ -1,0 +1,22 @@
+# 기본 설정
+Options +Indexes
+DirectoryIndex index.html index.php
+
+# 파일 접근 허용
+<Files "*.html">
+    Require all granted
+</Files>
+
+<Files "*.php">
+    Require all granted
+</Files>
+
+# CORS 설정 (PASS 인증용)
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type"
+
+# 파일 유형별 접근 허용
+<FilesMatch "\.(html|htm|js|css|png|jpg|gif|pdf|txt)$">
+    Require all granted
+</FilesMatch>

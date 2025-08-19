@@ -97,6 +97,10 @@
 		<string>kakaoplus</string>
 		<string>naversearchapp</string>
 		<string>naversearchthirdlogin</string>
+		<string>pass</string>
+		<string>tauthlink</string>
+		<string>ktauthexternalcall</string>
+		<string>upluscorporation</string>
 	</array>
 	<key>KAKAO_APP_KEY</key>
 	<string>5900a779e6f90159e4e8e51a8687262f</string>

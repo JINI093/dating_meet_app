@@ -38,7 +38,13 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.chevron_left, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         centerTitle: true,
         title: const Text(

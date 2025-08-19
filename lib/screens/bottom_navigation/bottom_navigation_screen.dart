@@ -202,8 +202,8 @@ class BottomNavigationScreen extends ConsumerWidget {
           context.go(route);
         }
       } else {
-        // 비VIP 사용자는 바로 구매 화면으로
-        context.go('/vip/purchase');
+        // 비VIP 사용자는 바로 이용권 구매 VIP 탭으로
+        context.go('/ticket-shop?tab=4');
       }
     } else {
       // 다른 탭들은 기존 방식대로 처리

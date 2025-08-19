@@ -89,5 +89,22 @@
         </intent>
         <!-- 카카오톡 설치 여부 체크 -->
         <package android:name="com.kakao.talk" />
+        <!-- PASS 앱 체크 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="pass" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tauthlink" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="ktauthexternalcall" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upluscorporation" />
+        </intent>
     </queries>
 </manifest>

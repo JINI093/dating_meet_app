@@ -17,6 +17,7 @@ import '../../widgets/dialogs/info_dialog.dart';
 import '../../models/auth_result.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/likes_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
 
 enum LoginMethod { idPassword, phone, social }
 
@@ -46,6 +47,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
   bool _isPasswordVisible = false;
   bool _rememberLogin = false;
   bool _useBiometric = false;
+  bool _autoLogin = false;
   String? _errorMessage;
   String? _verificationId;
   String _selectedCountryCode = '+82';
@@ -96,6 +98,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
       setState(() {
         _rememberLogin = prefs.getBool('remember_login') ?? false;
         _useBiometric = prefs.getBool('use_biometric') ?? false;
+        _autoLogin = prefs.getBool('auto_login_enabled') ?? false;
       });
     } catch (e) {
       print('설정 로드 오류: $e');
@@ -108,6 +111,7 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('remember_login', _rememberLogin);
       await prefs.setBool('use_biometric', _useBiometric);
+      await prefs.setBool('auto_login_enabled', _autoLogin);
     } catch (e) {
       print('설정 저장 오류: $e');
     }
@@ -605,6 +609,28 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
   Widget _buildLoginSettings() {
     return Column(
       children: [
+        // 자동 로그인
+        Row(
+          children: [
+            Checkbox(
+              value: _autoLogin,
+              onChanged: (value) {
+                setState(() {
+                  _autoLogin = value ?? false;
+                });
+                _saveLoginPreferences();
+              },
+              activeColor: AppColors.primary,
+            ),
+            Text(
+              '자동 로그인',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textWhite,
+              ),
+            ),
+          ],
+        ),
+        
         // 로그인 상태 유지
         Row(
           children: [
@@ -961,6 +987,10 @@ class _EnhancedLoginScreenState extends ConsumerState<EnhancedLoginScreen>
 
     // 로그인 성공 처리
     await _saveLoginPreferences();
+    
+    // Auth Provider에 자동 로그인 설정 업데이트
+    final authNotifier = ref.read(enhancedAuthProvider.notifier);
+    await authNotifier.setAutoLoginEnabled(_autoLogin);
     
     // 사용자 프로바이더 초기화
     await _initializeUserProviders();

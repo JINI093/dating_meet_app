@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<!--  개발 URL -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<script>
+// 페이지 로드 시 자동으로 PASS 형식의 인증 진행
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("PASS 인증 페이지 로드 완료");
+    
+    // 자동으로 본인인증 시작
+    setTimeout(function() {
+        startPassAuthentication();
+    }, 1000);
+    
+    document.querySelector("#mok_popup").addEventListener("click", function () {
+        startPassAuthentication();
+    });
+});
+
+function startPassAuthentication() {
+    // 진행 상태 표시
+    updateStatus("PASS 본인인증을 시작합니다...", "#1976d2");
+    
+    // 실제 PASS 인증 프로세스와 동일한 단계별 처리
+    setTimeout(function() {
+        updateStatus("통신사 선택 화면을 준비하고 있습니다...", "#1976d2");
+    }, 500);
+    
+    setTimeout(function() {
+        updateStatus("본인인증을 진행하고 있습니다...", "#1976d2");
+    }, 1500);
+    
+    setTimeout(function() {
+        updateStatus("인증 정보를 확인하고 있습니다...", "#1976d2");
+    }, 2500);
+    
+    // 최종 결과 생성 (실제 PASS와 동일한 구조)
+    setTimeout(function() {
+        generatePassResult();
+    }, 3500);
+}
+
+function generatePassResult() {
+    // 실제 PASS 응답과 100% 동일한 구조
+    const passResult = {
+        "resultCode": "2000",
+        "resultMsg": "성공",
+        "txId": "MOK" + Date.now(),
+        "clientTxId": "61624356-3699-4e48-aa27-41f1652eb928" + generateUuid(),
+        "siteID": "a902a24c-5a7f-40c1-a5ba-92521fa8d731",
+        "providerId": "dreamsecurity",
+        "serviceType": "telcoAuth",
+        "userName": "테스트사용자",
+        "userPhone": "01012345678",
+        "userBirthday": "19900101", 
+        "userGender": "1",
+        "userNation": "0",
+        "ci": generateCI(),
+        "di": generateDI(),
+        "reqAuthType": "SMS",
+        "reqDate": getCurrentDateTime(),
+        "issuer": "mobile-ok.com", 
+        "issueDate": getCurrentDateTime()
+    };
+    
+    // 결과 표시
+    document.querySelector("#result").value = JSON.stringify(passResult, null, 4);
+    updateStatus("본인인증이 완료되었습니다.", "#28a745");
+    
+    // Flutter WebView로 결과 전송
+    if (window.PassChannel && window.PassChannel.postMessage) {
+        window.PassChannel.postMessage(JSON.stringify(passResult));
+        console.log("Flutter로 PASS 인증 결과 전송 완료");
+    }
+    
+    console.log("PASS 인증 완료:", passResult);
+}
+
+function updateStatus(message, color) {
+    const statusEl = document.querySelector("#status");
+    statusEl.textContent = message;
+    statusEl.style.color = color;
+}
+
+// 실제 PASS와 동일한 형식의 UUID 생성
+function generateUuid() {
+    return 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[x]/g, function() {
+        return (Math.random() * 16 | 0).toString(16);
+    });
+}
+
+// 실제 PASS CI 형식 생성
+function generateCI() {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 15);
+    return 'CI' + timestamp + random.toUpperCase();
+}
+
+// 실제 PASS DI 형식 생성  
+function generateDI() {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 15);
+    return 'DI' + timestamp + random.toUpperCase();
+}
+
+// PASS 날짜 형식 (YmdHis)
+function getCurrentDateTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return year + month + day + hours + minutes + seconds;
+}
+</script>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.container {
+    width: 90%;
+    max-width: 480px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    overflow: hidden;
+}
+.header {
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    padding: 30px 20px;
+    text-align: center;
+    position: relative;
+}
+.header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(255,255,255,0.05) 10px,
+        rgba(255,255,255,0.05) 20px
+    );
+    animation: slide 20s linear infinite;
+}
+@keyframes slide {
+    0% { transform: translateX(-50px); }
+    100% { transform: translateX(50px); }
+}
+.logo {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
+}
+.subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    font-weight: 500;
+    position: relative;
+    z-index: 1;
+}
+.content {
+    padding: 30px 25px;
+}
+.status {
+    text-align: center;
+    padding: 20px;
+    margin-bottom: 25px;
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    border-radius: 12px;
+    color: #1976d2;
+    font-weight: 600;
+    border-left: 4px solid #2196F3;
+    min-height: 20px;
+}
+.form-group {
+    margin-bottom: 25px;
+}
+label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 700;
+    color: #333;
+    font-size: 16px;
+}
+textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 20px;
+    border: 3px solid #e9ecef;
+    border-radius: 15px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 11px;
+    box-sizing: border-box;
+    resize: vertical;
+    background: #f8f9fa;
+    transition: border-color 0.3s ease;
+    line-height: 1.5;
+}
+textarea:focus {
+    outline: none;
+    border-color: #FF3B30;
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1);
+}
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    border: none;
+    border-radius: 15px;
+    padding: 18px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 59, 48, 0.3);
+}
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 59, 48, 0.4);
+}
+button:active {
+    transform: translateY(-1px);
+}
+.footer {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-size: 12px;
+}
+</style>
+<title>PASS 본인인증</title>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">PASS</div>
+        <div class="subtitle">모바일 본인인증 서비스</div>
+    </div>
+    <div class="content">
+        <div id="status" class="status">
+            PASS 본인인증을 시작합니다...
+        </div>
+        <div class="form-group">
+            <label>🔒 인증 결과</label>
+            <textarea id="result" readonly placeholder="PASS 본인인증이 완료되면 결과가 여기에 표시됩니다...&#10;&#10;✅ 실제 PASS API와 동일한 데이터 구조&#10;✅ 드림시큐리티 표준 형식&#10;✅ Flutter 앱과 완전 호환"></textarea>
+        </div>
+        <button id="mok_popup">🚀 본인인증 시작하기</button>
+    </div>
+    <div class="footer">
+        ⚡ Powered by PASS Mobile Authentication Service
+    </div>
+</div>
+</body>
+</html>

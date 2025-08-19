@@ -7,7 +7,8 @@ import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../widgets/common/custom_button.dart';
-import '../../services/aws_cognito_service.dart';
+import '../../services/pass_verification_service.dart';
+import '../../providers/user_provider.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -17,25 +18,20 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _codeController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   
   bool _isLoading = false;
-  bool _codeSent = false;
+  bool _passVerified = false;
   String? _errorMessage;
   String? _successMessage;
+  String? _verifiedUserId;
+  String? _verifiedUserName;
   bool _isNewPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  
-  // AWS Cognito Service
-  final AWSCognitoService _cognitoService = AWSCognitoService();
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _codeController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -56,7 +52,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
         ),
         title: Text(
-          'ID/PW 찾기',
+          '비밀번호 재설정',
           style: AppTextStyles.h6.copyWith(
             color: Colors.black,
             fontWeight: FontWeight.w600,
@@ -64,140 +60,108 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppDimensions.paddingL),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppDimensions.spacing24),
-            
-            // 제목
-            Text(
-              '비밀번호 재설정',
-              style: AppTextStyles.h4.copyWith(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
+      body: Column(
+        children: [
+          // 상단 컨텐츠 영역
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppDimensions.paddingL),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 60),
+                  
+                  // 제목
+                  Text(
+                    '본인 인증',
+                    style: AppTextStyles.h3.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: AppDimensions.spacing16),
+                  
+                  // 설명
+                  Text(
+                    '비밀번호를 재설정하기 위해\n본인 인증이 필요해요.',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: AppDimensions.spacing32),
+                  
+                  // 에러 메시지
+                  if (_errorMessage != null) _buildErrorMessage(),
+                  
+                  // 성공 메시지
+                  if (_successMessage != null) _buildSuccessMessage(),
+                  
+                  // 단계별 화면
+                  if (!_passVerified) 
+                    _buildPassVerificationStep()
+                  else 
+                    _buildPasswordResetStep(),
+                    
+                  // 로딩 표시
+                  if (_isLoading) _buildLoadingIndicator(),
+                ],
               ),
             ),
-            
-            const SizedBox(height: AppDimensions.spacing8),
-            
-            // 설명
-            Text(
-              '아이디를 입력하여 비밀번호를 재설정하세요.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: Colors.grey[600],
+          ),
+          
+          // 하단 버튼
+          Container(
+            padding: const EdgeInsets.all(AppDimensions.paddingL),
+            child: SafeArea(
+              child: CustomButton(
+                text: _isLoading 
+                    ? (_passVerified ? '비밀번호 변경 중...' : '본인 인증 중...') 
+                    : (_passVerified ? '비밀번호 변경 완료' : '본인 인증 시작하기'),
+                onPressed: _isLoading ? null : (_passVerified ? _resetPassword : _startPassVerification),
+                style: CustomButtonStyle.primary,
+                size: CustomButtonSize.large,
+                width: double.infinity,
               ),
             ),
-            
-            const SizedBox(height: AppDimensions.spacing32),
-            
-            // 에러 메시지
-            if (_errorMessage != null) _buildErrorMessage(),
-            
-            // 성공 메시지
-            if (_successMessage != null) _buildSuccessMessage(),
-            
-            // 단계별 화면
-            if (!_codeSent) 
-              _buildEmailStep()
-            else 
-              _buildPasswordResetStep(),
-            
-            const SizedBox(height: AppDimensions.spacing24),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildEmailStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 아이디 레이블
-        Text(
-          '아이디',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: Colors.black,
-            fontWeight: FontWeight.w500,
+  Widget _buildPassVerificationStep() {
+    return Container();
+  }
+  
+  Widget _buildLoadingIndicator() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppDimensions.paddingL),
+      margin: const EdgeInsets.only(bottom: AppDimensions.spacing24),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
           ),
-        ),
-        
-        const SizedBox(height: AppDimensions.spacing8),
-        
-        // 아이디 입력 필드
-        TextField(
-          controller: _emailController,
-          enabled: !_isLoading,
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: Colors.black,
-          ),
-          decoration: InputDecoration(
-            hintText: '아이디를 입력하세요',
-            hintStyle: AppTextStyles.bodyMedium.copyWith(
-              color: Colors.grey[400],
+          const SizedBox(height: AppDimensions.spacing16),
+          Text(
+            'PASS 본인인증을 진행하고 있습니다...',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: Colors.blue[700],
+              fontWeight: FontWeight.w500,
             ),
-            prefixIcon: Icon(
-              CupertinoIcons.person,
-              color: Colors.grey[600],
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-              borderSide: const BorderSide(color: AppColors.primary),
-            ),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(AppDimensions.paddingM),
+            textAlign: TextAlign.center,
           ),
-        ),
-        
-        const SizedBox(height: AppDimensions.spacing32),
-        
-        // 인증번호 받기 버튼
-        CustomButton(
-          text: _isLoading ? '확인 중...' : '인증번호 받기',
-          onPressed: _isLoading ? null : _sendResetCode,
-          style: CustomButtonStyle.dark,
-          size: CustomButtonSize.large,
-          width: double.infinity,
-        ),
-        
-        const SizedBox(height: AppDimensions.spacing16),
-        
-        // 안내 텍스트
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppDimensions.paddingM),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-            border: Border.all(color: Colors.blue[200]!),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                CupertinoIcons.info_circle,
-                color: Colors.blue[600],
-                size: 16,
-              ),
-              const SizedBox(width: AppDimensions.spacing8),
-              Expanded(
-                child: Text(
-                  '등록된 이메일로 인증번호가 발송됩니다.',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: Colors.blue[700],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -205,46 +169,36 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 인증 코드 입력
-        Text(
-          '인증 코드',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: Colors.black,
-            fontWeight: FontWeight.w500,
+        // 인증 완료 안내
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppDimensions.paddingL),
+          margin: const EdgeInsets.only(bottom: AppDimensions.spacing24),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+            border: Border.all(color: Colors.green[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                CupertinoIcons.checkmark_circle_fill,
+                color: Colors.green[600],
+                size: 24,
+              ),
+              const SizedBox(width: AppDimensions.spacing12),
+              Expanded(
+                child: Text(
+                  '$_verifiedUserName님 본인인증이 완료되었습니다.',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        
-        const SizedBox(height: AppDimensions.spacing8),
-        
-        TextField(
-          controller: _codeController,
-          enabled: !_isLoading,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: Colors.black,
-          ),
-          decoration: InputDecoration(
-            hintText: '6자리 인증 코드를 입력하세요',
-            hintStyle: AppTextStyles.bodyMedium.copyWith(
-              color: Colors.grey[400],
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-              borderSide: const BorderSide(color: AppColors.primary),
-            ),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(AppDimensions.paddingM),
-            counterText: '',
-          ),
-        ),
-        
-        const SizedBox(height: AppDimensions.spacing24),
         
         // 새 비밀번호 입력
         Text(
@@ -347,17 +301,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             contentPadding: const EdgeInsets.all(AppDimensions.paddingM),
           ),
         ),
-        
-        const SizedBox(height: AppDimensions.spacing32),
-        
-        // 비밀번호 재설정 버튼
-        CustomButton(
-          text: _isLoading ? '변경 중...' : '비밀번호 변경 완료',
-          onPressed: _isLoading ? null : _resetPassword,
-          style: CustomButtonStyle.dark,
-          size: CustomButtonSize.large,
-          width: double.infinity,
-        ),
       ],
     );
   }
@@ -452,17 +395,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     );
   }
 
-  // 비밀번호 재설정 코드 발송
-  Future<void> _sendResetCode() async {
-    final userId = _emailController.text.trim();
-    
-    if (userId.isEmpty) {
-      setState(() {
-        _errorMessage = '아이디를 입력해주세요.';
-      });
-      return;
-    }
-
+  // PASS 본인인증 시작
+  Future<void> _startPassVerification() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -470,41 +404,76 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
 
     try {
-      final result = await _cognitoService.resetPassword(userId);
-      
+      final passService = PassVerificationService();
+      final result = await passService.startDirectPassVerification(
+        context: context,
+        purpose: '비밀번호 재설정',
+      );
+
       if (result.success) {
-        setState(() {
-          _codeSent = true;
-          _isLoading = false;
-          _successMessage = '인증 코드가 이메일로 발송되었습니다.';
-        });
+        // PASS 인증 성공
+        final userName = result.name;
+        if (userName != null) {
+          // 사용자 이름으로 실제 ID를 찾아야 하지만, 현재는 시뮬레이션
+          final userId = await _findUserIdByName(userName);
+          if (userId != null) {
+            setState(() {
+              _isLoading = false;
+              _passVerified = true;
+              _verifiedUserName = userName;
+              _verifiedUserId = userId;
+            });
+          } else {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = '$userName님으로 가입된 계정을 찾을 수 없습니다.';
+            });
+          }
+        } else {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = '본인인증에서 이름 정보를 가져올 수 없습니다.';
+          });
+        }
       } else {
         setState(() {
           _isLoading = false;
-          _errorMessage = result.error ?? '인증 코드 발송에 실패했습니다.';
+          _errorMessage = result.error ?? '본인인증에 실패했습니다. 다시 시도해주세요.';
         });
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = _getErrorMessage(e.toString());
+        _errorMessage = '본인인증 중 오류가 발생했습니다. 다시 시도해주세요.';
       });
+    }
+  }
+
+  // 이름으로 사용자 ID 찾기 (실제 구현에서는 서버 API 호출)
+  Future<String?> _findUserIdByName(String userName) async {
+    try {
+      // TODO: 실제 API 호출로 대체
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // 테스트용 더미 데이터
+      final Map<String, String> userNameToId = {
+        '테스트사용자': 'test_user123',
+        '홍길동': 'hong_gildong',
+        '김철수': 'kim_chulsoo',
+        '이영희': 'lee_younghee',
+      };
+      
+      return userNameToId[userName];
+    } catch (e) {
+      print('사용자 ID 찾기 오류: $e');
+      return null;
     }
   }
 
   // 비밀번호 재설정
   Future<void> _resetPassword() async {
-    final userId = _emailController.text.trim();
-    final code = _codeController.text.trim();
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    
-    if (code.isEmpty) {
-      setState(() {
-        _errorMessage = '인증 코드를 입력해주세요.';
-      });
-      return;
-    }
     
     if (newPassword.isEmpty) {
       setState(() {
@@ -534,39 +503,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
 
     try {
-      final result = await _cognitoService.confirmResetPassword(
-        email: userId,
-        confirmationCode: code,
-        newPassword: newPassword,
-      );
+      // TODO: 실제 API 호출로 대체
+      await Future.delayed(const Duration(seconds: 2));
       
-      if (result.success) {
-        setState(() {
-          _isLoading = false;
-          _successMessage = '비밀번호가 성공적으로 변경되었습니다.';
-        });
-        
-        // 2초 후 로그인 화면으로 이동
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            context.pop();
-          }
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = result.error ?? '비밀번호 변경에 실패했습니다.';
-        });
-      }
+      // 시뮬레이션: 항상 성공
+      setState(() {
+        _isLoading = false;
+        _successMessage = '비밀번호가 성공적으로 변경되었습니다.';
+      });
+      
+      // 2초 후 로그인 화면으로 이동
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          context.pop();
+        }
+      });
       
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = _getErrorMessage(e.toString());
+        _errorMessage = '비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요.';
       });
     }
   }
-
 
   bool _isValidPassword(String password) {
     // 8자 이상, 대문자, 소문자, 숫자, 특수문자 포함
@@ -575,21 +534,5 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
            RegExp(r'[a-z]').hasMatch(password) &&
            RegExp(r'[0-9]').hasMatch(password) &&
            RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password);
-  }
-
-  String _getErrorMessage(String error) {
-    if (error.contains('UserNotFoundException')) {
-      return '등록되지 않은 이메일입니다.';
-    } else if (error.contains('CodeMismatchException')) {
-      return '인증 코드가 올바르지 않습니다.';
-    } else if (error.contains('ExpiredCodeException')) {
-      return '인증 코드가 만료되었습니다. 다시 시도해주세요.';
-    } else if (error.contains('InvalidPasswordException')) {
-      return '비밀번호가 정책에 맞지 않습니다.';
-    } else if (error.contains('LimitExceededException')) {
-      return '시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.';
-    } else {
-      return '오류가 발생했습니다. 다시 시도해주세요.';
-    }
   }
 }

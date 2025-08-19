@@ -1,4 +1,14 @@
 <!DOCTYPE html>
+
+<!--
+■ 본 샘플은 PC 웹브라우저에서 동작 여부를 테스트 용도이며, 드림시큐리티에서 제공하는 모든 기능이 포함되어 있지 않습니다.
+  상세 내용은 드림시큐리티에서 제공하는 웹관리도구 內 가이드 문서를 참고하여 주시기 바랍니다.
+
+■ 아래의 내용 및 이 후 연결되는 샘플 페이지 內 주석을 참고 및 이용기관에 맞게 변경 후 테스트 진행하여 주시기 바랍니다.
+
+■ 본 샘플을 이용하여 가맹점 시스템에 직접 적용하는 경우, 샘플 內 모든 주석을 삭제하여 주시기 바랍니다.
+-->
+
 <html lang="ko">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -8,23 +18,18 @@
 <!--  개발 URL :  -->
 <script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
 <!--  운영 URL : <script src="https://cert.mobile-ok.com/resources/js/index.js"></script> -->
+
+<!-- [주의사항] 개발 및 테스트 시에는 개발 URL을 이용해 주시고 운영 환경으로 전환 시 반드시 운영 URL로 변경해주시기 바랍니다.-->
+
 <script>
     //모바일/PC 스크립트 인식 구분
     document.addEventListener("DOMContentLoaded", function () {
     document.querySelector("#mok_popup").addEventListener("click", function () {
-        // 개발 환경에서는 시뮬레이션 모드로 동작
-        try {
-            // 실제 PASS SDK 호출 시도
-            MOBILEOK.process("https://sagilrae.com/mok/mok_std_request.php", "WB", "result");
-        } catch (e) {
-            console.log("PASS SDK 오류, 시뮬레이션 모드로 전환:", e);
-            // 시뮬레이션 모드로 대체
-            simulatePassAuth();
-        }
+        MOBILEOK.process("https://이용기관URL/mok/mok_std_request.jsp", "WB", "result");    // [변경필요] 이용기관URL에 가맹점 측 URL 설정
     })
     // document.querySelector("#mok_move").addEventListener("click", function () {
         // 모바일 전용서비스로 페이지 이동처리 또는 카카오 브라우져 등 새창으로 처리가 어려운 환경 또는 브라우져에서 처리
-        //MOBILEOK.process("https://이용기관URL/mok/mok_std_request.jsp", "WB", "");
+        //MOBILEOK.process("https://이용기관URL/mok/mok_std_request.jsp", "WB", "");        // [변경필요] 이용기관URL에 가맹점 측 URL 설정
     // })
     })
 
@@ -32,25 +37,9 @@
     try {
         result = JSON.parse(result);
         document.querySelector("#result").value = JSON.stringify(result, null, 4);
-        
-        // Flutter WebView로 결과 전송
-        if (window.PassChannel && window.PassChannel.postMessage) {
-            window.PassChannel.postMessage(JSON.stringify(result));
-        }
     } catch (error) {
         document.querySelector("#result").value = result;
-        
-        // 에러 시에도 Flutter로 전송
-        if (window.PassChannel && window.PassChannel.postMessage) {
-            window.PassChannel.postMessage(result);
-        }
     }
-    }
-    
-    // 시뮬레이션 모드
-    function simulatePassAuth() {
-        // 시뮬레이션 페이지로 이동
-        window.location.href = 'mok_simple.html';
     }
 </script>
 <style>
