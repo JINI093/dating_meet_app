@@ -33,7 +33,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.dating_meet_app"
-    compileSdk 35
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -63,9 +63,9 @@ android {
             // 기본 디버그 서명 사용
         }
         release {
-            // 임시 디버그 서명 사용 (테스트용)
+            // 릴리즈 빌드도 디버그 서명 사용 (테스트용)
             // 실제 배포시에는 별도 키스토어 필요
-            storeFile file('../debug.keystore')
+            storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'

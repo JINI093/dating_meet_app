@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:dating_app_40s/screens/events/events_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/app_colors.dart';
 import '../../models/profile_model.dart';
 import '../../providers/user_provider.dart';
@@ -553,14 +555,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Widget _buildMenuList() {
     return Column(
       children: [
-        _buildMenuItem('내 쿠폰 현황', '보유하고 있는 쿠폰을 확인할 수 있습니다', () => _navigateToCouponStatus()),
-        _buildMenuItem('포인트 현황', '포인트 충전/적립/사용 내역을 알 수 있습니다', () => _navigateToPointHistory()),
-        _buildMenuItem('추천인 코드 확인', '', () => _navigateToReferralCode()),
-        _buildMenuItem('공지사항', '서비스 이용에 대한 알림이나 변경사항을 알려드립니다', () => _navigateToNotice()),
-        _buildMenuItem('자주 묻는 질문', '서비스 이용에 대한 자주 묻는 질문을 알려드립니다.', () => _navigateToFaq()),
+        _buildMenuItem('이벤트', '진행중인 이벤트를 확인하실 수 있습니다.', () => _navigateToEventScreen()),
         _buildMenuItem('지인차단', '만나고 싶지 않은 지인을 차단합니다.', () => _navigateToBlockContacts()),
         _buildMenuItem('문의하기', '서비스에 궁금한 점이 있다면?', () => _navigateToInquiry()),
+        _buildMenuItem('내 쿠폰 현황', '보유하고 있는 쿠폰을 확인할 수 있습니다', () => _navigateToCouponStatus()),
+        _buildMenuItem('포인트 현황', '포인트 충전/적립/사용 내역을 알 수 있습니다', () => _navigateToPointHistory()),
+        _buildMenuItem('공지사항', '서비스 이용에 대한 알림이나 변경사항을 알려드립니다', () => _navigateToNotice()),
         _buildMenuItem('개인정보취급방침', '서비스에 활용되는 개인정보에 대해 알려드립니다', () => _navigateToPrivacyPolicy()),
+        _buildMenuItem('자주 묻는 질문', '서비스 이용에 대한 자주 묻는 질문을 알려드립니다.', () => _navigateToFaq()),
+        _buildMenuItem('추천인 코드 확인', '', () => _navigateToReferralCode()),
         _buildMenuItem('로그아웃', '', () => _showLogoutDialog()),
       ],
     );
@@ -810,6 +813,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
+  void _navigateToEventScreen() {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => const EventsScreen(),
+      ),
+    );
+  }
+
   void _navigateToCouponStatus() {
     Navigator.push(
       context,
@@ -894,9 +906,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              await _logout();
               Navigator.pop(context);
-              _logout();
             },
             child: const Text(
               '로그아웃',
@@ -908,7 +920,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  void _logout() async {
+  Future<void> _logout() async {
     // 사용자 상태 초기화
     ref.read(userProvider.notifier).logout();
     
@@ -916,6 +928,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     final authNotifier = ref.read(enhancedAuthProvider.notifier);
     
     // 자동 로그인 설정 해제
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_login_enabled', false);
+
     await authNotifier.setAutoLoginEnabled(false);
     
     // 로그아웃 처리

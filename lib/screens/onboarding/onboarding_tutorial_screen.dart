@@ -36,6 +36,19 @@ class _OnboardingTutorialScreenState extends ConsumerState<OnboardingTutorialScr
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
+          Image.asset(
+            'assets/images/tutorial_background.png',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Color(0xAB000000)
+            ),
+            width: double.infinity,
+            height: double.infinity,
+          ),
           // 고정된 배경으로 현재 페이지 이미지만 표시
           _buildTutorialImage(_tutorialImages[_currentPage]),
           // 페이지 인디케이터만 표시

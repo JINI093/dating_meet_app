@@ -14,18 +14,20 @@ class GoodsListResponse {
     this.eventList,
   });
 
-  factory GoodsListResponse.fromJson(Map<String, dynamic> json) => _$GoodsListResponseFromJson(json);
+  factory GoodsListResponse.fromJson(Map<String, dynamic> json) =>
+      _$GoodsListResponseFromJson(json);
   Map<String, dynamic> toJson() => _$GoodsListResponseToJson(this);
 
   GoodsListResponse copyWith({
     String? resultCode,
     String? resultMsg,
     List<EventInfo>? eventList,
-  }) => GoodsListResponse(
-    resultCode: resultCode ?? this.resultCode,
-    resultMsg: resultMsg ?? this.resultMsg,
-    eventList: eventList ?? this.eventList,
-  );
+  }) =>
+      GoodsListResponse(
+        resultCode: resultCode ?? this.resultCode,
+        resultMsg: resultMsg ?? this.resultMsg,
+        eventList: eventList ?? this.eventList,
+      );
 }
 
 @JsonSerializable()
@@ -42,7 +44,8 @@ class EventInfo {
     this.categoryList,
   });
 
-  factory EventInfo.fromJson(Map<String, dynamic> json) => _$EventInfoFromJson(json);
+  factory EventInfo.fromJson(Map<String, dynamic> json) =>
+      _$EventInfoFromJson(json);
   Map<String, dynamic> toJson() => _$EventInfoToJson(this);
 
   EventInfo copyWith({
@@ -50,12 +53,13 @@ class EventInfo {
     String? eventName,
     List<GoodsInfo>? goodsList,
     List<CategoryInfo>? categoryList,
-  }) => EventInfo(
-    eventId: eventId ?? this.eventId,
-    eventName: eventName ?? this.eventName,
-    goodsList: goodsList ?? this.goodsList,
-    categoryList: categoryList ?? this.categoryList,
-  );
+  }) =>
+      EventInfo(
+        eventId: eventId ?? this.eventId,
+        eventName: eventName ?? this.eventName,
+        goodsList: goodsList ?? this.goodsList,
+        categoryList: categoryList ?? this.categoryList,
+      );
 }
 
 @JsonSerializable()
@@ -72,7 +76,8 @@ class GoodsInfo {
     this.imageUrl,
   });
 
-  factory GoodsInfo.fromJson(Map<String, dynamic> json) => _$GoodsInfoFromJson(json);
+  factory GoodsInfo.fromJson(Map<String, dynamic> json) =>
+      _$GoodsInfoFromJson(json);
   Map<String, dynamic> toJson() => _$GoodsInfoToJson(this);
 
   GoodsInfo copyWith({
@@ -80,12 +85,13 @@ class GoodsInfo {
     String? goodsName,
     int? price,
     String? imageUrl,
-  }) => GoodsInfo(
-    goodsId: goodsId ?? this.goodsId,
-    goodsName: goodsName ?? this.goodsName,
-    price: price ?? this.price,
-    imageUrl: imageUrl ?? this.imageUrl,
-  );
+  }) =>
+      GoodsInfo(
+        goodsId: goodsId ?? this.goodsId,
+        goodsName: goodsName ?? this.goodsName,
+        price: price ?? this.price,
+        imageUrl: imageUrl ?? this.imageUrl,
+      );
 }
 
 @JsonSerializable()
@@ -98,14 +104,16 @@ class CategoryInfo {
     required this.categoryName,
   });
 
-  factory CategoryInfo.fromJson(Map<String, dynamic> json) => _$CategoryInfoFromJson(json);
+  factory CategoryInfo.fromJson(Map<String, dynamic> json) =>
+      _$CategoryInfoFromJson(json);
   Map<String, dynamic> toJson() => _$CategoryInfoToJson(this);
 
   CategoryInfo copyWith({
     String? categoryId,
     String? categoryName,
-  }) => CategoryInfo(
-    categoryId: categoryId ?? this.categoryId,
-    categoryName: categoryName ?? this.categoryName,
-  );
-} 
+  }) =>
+      CategoryInfo(
+        categoryId: categoryId ?? this.categoryId,
+        categoryName: categoryName ?? this.categoryName,
+      );
+}

@@ -445,6 +445,8 @@ class AWSLikesService {
           // 프로필 정보 가져오기 (모든 좋아요에 대해, toProfileId 기준)
           if (mappedItem['toProfileId'] != null) {
             try {
+              var id12 = mappedItem['toProfileId'];
+              print("--fafasfs ${id12}");
               final profile = await _profileService.getProfile(mappedItem['toProfileId']);
               if (profile != null) {
                 mappedItem['profile'] = profile.toJson();

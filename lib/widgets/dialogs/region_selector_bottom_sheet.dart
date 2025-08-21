@@ -251,17 +251,15 @@ class _RegionSelectorBottomSheetState extends State<RegionSelectorBottomSheet> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _selectedRegions.isNotEmpty ? AppColors.textPrimary : AppColors.textSecondary,
+                    backgroundColor: AppColors.textPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                   ),
-                  onPressed: _selectedRegions.isNotEmpty
-                      ? () {
-                          widget.onSelected(_selectedRegions.toList());
-                          Navigator.pop(context);
-                        }
-                      : null,
+                  onPressed: () {
+                    widget.onSelected(_selectedRegions.toList());
+                    Navigator.pop(context);
+                  },
                   child: Text(
-                    _selectedRegions.isEmpty ? '지역을 선택해주세요' : '설정 (${_selectedRegions.length}개)',
+                    '설정 (${_selectedRegions.length}개)',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
                   ),
                 ),
