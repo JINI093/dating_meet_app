@@ -1,0 +1,43 @@
+name: Deploy Admin to GitHub Pages
+
+on:
+  push:
+    branches: [ development, main ]
+  pull_request:
+    branches: [ development, main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.32.5'
+        channel: 'stable'
+        
+    - name: Install dependencies
+      run: flutter pub get
+      
+    - name: Enable web support
+      run: flutter config --enable-web
+      
+    - name: Build for web (Admin)
+      run: |
+        flutter build web \
+          --web-renderer html \
+          --base-href "/dating_meet_app/" \
+          --target lib/admin_main.dart \
+          --output build/admin_web
+      
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./build/admin_web
+        destination_dir: admin
