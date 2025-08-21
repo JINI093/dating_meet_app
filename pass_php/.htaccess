@@ -1,0 +1,26 @@
+# 마이닷홈 403 오류 해결
+Options +FollowSymLinks -Indexes
+DirectoryIndex index.html index.php mok.html
+
+# PHP 파일 실행 허용
+<FilesMatch "\.(php|html)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# 키 파일 보호 (외부 접근 차단)
+<Files "mok_keyInfo.dat">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# CORS 설정
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# PHP 에러 표시 (디버깅용, 운영시 제거)
+php_flag display_errors on
+php_value error_reporting E_ALL

@@ -87,23 +87,23 @@ class AdminSidebar extends ConsumerWidget {
                     isActive: currentRoute == '/admin/reports',
                     hasPermission: adminUser.role.accessibleMenus.contains('reports'),
                   ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.leaderboard_outlined,
-                    label: '순위',
-                    route: '/admin/rankings',
-                    isActive: currentRoute == '/admin/rankings',
-                    hasPermission: adminUser.role.accessibleMenus.contains('rankings'),
-                  ),
-                  if (adminUser.role == AdminRole.superAdmin)
-                    _buildMenuItem(
-                      context,
-                      icon: Icons.admin_panel_settings_outlined,
-                      label: '관리자 관리',
-                      route: '/admin/admins',
-                      isActive: currentRoute == '/admin/admins',
-                      hasPermission: true,
-                    ),
+                  // _buildMenuItem(
+                  //   context,
+                  //   icon: Icons.leaderboard_outlined,
+                  //   label: '순위',
+                  //   route: '/admin/rankings',
+                  //   isActive: currentRoute == '/admin/rankings',
+                  //   hasPermission: adminUser.role.accessibleMenus.contains('rankings'),
+                  // ),
+                  // if (adminUser.role == AdminRole.superAdmin)
+                  //   _buildMenuItem(
+                  //     context,
+                  //     icon: Icons.admin_panel_settings_outlined,
+                  //     label: '관리자 관리',
+                  //     route: '/admin/admins',
+                  //     isActive: currentRoute == '/admin/admins',
+                  //     hasPermission: true,
+                  //   ),
                 ],
                 
                 // 상품 스토어 관리
@@ -113,16 +113,16 @@ class AdminSidebar extends ConsumerWidget {
                     context,
                     icon: Icons.inventory_2_outlined,
                     label: '일반 상품',
-                    route: '/admin/products',
-                    isActive: currentRoute == '/admin/products',
+                    route: '/admin/store/general',
+                    isActive: currentRoute == '/admin/store/general',
                     hasPermission: true,
                   ),
                   _buildMenuItem(
                     context,
                     icon: Icons.stars_outlined,
                     label: 'VIP 상품',
-                    route: '/admin/vip-products',
-                    isActive: currentRoute == '/admin/vip-products',
+                    route: '/admin/store/vip',
+                    isActive: currentRoute == '/admin/store/vip',
                     hasPermission: true,
                   ),
                 ],
@@ -134,24 +134,24 @@ class AdminSidebar extends ConsumerWidget {
                     context,
                     icon: Icons.payment_outlined,
                     label: '결제 내역',
-                    route: '/admin/payments',
-                    isActive: currentRoute == '/admin/payments',
+                    route: '/admin/payment/history',
+                    isActive: currentRoute == '/admin/payment/history',
                     hasPermission: true,
                   ),
                   _buildMenuItem(
                     context,
                     icon: Icons.account_balance_outlined,
                     label: '정산 내역',
-                    route: '/admin/settlements',
-                    isActive: currentRoute == '/admin/settlements',
+                    route: '/admin/payment/settlement',
+                    isActive: currentRoute == '/admin/payment/settlement',
                     hasPermission: true,
                   ),
                   _buildMenuItem(
                     context,
                     icon: Icons.local_offer_outlined,
                     label: '쿠폰 및 코드',
-                    route: '/admin/coupons',
-                    isActive: currentRoute == '/admin/coupons',
+                    route: '/admin/payment/coupons',
+                    isActive: currentRoute == '/admin/payment/coupons',
                     hasPermission: adminUser.role.accessibleMenus.contains('coupons'),
                   ),
                 ],
@@ -163,16 +163,16 @@ class AdminSidebar extends ConsumerWidget {
                     context,
                     icon: Icons.flag_outlined,
                     label: '신고내역',
-                    route: '/admin/report-list',
-                    isActive: currentRoute == '/admin/report-list',
+                    route: '/admin/report/history',
+                    isActive: currentRoute == '/admin/report/history',
                     hasPermission: true,
                   ),
                   _buildMenuItem(
                     context,
                     icon: Icons.block_outlined,
                     label: '블랙리스트',
-                    route: '/admin/blacklist',
-                    isActive: currentRoute == '/admin/blacklist',
+                    route: '/admin/report/blacklist',
+                    isActive: currentRoute == '/admin/report/blacklist',
                     hasPermission: adminUser.role.accessibleMenus.contains('blacklist'),
                   ),
                 ],
@@ -195,16 +195,16 @@ class AdminSidebar extends ConsumerWidget {
                     context,
                     icon: Icons.male_outlined,
                     label: '남성회원 공지',
-                    route: '/admin/notices/male',
-                    isActive: currentRoute == '/admin/notices/male',
+                    route: '/admin/notice/male',
+                    isActive: currentRoute == '/admin/notice/male',
                     hasPermission: true,
                   ),
                   _buildMenuItem(
                     context,
                     icon: Icons.female_outlined,
                     label: '여성회원 공지',
-                    route: '/admin/notices/female',
-                    isActive: currentRoute == '/admin/notices/female',
+                    route: '/admin/notice/female',
+                    isActive: currentRoute == '/admin/notice/female',
                     hasPermission: true,
                   ),
                 ],
@@ -315,7 +315,7 @@ class AdminSidebar extends ConsumerWidget {
         vertical: AdminTheme.spacingXS,
       ),
       child: Material(
-        color: isActive ? AdminTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
+        color: isActive ? AdminTheme.primaryColor.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(AdminTheme.radiusM),
         child: InkWell(
           onTap: () => context.go(route),
@@ -325,28 +325,33 @@ class AdminSidebar extends ConsumerWidget {
             padding: EdgeInsets.symmetric(
               horizontal: isCollapsed ? 0 : AdminTheme.spacingM,
             ),
-            child: Row(
-              mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-              children: [
-                Icon(
-                  icon,
-                  color: isActive ? AdminTheme.primaryColor : AdminTheme.secondaryTextColor,
-                  size: 24,
-                ),
-                if (!isCollapsed) ...[
-                  const SizedBox(width: AdminTheme.spacingM),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: isActive ? AdminTheme.primaryColor : AdminTheme.primaryTextColor,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                      ),
+            child: isCollapsed
+                ? Center(
+                    child: Icon(
+                      icon,
+                      color: isActive ? AdminTheme.primaryColor : AdminTheme.secondaryTextColor,
+                      size: 24,
                     ),
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        icon,
+                        color: isActive ? AdminTheme.primaryColor : AdminTheme.secondaryTextColor,
+                        size: 24,
+                      ),
+                      const SizedBox(width: AdminTheme.spacingM),
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: isActive ? AdminTheme.primaryColor : AdminTheme.primaryTextColor,
+                            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            ),
           ),
         ),
       ),
@@ -357,7 +362,7 @@ class AdminSidebar extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.all(isCollapsed ? AdminTheme.spacingS : AdminTheme.spacingM),
       child: Material(
-        color: AdminTheme.errorColor.withOpacity(0.1),
+        color: AdminTheme.errorColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AdminTheme.radiusM),
         child: InkWell(
           onTap: () {
@@ -392,26 +397,31 @@ class AdminSidebar extends ConsumerWidget {
             padding: EdgeInsets.symmetric(
               horizontal: isCollapsed ? 0 : AdminTheme.spacingM,
             ),
-            child: Row(
-              mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.logout,
-                  color: AdminTheme.errorColor,
-                  size: 24,
-                ),
-                if (!isCollapsed) ...[
-                  const SizedBox(width: AdminTheme.spacingM),
-                  Text(
-                    '로그아웃',
-                    style: TextStyle(
+            child: isCollapsed
+                ? Center(
+                    child: Icon(
+                      Icons.logout,
                       color: AdminTheme.errorColor,
-                      fontWeight: FontWeight.w600,
+                      size: 24,
                     ),
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Icons.logout,
+                        color: AdminTheme.errorColor,
+                        size: 24,
+                      ),
+                      const SizedBox(width: AdminTheme.spacingM),
+                      Text(
+                        '로그아웃',
+                        style: TextStyle(
+                          color: AdminTheme.errorColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            ),
           ),
         ),
       ),

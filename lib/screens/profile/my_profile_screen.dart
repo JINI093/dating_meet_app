@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../models/profile_model.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/enhanced_auth_provider.dart';
 import '../../providers/points_provider.dart';
 import '../../providers/heart_provider.dart';
 import '../../providers/superchat_provider.dart';
@@ -444,7 +445,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           const Align(
             alignment: Alignment.center,
             child: Text(
-              '* 내가 받은 좋아요/슈퍼챗 수는 매일 1일 초기화됩니다.',
+              '* 내가 받은 좋아요/슈퍼챗 수는 매월 1일 초기화됩니다.',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF999999),
@@ -907,12 +908,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  void _logout() {
+  void _logout() async {
     // 사용자 상태 초기화
     ref.read(userProvider.notifier).logout();
     
+    // Auth Provider를 통한 로그아웃 처리
+    final authNotifier = ref.read(enhancedAuthProvider.notifier);
+    
+    // 자동 로그인 설정 해제
+    await authNotifier.setAutoLoginEnabled(false);
+    
+    // 로그아웃 처리
+    await authNotifier.signOut();
+    
     // 로그인 페이지로 이동 (모든 스택 제거)
-    context.go(RouteNames.login);
+    if (mounted) {
+      context.go(RouteNames.login);
+    }
   }
 
   void _showWithdrawalBottomSheet() {
@@ -921,7 +933,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          image: DecorationImage(
+            image: AssetImage('assets/icons/secession.png'),
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+          ),
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -939,31 +955,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ),
             ),
             
-            const SizedBox(height: 30),
-            
-            // 아이콘 이미지
-            Image.asset(
-              'assets/icons/out.png',
-              width: 80,
-              height: 80,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF357B),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.person_badge_minus,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                );
-              },
-            ),
-            
-            const SizedBox(height: 30),
+            const SizedBox(height: 60),
             
             // 버튼들
             Padding(
@@ -975,14 +967,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context); // 바텀시트 닫기
+                        // 내 정보 페이지로 이동 (현재 페이지이므로 그냥 닫기만)
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        backgroundColor: const Color(0xFFF02062),
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
+                        elevation: 0,
                       ),
                       child: const Text(
                         '이성 더 만나보기',
@@ -1002,15 +997,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context);
-                        _showWithdrawalConfirmDialog();
+                        Navigator.pop(context); // 바텀시트 닫기
+                        _showWithdrawalReasonDialog(); // 바로 탈퇴 사유 팝업 표시
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF357B),
-                        foregroundColor: Colors.white,
+                        backgroundColor: const Color(0xFFFFFFFF),
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Color(0xFFE0E0E0)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
+                        elevation: 0,
                       ),
                       child: const Text(
                         '회원 탈퇴하기',
@@ -1025,19 +1022,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ),
             ),
             
-            const SizedBox(height: 20),
-            
-            // 취소 버튼
-            const Text(
-              '취소',
-              style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF999999),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
           ],
         ),
       ),

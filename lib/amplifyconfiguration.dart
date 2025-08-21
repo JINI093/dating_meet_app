@@ -1,21 +1,34 @@
 const amplifyconfig = '''{
     "UserAgent": "aws-amplify-cli/2.0",
     "Version": "1.0",
+    "api": {
+        "plugins": {
+            "awsAPIPlugin": {
+                "meet": {
+                    "endpointType": "GraphQL",
+                    "endpoint": "https://yqcwlxhcqrchlovxpvcuumpeq4.appsync-api.ap-northeast-2.amazonaws.com/graphql",
+                    "region": "ap-northeast-2",
+                    "authorizationType": "API_KEY",
+                    "apiKey": "da2-42w2ezdixbcurfkvqdmgfatjja"
+                }
+            }
+        }
+    },
     "auth": {
         "plugins": {
             "awsCognitoAuthPlugin": {
-                "UserAgent": "aws-amplify/cli",
-                "Version": "1.0",
+                "UserAgent": "aws-amplify-cli/0.1.0",
+                "Version": "0.1.0",
                 "IdentityManager": {
                     "Default": {}
                 },
-                "CognitoUserPool": {
+                "AppSync": {
                     "Default": {
-                        "PoolId": "ap-northeast-2_lKdTmyEaP",
-                        "AppClientId": "cqu5l148pkrtoh0e28bh385ns",
+                        "ApiUrl": "https://yqcwlxhcqrchlovxpvcuumpeq4.appsync-api.ap-northeast-2.amazonaws.com/graphql",
                         "Region": "ap-northeast-2",
-                        "UsernameAliases": ["email"],
-                        "SignupAttributes": ["email"]
+                        "AuthMode": "API_KEY",
+                        "ApiKey": "da2-42w2ezdixbcurfkvqdmgfatjja",
+                        "ClientDatabasePrefix": "meet_API_KEY"
                     }
                 },
                 "CredentialsProvider": {
@@ -26,39 +39,39 @@ const amplifyconfig = '''{
                         }
                     }
                 },
+                "CognitoUserPool": {
+                    "Default": {
+                        "PoolId": "ap-northeast-2_lKdTmyEaP",
+                        "AppClientId": "cqu5l148pkrtoh0e28bh385ns",
+                        "Region": "ap-northeast-2"
+                    }
+                },
                 "Auth": {
                     "Default": {
                         "authenticationFlowType": "USER_SRP_AUTH",
                         "socialProviders": [],
-                        "usernameAttributes": ["email"],
-                        "signupAttributes": ["email"],
+                        "usernameAttributes": [],
+                        "signupAttributes": [
+                            "EMAIL"
+                        ],
                         "passwordProtectionSettings": {
                             "passwordPolicyMinLength": 8,
                             "passwordPolicyCharacters": []
                         },
                         "mfaConfiguration": "OFF",
-                        "mfaTypes": ["SMS"],
-                        "verificationMechanisms": ["EMAIL"]
+                        "mfaTypes": [
+                            "SMS"
+                        ],
+                        "verificationMechanisms": [
+                            "EMAIL"
+                        ]
                     }
-                }
-            }
-        }
-    },
-    "api": {
-        "plugins": {
-            "awsAPIPlugin": {
-                "meet": {
-                    "endpointType": "GraphQL",
-                    "endpoint": "https://yqcwlxhcqrchlovxpvcuumpeq4.appsync-api.ap-northeast-2.amazonaws.com/graphql",
-                    "region": "ap-northeast-2",
-                    "authorizationType": "API_KEY",
-                    "apiKey": "da2-42w2ezdixbcurfkvqdmgfatjja"
                 },
-                "DatingMeetAPI": {
-                    "endpointType": "REST",
-                    "endpoint": "https://api.meet-project.com",
-                    "region": "ap-northeast-2",
-                    "authorizationType": "AMAZON_COGNITO_USER_POOLS"
+                "S3TransferUtility": {
+                    "Default": {
+                        "Bucket": "meet62ba6c48f504412da023a6b393c9529ec1ba5-dev",
+                        "Region": "ap-northeast-2"
+                    }
                 }
             }
         }
@@ -66,9 +79,9 @@ const amplifyconfig = '''{
     "storage": {
         "plugins": {
             "awsS3StoragePlugin": {
-                "bucket": "meet-project",
+                "bucket": "meet62ba6c48f504412da023a6b393c9529ec1ba5-dev",
                 "region": "ap-northeast-2",
-                "defaultAccessLevel": "protected"
+                "defaultAccessLevel": "guest"
             }
         }
     }

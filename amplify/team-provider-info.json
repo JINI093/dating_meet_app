@@ -14,6 +14,18 @@
     "categories": {
       "api": {
         "meet": {}
+      },
+      "auth": {
+        "meetef7f23c6": {}
+      },
+      "function": {
+        "S3Triggerc65558a2": {
+          "deploymentBucketName": "amplify-meet-dev-c1ba5-deployment",
+          "s3Key": "amplify-builds/S3Triggerc65558a2-4865466b5953526a4c49-build.zip"
+        }
+      },
+      "storage": {
+        "s351d9c990": {}
       }
     }
   }

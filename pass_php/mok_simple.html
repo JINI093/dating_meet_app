@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<!-- 개발 URL -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelector("#mok_popup").addEventListener("click", function () {
+            // 간단한 버전의 PHP 파일 호출
+            try {
+                MOBILEOK.process("https://sagilrae.com/mok_std_request_simple.php", "WB", "result");
+            } catch (e) {
+                console.log("MOBILEOK 오류:", e);
+                // 직접 시뮬레이션 호출
+                simulatePass();
+            }
+        });
+    });
+
+    function simulatePass() {
+        setTimeout(function() {
+            var result = {
+                "resultCode": "2000",
+                "resultMsg": "성공",
+                "userName": "테스트사용자",
+                "userPhone": "01012345678",
+                "userBirthday": "19900101"
+            };
+            result(JSON.stringify(result));
+        }, 2000);
+    }
+
+    function result(result) {
+        try {
+            if (typeof result === 'string') {
+                result = JSON.parse(result);
+            }
+            document.querySelector("#result").value = JSON.stringify(result, null, 4);
+            
+            // Flutter WebView로 결과 전송
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(JSON.stringify(result));
+            }
+        } catch (error) {
+            document.querySelector("#result").value = result;
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(result);
+            }
+        }
+    }
+</script>
+<style>
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+    }
+    .container {
+        max-width: 500px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .header {
+        background-color: #FF3B30;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        box-sizing: border-box;
+        resize: vertical;
+        margin-bottom: 15px;
+    }
+    button {
+        width: 100%;
+        background-color: #FF3B30;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #E6342A;
+    }
+</style>
+<title>PASS 본인인증 (간단버전)</title>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        PASS 본인인증 (테스트)
+    </div>
+    <textarea id="result" readonly placeholder="PASS 인증 결과가 여기에 표시됩니다..."></textarea>
+    <button id="mok_popup">본인인증 시작하기</button>
+</div>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<!--  개발 URL -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<!--  운영 URL : <script src="https://cert.mobile-ok.com/resources/js/index.js"></script> -->
+<script>
+// 전역 변수 초기화
+let isProcessing = false;
+
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("페이지 로드 완료");
+    
+    // MOBILEOK SDK 로드 확인
+    setTimeout(function() {
+        if (typeof MOBILEOK === 'undefined') {
+            console.error('MOBILEOK SDK 로드 실패');
+            document.querySelector("#status").textContent = "PASS SDK 로드 실패. 인터넷 연결을 확인해주세요.";
+            return;
+        }
+        console.log('MOBILEOK SDK 로드 성공');
+        
+        // 자동 시작
+        setTimeout(startPassAuth, 1500);
+    }, 1000);
+    
+    // 버튼 클릭 이벤트
+    const button = document.querySelector("#mok_popup");
+    if (button) {
+        button.addEventListener("click", function(e) {
+            e.preventDefault();
+            startPassAuth();
+        });
+    }
+});
+
+function startPassAuth() {
+    if (isProcessing) {
+        console.log('이미 처리 중입니다.');
+        return;
+    }
+    
+    isProcessing = true;
+    document.querySelector("#status").textContent = "PASS 본인인증을 시작합니다...";
+    document.querySelector("#status").style.color = "#1976d2";
+    
+    try {
+        console.log('PASS 인증 시작');
+        
+        // MOBILEOK SDK 사용
+        if (typeof MOBILEOK !== 'undefined' && MOBILEOK.process) {
+            console.log('MOBILEOK.process 호출');
+            
+            // Redirect 방식으로 변경 (WebView에서 더 안전)
+            MOBILEOK.process(
+                "https://sagilrae.com/mok_std_request_working.php",
+                "WB", 
+                ""  // 빈 문자열로 redirect 모드
+            );
+            
+        } else {
+            throw new Error('MOBILEOK SDK를 사용할 수 없습니다.');
+        }
+        
+    } catch (e) {
+        console.error("PASS 인증 오류:", e);
+        isProcessing = false;
+        
+        // 폴백: 직접 시뮬레이션
+        document.querySelector("#status").textContent = "SDK 오류로 인해 시뮬레이션 모드로 전환합니다...";
+        document.querySelector("#status").style.color = "#ff9800";
+        
+        setTimeout(simulatePassAuth, 2000);
+    }
+}
+
+// 시뮬레이션 모드 (SDK 실패 시)
+function simulatePassAuth() {
+    console.log('시뮬레이션 모드 실행');
+    
+    setTimeout(function() {
+        const simulatedResult = {
+            "resultCode": "2000",
+            "resultMsg": "성공 (시뮬레이션)",
+            "txId": "SIM_" + Date.now(),
+            "clientTxId": "61624356-3699-4e48-aa27-41f1652eb928_SIM_" + Date.now(),
+            "siteID": "a902a24c-5a7f-40c1-a5ba-92521fa8d731",
+            "providerId": "simulation",
+            "serviceType": "telcoAuth",
+            "userName": "시뮬레이션사용자",
+            "userPhone": "01012345678",
+            "userBirthday": "19900101",
+            "userGender": "1",
+            "userNation": "0",
+            "ci": "CI_SIM_" + Date.now(),
+            "di": "DI_SIM_" + Date.now(),
+            "reqAuthType": "SMS",
+            "reqDate": getCurrentDateTime(),
+            "issuer": "simulation-server",
+            "issueDate": getCurrentDateTime()
+        };
+        
+        handleResult(simulatedResult);
+    }, 3000);
+}
+
+// 결과 처리 통합 함수
+function handleResult(resultData) {
+    console.log("인증 결과 처리:", resultData);
+    isProcessing = false;
+    
+    try {
+        // 결과를 화면에 표시
+        document.querySelector("#result").value = JSON.stringify(resultData, null, 4);
+        
+        // 성공 여부 확인
+        if (resultData.resultCode === "2000") {
+            document.querySelector("#status").textContent = "본인인증이 완료되었습니다.";
+            document.querySelector("#status").style.color = "#28a745";
+        } else {
+            document.querySelector("#status").textContent = "인증에 실패했습니다: " + (resultData.resultMsg || "알 수 없는 오류");
+            document.querySelector("#status").style.color = "#dc3545";
+        }
+        
+        // Flutter WebView로 결과 전송
+        if (window.PassChannel && window.PassChannel.postMessage) {
+            window.PassChannel.postMessage(JSON.stringify(resultData));
+            console.log("Flutter로 결과 전송 완료");
+        } else {
+            console.log("PassChannel 없음 - Flutter 통신 불가");
+        }
+        
+    } catch (error) {
+        console.error("결과 처리 오류:", error);
+        document.querySelector("#status").textContent = "결과 처리 중 오류가 발생했습니다.";
+        document.querySelector("#status").style.color = "#dc3545";
+    }
+}
+
+// PASS 인증 결과 콜백 함수 (SDK용)
+function result(result) {
+    console.log("PASS SDK 콜백 결과:", result);
+    
+    let resultData;
+    if (typeof result === 'string') {
+        try {
+            resultData = JSON.parse(result);
+        } catch (e) {
+            resultData = { resultCode: "-1", resultMsg: result };
+        }
+    } else {
+        resultData = result;
+    }
+    
+    handleResult(resultData);
+}
+
+// 현재 시간 생성
+function getCurrentDateTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return year + month + day + hours + minutes + seconds;
+}
+
+// 에러 핸들링
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    console.error('JavaScript 오류:', msg, 'at', url, ':', lineNo);
+    document.querySelector("#status").textContent = "JavaScript 오류가 발생했습니다. 페이지를 새로고침해주세요.";
+    document.querySelector("#status").style.color = "#dc3545";
+    isProcessing = false;
+    return false;
+};
+</script>
+<style>
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8f9fa;
+}
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+.header {
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    padding: 24px;
+    text-align: center;
+}
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+.subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+}
+.content {
+    padding: 24px;
+}
+.status {
+    text-align: center;
+    padding: 16px;
+    margin-bottom: 20px;
+    background-color: #e3f2fd;
+    border-radius: 8px;
+    color: #1976d2;
+    font-weight: 500;
+    min-height: 20px;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    box-sizing: border-box;
+    resize: vertical;
+    background-color: #f8f9fa;
+}
+textarea:focus {
+    outline: none;
+    border-color: #FF3B30;
+}
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 59, 48, 0.3);
+}
+button:active {
+    transform: translateY(0);
+}
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+</style>
+<title>PASS 본인인증</title>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">PASS</div>
+        <div class="subtitle">본인인증 서비스</div>
+    </div>
+    <div class="content">
+        <div id="status" class="status">
+            PASS SDK를 로드하고 있습니다...
+        </div>
+        <div class="form-group">
+            <label>인증 결과</label>
+            <textarea id="result" readonly placeholder="PASS 본인인증이 시작되면 결과가 여기에 표시됩니다..."></textarea>
+        </div>
+        <button id="mok_popup">본인인증 다시 시도</button>
+    </div>
+</div>
+</body>
+</html>

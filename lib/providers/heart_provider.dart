@@ -108,6 +108,37 @@ class HeartNotifier extends StateNotifier<HeartState> {
     }
   }
 
+  /// 하트 추가 (인앱결제나 보상으로)
+  Future<bool> addHearts(int amount, {String? description}) async {
+    try {
+      Logger.log('하트 추가 요청: +$amount개', name: 'HeartProvider');
+      
+      final success = await _heartService.addHearts(amount, description: description);
+      
+      if (success) {
+        // 현재 하트 수와 거래 내역 업데이트
+        final newHearts = await _heartService.getCurrentHearts();
+        final newTransactions = await _heartService.getHeartTransactions();
+        
+        state = state.copyWith(
+          currentHearts: newHearts,
+          transactions: newTransactions,
+          error: null,
+        );
+        
+        Logger.log('✅ 하트 추가 성공: +$amount개 (총: $newHearts개)', name: 'HeartProvider');
+        return true;
+      } else {
+        state = state.copyWith(error: '하트 추가에 실패했습니다.');
+        return false;
+      }
+    } catch (e) {
+      Logger.error('하트 추가 오류: $e', name: 'HeartProvider');
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
   /// 하트 사용
   Future<bool> spendHearts(int amount, {String? description}) async {
     try {

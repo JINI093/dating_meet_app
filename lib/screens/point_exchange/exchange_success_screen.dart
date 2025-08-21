@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import '../../routes/route_names.dart';
+import '../../utils/navigation_utils.dart';
 
 class ExchangeSuccessScreen extends StatelessWidget {
-  const ExchangeSuccessScreen({Key? key}) : super(key: key);
+  const ExchangeSuccessScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +16,7 @@ class ExchangeSuccessScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => NavigationUtils.safePopOrHome(context),
         ),
         title: const Text(
           '포인트 전환',

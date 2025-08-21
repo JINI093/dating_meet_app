@@ -9,7 +9,6 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/enhanced_login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
-import '../screens/auth/account_recovery_screen.dart';
 import '../screens/auth/find_id_screen.dart';
 import '../screens/auth/terms_screen.dart';
 import '../screens/auth/phone_verification_screen.dart';
@@ -17,6 +16,7 @@ import '../screens/auth/signup_complete_screen.dart';
 import '../screens/auth/signup_id_input_screen.dart';
 import '../screens/auth/signup_password_input_screen.dart';
 import '../screens/auth/signup_complete_info_screen.dart';
+import '../screens/auth/java_pass_auth_screen.dart';
 import '../screens/onboarding/onboarding_tutorial_screen.dart';
 import '../screens/onboarding/profile_setup_screen.dart';
 import '../screens/bottom_navigation/bottom_navigation_screen.dart';
@@ -77,19 +77,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>?;
           return SignupScreen(
             mobileOKVerification: extra?['mobileOKVerification'],
-            additionalData: extra?['additionalData'],
+            additionalData: extra,
           );
         },
       ),
       GoRoute(
         path: RouteNames.forgotPassword,
         name: 'forgotPassword',
-        builder: (context, state) => const AccountRecoveryScreen(),
+        builder: (context, state) => const FindIdScreen(),
       ),
       GoRoute(
         path: RouteNames.accountRecovery,
         name: 'accountRecovery',
-        builder: (context, state) => const AccountRecoveryScreen(),
+        builder: (context, state) => const FindIdScreen(),
       ),
       GoRoute(
         path: RouteNames.findId,
@@ -110,8 +110,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.phoneVerification,
         name: 'phoneVerification',
         builder: (context, state) {
-          final phoneNumber = state.extra as String?;
-          return PhoneVerificationScreen(phoneNumber: phoneNumber);
+          final extra = state.extra as Map<String, dynamic>?;
+          return PhoneVerificationScreen(agreedTerms: extra);
         },
       ),
       GoRoute(
@@ -149,6 +149,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final signupData = state.extra as Map<String, dynamic>?;
           return SignupCompleteInfoScreen(signupData: signupData);
+        },
+      ),
+      GoRoute(
+        path: RouteNames.javaPassAuth,
+        name: 'javaPassAuth',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return JavaPassAuthScreen(
+            purpose: extra?['purpose'] ?? '회원가입',
+            additionalData: extra,
+          );
         },
       ),
 
@@ -361,7 +372,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           print('🎫 TicketShop 라우트 호출됨: ${RouteNames.ticketShop}');
           try {
-            return const TicketShopScreen(initialTabIndex: 0);
+            // 쿼리 파라미터에서 탭 인덱스 가져오기
+            final tabParam = state.uri.queryParameters['tab'];
+            final initialTabIndex = tabParam != null ? int.tryParse(tabParam) ?? 0 : 0;
+            
+            print('Tab 파라미터: $tabParam, 초기 탭 인덱스: $initialTabIndex');
+            
+            return TicketShopScreen(initialTabIndex: initialTabIndex);
           } catch (e) {
             print('❌ TicketShopScreen 생성 오류: $e');
             return Scaffold(
@@ -600,14 +617,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     errorBuilder: (context, state) => const NotFoundScreen(),
     redirect: (context, state) {
-      // Admin authentication redirect
-      if (state.matchedLocation.startsWith('/admin')) {
-        // TODO: Check admin authentication status
-        // For now, allow access to admin routes
-      }
-      
-      // TODO: 인증 상태에 따른 리다이렉트 로직 구현
-      // 현재는 모든 라우트를 허용
+      // 관리자 페이지 인증 제거됨 - 모든 라우트 접근 허용
       return null;
     },
   );
@@ -620,8 +630,8 @@ extension AppRouterExtension on GoRouter {
   void goToLogin() => go(RouteNames.login);
   void goToSignup() => go(RouteNames.signup);
   void goToTerms() => go(RouteNames.terms);
-  void goToPhoneVerification(String phoneNumber) {
-    go(RouteNames.phoneVerification, extra: phoneNumber);
+  void goToPhoneVerification(Map<String, dynamic>? agreedTerms) {
+    go(RouteNames.phoneVerification, extra: agreedTerms);
   }
   void goToSignupComplete() => go(RouteNames.signupComplete);
 

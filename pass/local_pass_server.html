@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PASS 본인인증 - 시뮬레이션</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin: 0;
+        }
+        .header p {
+            color: #666;
+            margin: 8px 0 0 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .button {
+            width: 100%;
+            padding: 14px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .button:hover {
+            background-color: #0056CC;
+        }
+        .button.secondary {
+            background-color: #6C757D;
+        }
+        .button.secondary:hover {
+            background-color: #545B62;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background-color: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+        .result.error {
+            background-color: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>PASS 본인인증</h1>
+            <p>시뮬레이션 모드</p>
+        </div>
+
+        <form id="passForm">
+            <div class="form-group">
+                <label for="telecom">통신사 선택</label>
+                <select id="telecom" required>
+                    <option value="">통신사를 선택하세요</option>
+                    <option value="SKT">SK telecom</option>
+                    <option value="KT">KT</option>
+                    <option value="LGU">LG U+</option>
+                    <option value="MVNO">알뜰폰</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">휴대폰 번호</label>
+                <input type="tel" id="phone" placeholder="01012345678" required>
+            </div>
+
+            <div class="form-group">
+                <label for="name">이름</label>
+                <input type="text" id="name" placeholder="홍길동" required>
+            </div>
+
+            <div class="form-group">
+                <label for="birth">생년월일</label>
+                <input type="text" id="birth" placeholder="19900101" required>
+            </div>
+
+            <div class="form-group">
+                <label for="gender">성별</label>
+                <select id="gender" required>
+                    <option value="">성별을 선택하세요</option>
+                    <option value="M">남성</option>
+                    <option value="F">여성</option>
+                </select>
+            </div>
+
+            <button type="submit" class="button">본인인증 시작</button>
+            <button type="button" class="button secondary" onclick="cancelAuth()">취소</button>
+        </form>
+
+        <div id="loading" class="loading">
+            <p>본인인증 처리 중...</p>
+        </div>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // Flutter WebView와의 통신을 위한 함수
+        function sendResultToFlutter(result) {
+            if (window.PassChannel) {
+                // Flutter WebView (기존 PASS 서비스)
+                window.PassChannel.postMessage(JSON.stringify(result));
+            } else if (window.Flutter) {
+                // Flutter WebView (Java PASS 서비스)
+                window.Flutter.postMessage(JSON.stringify(result));
+            } else if (window.flutter_inappwebview) {
+                // Flutter InAppWebView
+                window.flutter_inappwebview.callHandler('onPassResult', result);
+            } else if (window.ReactNativeWebView) {
+                // React Native WebView
+                window.ReactNativeWebView.postMessage(JSON.stringify(result));
+            } else {
+                // 일반적인 PostMessage
+                window.parent.postMessage(result, '*');
+            }
+        }
+
+        function cancelAuth() {
+            const result = {
+                success: false,
+                error: '사용자가 인증을 취소했습니다.',
+                method: 'simulation_cancel'
+            };
+            sendResultToFlutter(result);
+        }
+
+        document.getElementById('passForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // 시뮬레이션을 위한 지연
+            setTimeout(() => {
+                const telecom = document.getElementById('telecom').value;
+                const phone = document.getElementById('phone').value;
+                const name = document.getElementById('name').value;
+                const birth = document.getElementById('birth').value;
+                const gender = document.getElementById('gender').value;
+                
+                // 성공 결과 생성
+                const successResult = {
+                    success: true,
+                    resultCode: '0000',
+                    resultMsg: '성공',
+                    userName: name,
+                    userPhone: phone,
+                    userBirthday: birth,
+                    userGender: gender,
+                    telecom: telecom,
+                    ci: 'simulated_ci_' + Date.now(),
+                    di: 'simulated_di_' + Date.now(),
+                    txId: 'simulated_tx_' + Date.now(),
+                    clientTxId: 'DATING_APP_' + Date.now(),
+                    method: 'local_simulation'
+                };
+                
+                loading.style.display = 'none';
+                
+                // 결과를 Flutter로 전송
+                sendResultToFlutter(successResult);
+                
+                // 결과 표시
+                result.className = 'result success';
+                result.innerHTML = `
+                    <h3>✅ 본인인증 성공</h3>
+                    <p><strong>이름:</strong> ${name}</p>
+                    <p><strong>휴대폰:</strong> ${phone}</p>
+                    <p><strong>생년월일:</strong> ${birth}</p>
+                    <p><strong>성별:</strong> ${gender === 'M' ? '남성' : '여성'}</p>
+                    <p><strong>통신사:</strong> ${telecom}</p>
+                `;
+                result.style.display = 'block';
+                
+            }, 2000); // 2초 지연으로 실제 인증 과정 시뮬레이션
+        });
+
+        // 페이지 로드 시 Flutter에 준비 완료 신호 전송
+        window.addEventListener('load', function() {
+            sendResultToFlutter({
+                success: true,
+                status: 'ready',
+                method: 'local_simulation'
+            });
+        });
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../providers/points_provider.dart';
-import 'purchase_screen.dart';
+import '../../providers/purchase_provider.dart';
 
 class PointShopScreen extends ConsumerStatefulWidget {
   const PointShopScreen({super.key});
@@ -536,8 +536,8 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       context.pop(); // 다이얼로그만 닫기
-                      // 결제 화면으로 이동
-                      _goToPurchaseScreen(points, bonusPoints, price);
+                      // 인앱결제로 바로 연결
+                      _purchasePointsWithInApp(points, bonusPoints, price);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -563,17 +563,200 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
     );
   }
 
-  void _goToPurchaseScreen(int points, int bonusPoints, int price) {
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        builder: (context) => PurchaseScreen(
-          points: points,
-          bonusPoints: bonusPoints,
-          price: price,
+  /// 인앱결제로 포인트 구매
+  Future<void> _purchasePointsWithInApp(int points, int bonusPoints, int price) async {
+    // 인앱결제용 제품 ID 생성 (포인트 수량 기준으로)
+    String productId;
+    if (points <= 100) {
+      productId = 'dating_points_100';
+    } else if (points <= 500) {
+      productId = 'dating_points_500'; 
+    } else if (points <= 1000) {
+      productId = 'dating_points_1000';
+    } else if (points <= 3000) {
+      productId = 'dating_points_3000';
+    } else {
+      productId = 'dating_points_5000';
+    }
+
+    try {
+      // 로딩 다이얼로그 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 20),
+              Text('결제 처리 중...', style: AppTextStyles.bodyMedium),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+
+      // PurchaseProvider를 통해 인앱결제 시작
+      final success = await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
+      
+      // 로딩 다이얼로그 닫기
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (success) {
+        // 구매 성공 - PurchaseProvider에서 자동으로 포인트가 추가됨
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '구매 완료!',
+                    style: AppTextStyles.h6.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${points + bonusPoints}P가 추가되었습니다.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textWhite,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
+                        ),
+                      ),
+                      child: Text(
+                        '확인',
+                        style: AppTextStyles.buttonMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      } else {
+        // 구매 실패
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error,
+                    color: Colors.red,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '구매 실패',
+                    style: AppTextStyles.h6.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '결제를 완료할 수 없습니다.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('확인'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // 오류 처리
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error,
+                  color: Colors.red,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '오류 발생',
+                  style: AppTextStyles.h6.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '결제 처리 중 오류가 발생했습니다.\n$e',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('확인'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
   }
 
 }

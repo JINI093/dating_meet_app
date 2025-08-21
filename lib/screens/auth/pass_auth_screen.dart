@@ -6,6 +6,7 @@ import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../routes/route_names.dart';
+import '../../services/pass_verification_service.dart';
 
 class PassAuthScreen extends ConsumerStatefulWidget {
   final String purpose;
@@ -100,23 +101,38 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
     return true;
   }
 
-  void _startPassAuth() {
+  void _startPassAuth() async {
     if (!_canProceed()) {
       _showErrorDialog('통신사를 선택하고 필수 약관에 동의해주세요.');
       return;
     }
 
-    // PASS 인증 시작
-    _showLoadingDialog();
-    
-    // 실제 PASS 인증 로직
-    // TODO: PASS SDK 연동
-    
-    // 시뮬레이션
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      _showLoadingDialog();
+      
+      // 웹뷰 기반 PASS 인증 시작
+      final passService = PassVerificationService();
+      await passService.initialize();
+      
       Navigator.of(context).pop(); // 로딩 닫기
-      _handleAuthSuccess();
-    });
+      
+      // 실제 기기에서는 PASS 앱 직접 호출, 개발환경에서는 시뮬레이션
+      final result = await passService.startDirectPassVerification(
+        context: context,
+        purpose: widget.purpose,
+        additionalParams: widget.additionalData,
+      );
+
+      if (result.success) {
+        _handleAuthSuccess(result);
+      } else {
+        _showAuthFailureDialog(result.error ?? '인증에 실패했습니다.');
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      print('PASS 인증 오류: $e');
+      _showAuthFailureDialog('인증 중 오류가 발생했습니다. 다시 시도하거나 건너뛸 수 있습니다.');
+    }
   }
 
   void _startSmsAuth() {
@@ -136,15 +152,18 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
     );
   }
 
-  void _handleAuthSuccess() {
+  void _handleAuthSuccess(PassVerificationResult passResult) {
     // 인증 성공 처리
     final result = {
       'success': true,
       'telecom': _selectedTelecom,
-      'name': '홍길동', // 실제 인증 결과
-      'phone': '01012345678',
-      'birthDate': '19900101',
-      'gender': 'M',
+      'name': passResult.name, // 실제 인증 결과
+      'phone': passResult.phoneNumber,
+      'birthDate': passResult.birthDate,
+      'gender': passResult.gender,
+      'ci': passResult.ci,
+      'di': passResult.di,
+      'txId': passResult.txId,
     };
 
     // 다음 화면으로 이동
@@ -171,6 +190,74 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showAuthFailureDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('PASS 인증 실패'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message),
+            const SizedBox(height: 16),
+            const Text(
+              'PASS 인증 없이도 회원가입을 진행할 수 있습니다.\n단, 일부 기능 이용에 제한이 있을 수 있습니다.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startPassAuth(); // 다시 시도
+            },
+            child: const Text('다시 시도'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _proceedWithoutPass(); // PASS 인증 없이 진행
+            },
+            child: const Text(
+              '건너뛰기',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _proceedWithoutPass() {
+    // PASS 인증 없이 회원가입 진행
+    final result = {
+      'success': false, // PASS 인증은 실패
+      'skipAuth': true, // 인증을 건너뛴다는 플래그
+      'telecom': _selectedTelecom,
+      'message': 'PASS 인증을 건너뛰었습니다',
+    };
+
+    // 프로필 설정으로 이동 (PASS 데이터 없이)
+    context.pushReplacement(
+      RouteNames.profileSetup,
+      extra: {
+        'passAuth': result,
+        'purpose': widget.purpose,
+        'skipPassAuth': true, // 인증을 건너뛰었음을 표시
+        ...?widget.additionalData,
+      },
     );
   }
 
@@ -394,6 +481,14 @@ class _PassAuthScreenState extends ConsumerState<PassAuthScreen> {
                   text: '문자(SMS)로 인증하기',
                   onPressed: _canProceed() ? _startSmsAuth : null,
                   style: CustomButtonStyle.outline,
+                  size: CustomButtonSize.large,
+                  width: double.infinity,
+                ),
+                const SizedBox(height: 12),
+                CustomButton(
+                  text: '인증 없이 회원가입 계속하기',
+                  onPressed: _canProceed() ? _proceedWithoutPass : null,
+                  style: CustomButtonStyle.text,
                   size: CustomButtonSize.large,
                   width: double.infinity,
                 ),

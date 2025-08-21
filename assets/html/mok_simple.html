@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PASS 본인인증 시뮬레이션</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .btn-pass {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FF3B30 0%, #FF6B6B 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        .btn-pass:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(255, 59, 48, 0.3);
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>PASS 본인인증 (시뮬레이션)</h2>
+        
+        <div class="info">
+            개발 환경에서는 시뮬레이션 모드로 동작합니다.
+        </div>
+        
+        <form id="passForm">
+            <div class="form-group">
+                <label for="name">이름</label>
+                <input type="text" id="name" name="name" value="홍길동" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">휴대폰 번호</label>
+                <input type="tel" id="phone" name="phone" value="01012345678" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="birthdate">생년월일</label>
+                <input type="text" id="birthdate" name="birthdate" value="19900101" placeholder="YYYYMMDD" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="gender">성별</label>
+                <select id="gender" name="gender" required>
+                    <option value="M">남성</option>
+                    <option value="F">여성</option>
+                </select>
+            </div>
+            
+            <button type="button" class="btn-pass" onclick="simulatePassAuth()">본인인증 완료</button>
+        </form>
+    </div>
+
+    <script>
+        function simulatePassAuth() {
+            // 폼 데이터 수집
+            const formData = {
+                resultCode: "2000",
+                resultMsg: "성공",
+                userName: document.getElementById('name').value,
+                userPhone: document.getElementById('phone').value,
+                userBirthday: document.getElementById('birthdate').value,
+                userGender: document.getElementById('gender').value,
+                ci: 'SIMULATED_CI_' + Date.now(),
+                di: 'SIMULATED_DI_' + Date.now(),
+                txId: 'SIMULATED_TX_' + Date.now(),
+                issueDate: new Date().toISOString()
+            };
+            
+            // Flutter WebView로 결과 전송
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(JSON.stringify(formData));
+                
+                // 성공 메시지 표시
+                alert('본인인증이 완료되었습니다.');
+            } else {
+                // 일반 브라우저에서는 콘솔에 출력
+                console.log('PASS 인증 결과:', formData);
+                alert('Flutter WebView가 아닙니다. 콘솔을 확인하세요.');
+            }
+        }
+        
+        // Enter 키 처리
+        document.getElementById('passForm').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                simulatePassAuth();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -34,6 +34,7 @@ class AdminDataTable extends StatelessWidget {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.inbox_outlined,
@@ -53,36 +54,51 @@ class AdminDataTable extends StatelessWidget {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AdminTheme.borderColor),
-        borderRadius: BorderRadius.circular(AdminTheme.radiusM),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: columns,
-          rows: rows,
-          sortColumnIndex: sortColumnIndex,
-          sortAscending: sortAscending,
-          onSelectAll: onSelectAll,
-          showCheckboxColumn: onSelectAll != null,
-          horizontalMargin: AdminTheme.spacingM,
-          columnSpacing: AdminTheme.spacingM,
-          headingRowColor: WidgetStateProperty.all(
-            AdminTheme.primaryColor.withValues(alpha: 0.05),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AdminTheme.borderColor),
+            borderRadius: BorderRadius.circular(AdminTheme.radiusM),
           ),
-          headingTextStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AdminTheme.radiusM - 1),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                ),
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    columns: columns,
+                    rows: rows,
+                    sortColumnIndex: sortColumnIndex,
+                    sortAscending: sortAscending,
+                    onSelectAll: onSelectAll,
+                    showCheckboxColumn: onSelectAll != null,
+                    horizontalMargin: AdminTheme.spacingM,
+                    columnSpacing: AdminTheme.spacingM,
+                    headingRowColor: WidgetStateProperty.all(
+                      AdminTheme.primaryColor.withValues(alpha: 0.05),
+                    ),
+                    headingTextStyle: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    dataTextStyle: const TextStyle(
+                      fontSize: 14,
+                    ),
+                    headingRowHeight: 56,
+                    dataRowMinHeight: 48,
+                    dataRowMaxHeight: 72,
+                  ),
+                ),
+              ),
+            ),
           ),
-          dataTextStyle: const TextStyle(
-            fontSize: 14,
-          ),
-          headingRowHeight: 48,
-          dataRowMinHeight: 56,
-        ),
-      ),
+        );
+      },
     );
   }
 }

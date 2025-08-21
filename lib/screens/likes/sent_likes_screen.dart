@@ -6,7 +6,9 @@ import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
 import '../../models/like_model.dart';
 import '../../widgets/sheets/super_chat_bottom_sheet.dart';
+import '../../widgets/sheets/sent_action_bottom_sheet.dart';
 import '../../providers/likes_provider.dart';
+import '../profile/other_profile_screen.dart';
 
 class SentLikesScreen extends ConsumerStatefulWidget {
   const SentLikesScreen({super.key});
@@ -305,7 +307,7 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
           if (isSuperChat) {
             _showSuperChatDetails(like);
           } else {
-            // TODO: Show super chat bottom sheet
+            _showProfileUnlockBottomSheet(like);
           }
         },
         borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
@@ -541,5 +543,31 @@ class _SentLikesScreenState extends ConsumerState<SentLikesScreen>
         ),
       ),
     );
+  }
+  
+  void _showProfileUnlockBottomSheet(LikeModel like) {
+    // 프로필이 이미 해제되었는지 확인
+    final isUnlocked = ref.read(likesProvider.notifier).isProfileUnlocked(like.toProfileId);
+    
+    if (isUnlocked && like.profile != null) {
+      // 이미 해제된 프로필은 바로 상세 프로필 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherProfileScreen(
+            profile: like.profile!,
+            isLocked: false,
+          ),
+        ),
+      );
+    } else {
+      // 해제되지 않은 프로필은 바텀시트 표시
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => SentActionBottomSheet(like: like),
+      );
+    }
   }
 }

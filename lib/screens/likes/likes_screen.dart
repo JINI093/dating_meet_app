@@ -1,19 +1,15 @@
-import 'package:dating_app_40s/screens/likes/sent_likes_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
 
 import '../../utils/app_colors.dart';
-import '../../utils/app_text_styles.dart';
-import '../../utils/app_dimensions.dart';
 import '../../models/like_model.dart';
 import '../../widgets/sheets/received_superchat_bottom_sheet.dart';
 import '../../widgets/sheets/sent_action_bottom_sheet.dart';
+import '../../widgets/sheets/received_action_bottom_sheet.dart';
 import '../../providers/likes_provider.dart';
-import '../../providers/superchat_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
-import 'received_likes_screen.dart';
 import '../profile/other_profile_screen.dart';
 
 class LikesScreen extends ConsumerStatefulWidget {
@@ -412,7 +408,9 @@ class _LikeTab extends ConsumerWidget {
         return _LikeCard(
           like: items[index],
           shouldBlur: shouldBlur,
-          onTap: shouldBlur ? null : () => _showSentActionBottomSheet(context, items[index], ref),
+          onTap: isReceived 
+            ? () => _showReceivedActionBottomSheet(context, items[index], ref)
+            : () => _showSentActionBottomSheet(context, items[index], ref),
         );
       },
     );
@@ -440,6 +438,32 @@ class _LikeTab extends ConsumerWidget {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) => SentActionBottomSheet(like: like),
+      );
+    }
+  }
+  
+  void _showReceivedActionBottomSheet(BuildContext context, LikeModel like, WidgetRef ref) {
+    // 프로필이 이미 해제되었는지 확인
+    final isUnlocked = ref.read(likesProvider.notifier).isProfileUnlocked(like.fromUserId);
+    
+    if (isUnlocked && like.profile != null) {
+      // 이미 해제된 프로필은 바로 상세 프로필 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherProfileScreen(
+            profile: like.profile!,
+            isLocked: false,
+          ),
+        ),
+      );
+    } else {
+      // 해제되지 않은 프로필은 바텀시트 표시
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ReceivedActionBottomSheet(like: like),
       );
     }
   }

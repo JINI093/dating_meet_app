@@ -276,12 +276,6 @@ class _EnhancedSignupScreenState extends ConsumerState<EnhancedSignupScreen> {
             onChanged: (v) => setState(() => _terms['privacy'] = v ?? false),
             title: const Text('[필수] 개인정보 처리방침 동의'),
           ),
-          CheckboxListTile(
-            value: _terms['marketing'],
-            onChanged: (v) => setState(() => _terms['marketing'] = v ?? false),
-            title: const Text('[선택] 마케팅 정보 수신 동의'),
-          ),
-          const SizedBox(height: 32),
           CustomButton(
             text: '다음',
             onPressed: _terms['service']! && _terms['privacy']!

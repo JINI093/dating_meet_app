@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
+import '../../services/location_service.dart';
 
 class DistanceFilterSheet extends StatefulWidget {
-  final String selectedDistance;
+  final double? currentDistance;
 
   const DistanceFilterSheet({
     super.key,
-    required this.selectedDistance,
+    this.currentDistance,
   });
 
   @override
@@ -18,65 +20,89 @@ class DistanceFilterSheet extends StatefulWidget {
 }
 
 class _DistanceFilterSheetState extends State<DistanceFilterSheet> {
-  late String _selectedDistance;
-  double _currentSliderValue = 5.0;
-
-  final List<String> _presetDistances = [
-    '범위',
-    '전체',
-    '1km 내',
-    '3km 내',
-    '5km 내',
-    '10km 내',
-    '20km 내',
-    '50km 내',
-  ];
+  double _currentDistance = 15.0; // 기본값 15km
+  bool _isLocationEnabled = false;
+  bool _isCheckingLocation = false;
+  Position? _userPosition;
 
   @override
   void initState() {
     super.initState();
-    _selectedDistance = widget.selectedDistance;
-    _currentSliderValue = _getSliderValueFromDistance(_selectedDistance);
+    if (widget.currentDistance != null) {
+      _currentDistance = widget.currentDistance!;
+    }
+    _checkLocationStatus();
   }
 
-  double _getSliderValueFromDistance(String distance) {
-    switch (distance) {
-      case '1km 내':
-        return 1.0;
-      case '3km 내':
-        return 3.0;
-      case '5km 내':
-        return 5.0;
-      case '10km 내':
-        return 10.0;
-      case '20km 내':
-        return 20.0;
-      case '50km 내':
-        return 50.0;
-      case '범위':
-        return 5.0;
-      default:
-        return 5.0;
+  Future<void> _checkLocationStatus() async {
+    setState(() {
+      _isCheckingLocation = true;
+    });
+
+    try {
+      final locationService = LocationService();
+      final position = await locationService.getCurrentLocation();
+      
+      setState(() {
+        _userPosition = position;
+        _isLocationEnabled = true;
+        _isCheckingLocation = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLocationEnabled = false;
+        _isCheckingLocation = false;
+      });
     }
   }
 
-  String _getDistanceFromSliderValue(double value) {
-    if (value <= 1) return '1km 내';
-    if (value <= 3) return '3km 내';
-    if (value <= 5) return '5km 내';
-    if (value <= 10) return '10km 내';
-    if (value <= 20) return '20km 내';
-    if (value <= 50) return '50km 내';
-    return '50km 내';
+  Future<void> _enableLocation() async {
+    setState(() {
+      _isCheckingLocation = true;
+    });
+
+    try {
+      final locationService = LocationService();
+      final position = await locationService.getCurrentLocation();
+      
+      setState(() {
+        _userPosition = position;
+        _isLocationEnabled = true;
+        _isCheckingLocation = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('위치 설정이 완료되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLocationEnabled = false;
+        _isCheckingLocation = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('위치 설정에 실패했습니다: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppDimensions.bottomSheetRadius),
+          top: Radius.circular(20),
         ),
       ),
       child: Column(
@@ -84,26 +110,26 @@ class _DistanceFilterSheetState extends State<DistanceFilterSheet> {
         children: [
           // Handle
           Container(
-            margin: const EdgeInsets.only(top: AppDimensions.spacing12),
-            width: AppDimensions.bottomSheetHandleWidth,
-            height: AppDimensions.bottomSheetHandleHeight,
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color: AppColors.divider,
-              borderRadius: BorderRadius.circular(
-                AppDimensions.bottomSheetHandleHeight / 2,
-              ),
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
           
           // Header
           Container(
-            padding: const EdgeInsets.all(AppDimensions.bottomSheetPadding),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Text(
-                  '거리 선택',
-                  style: AppTextStyles.h5.copyWith(
+                const Text(
+                  '내 주변 거리 설정',
+                  style: TextStyle(
+                    fontSize: 18,
                     fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
                 const Spacer(),
@@ -111,121 +137,119 @@ class _DistanceFilterSheetState extends State<DistanceFilterSheet> {
                   onTap: () => Navigator.pop(context),
                   child: const Icon(
                     CupertinoIcons.xmark,
-                    color: AppColors.textSecondary,
-                    size: AppDimensions.iconM,
+                    color: Colors.grey,
+                    size: 24,
                   ),
                 ),
               ],
             ),
           ),
           
-          // Distance Slider
+          // Distance Display and Slider
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.bottomSheetPadding,
-              vertical: AppDimensions.spacing16,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Distance Display
                 Text(
-                  '최대 거리: ${_getDistanceFromSliderValue(_currentSliderValue)}',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
+                  '${_currentDistance.round()}km',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
                   ),
                 ),
-                const SizedBox(height: AppDimensions.spacing16),
+                
+                const SizedBox(height: 30),
+                
+                // Slider
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: AppColors.primary,
-                    inactiveTrackColor: AppColors.divider,
-                    thumbColor: AppColors.primary,
+                    activeTrackColor: const Color(0xFFE91E63),
+                    inactiveTrackColor: Colors.grey[300],
+                    thumbColor: const Color(0xFFE91E63),
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                    overlayColor: AppColors.primary.withValues(alpha: 0.1),
+                    overlayColor: const Color(0xFFE91E63).withValues(alpha: 0.1),
                     trackHeight: 6,
                   ),
                   child: Slider(
-                    value: _currentSliderValue,
+                    value: _currentDistance,
                     min: 1,
-                    max: 50,
-                    divisions: 5,
+                    max: 100,
                     onChanged: (value) {
                       setState(() {
-                        _currentSliderValue = value;
-                        _selectedDistance = _getDistanceFromSliderValue(value);
+                        _currentDistance = value;
                       });
                     },
                   ),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '1km',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.textHint,
+                
+                const SizedBox(height: 30),
+                
+                // Location Status
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    children: [
+                      if (_isCheckingLocation)
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFE91E63),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '위치 확인 중...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFFE91E63),
+                              ),
+                            ),
+                          ],
+                        )
+                      else if (_isLocationEnabled)
+                        const Text(
+                          '설정 내 GPS 입력을 확인해주세요.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFE91E63),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      else
+                        GestureDetector(
+                          onTap: _enableLocation,
+                          child: const Text(
+                            '설정 내 GPS 입력을 확인해주세요.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFE91E63),
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      Text(
+                        _isLocationEnabled
+                            ? '범위 내 프로필이 없을 시 거리 범위를 자동으로 조정합니다.'
+                            : '범위 내 프로필이 없을 시 거리 범위를 자동으로 조정합니다.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    Text(
-                      '50km',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          // Preset Options
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.bottomSheetPadding,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '빠른 선택',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w600,
+                    ],
                   ),
-                ),
-                const SizedBox(height: AppDimensions.spacing12),
-                Wrap(
-                  spacing: AppDimensions.spacing8,
-                  runSpacing: AppDimensions.spacing8,
-                  children: _presetDistances.map((distance) {
-                    final isSelected = distance == _selectedDistance;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedDistance = distance;
-                          _currentSliderValue = _getSliderValueFromDistance(distance);
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.spacing12,
-                          vertical: AppDimensions.spacing8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.background,
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusM),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                          ),
-                        ),
-                        child: Text(
-                          distance,
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: isSelected ? AppColors.textWhite : AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
                 ),
               ],
             ),
@@ -234,23 +258,31 @@ class _DistanceFilterSheetState extends State<DistanceFilterSheet> {
           // Apply Button
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(AppDimensions.bottomSheetPadding),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, _selectedDistance);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.textWhite,
-                minimumSize: const Size(double.infinity, AppDimensions.buttonHeightL),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, {
+                    'distance': _currentDistance,
+                    'position': _userPosition,
+                    'isLocationEnabled': _isLocationEnabled,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2D2D2D),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              child: Text(
-                '적용하기',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
+                child: const Text(
+                  '설정',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

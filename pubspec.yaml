@@ -40,6 +40,7 @@ dependencies:
 
   # 이미지 & 미디어
   image_picker: ^1.0.4
+  file_picker: ^8.1.2
   cached_network_image: ^3.3.1
   photo_view: ^0.15.0
   flutter_image_compress: ^2.3.0
@@ -50,6 +51,11 @@ dependencies:
   data_table_2: ^2.5.15
   csv: ^6.0.0
   excel: ^4.0.6
+  
+  # AWS 서비스 (Amplify를 통해 사용)
+  # aws_dynamodb_api: ^5.2.0
+  # aws_cognito_identity_provider_api: ^5.2.0
+  # aws_client_api: ^5.2.0
 
   # 소셜 로그인 (최신 안정 버전)
   google_sign_in: ^6.1.5
@@ -71,6 +77,9 @@ dependencies:
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   permission_handler: ^12.0.1
+  
+  # 연락처 액세스
+  flutter_contacts: ^1.1.9
 
   # 푸시 알림 (Firebase)
   firebase_core: ^3.3.0
@@ -79,6 +88,8 @@ dependencies:
 
   # 인앱 결제
   in_app_purchase: ^3.2.0
+  in_app_purchase_android: ^0.3.6+1
+  in_app_purchase_storekit: ^0.3.15+1
 
   # 채팅 & 소켓
   socket_io_client: ^3.1.2
@@ -97,6 +108,7 @@ dependencies:
   flutter_animate: ^4.5.0
   lottie: ^3.1.2
   card_swiper: ^3.0.1
+  
 
   # 보안 & 스크린 캡처 방지
   screen_protector: ^1.4.2
@@ -188,6 +200,7 @@ flutter:
     - assets/background/
     - assets/point/
     - assets/vip/
+    - assets/html/
     
     # - assets/animations/
     # - assets/sounds/

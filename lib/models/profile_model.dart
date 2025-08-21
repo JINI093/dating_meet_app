@@ -32,6 +32,7 @@ class ProfileModel {
   final DateTime updatedAt;
   final String? gender;
   final String? vipTier;
+  final String? phoneNumber;
 
   const ProfileModel({
     required this.id,
@@ -62,6 +63,7 @@ class ProfileModel {
     required this.updatedAt,
     this.gender,
     this.vipTier,
+    this.phoneNumber,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) =>
@@ -79,6 +81,7 @@ class ProfileModel {
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
     vipTier: null,
+    phoneNumber: null,
   );
 
   ProfileModel copyWith({
@@ -110,6 +113,7 @@ class ProfileModel {
     DateTime? updatedAt,
     String? gender,
     String? vipTier,
+    String? phoneNumber,
   }) {
     return ProfileModel(
       id: id ?? this.id,
@@ -140,6 +144,7 @@ class ProfileModel {
       updatedAt: updatedAt ?? this.updatedAt,
       gender: gender ?? this.gender,
       vipTier: vipTier ?? this.vipTier,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
     );
   }
 

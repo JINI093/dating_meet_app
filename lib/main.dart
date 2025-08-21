@@ -24,11 +24,8 @@ import 'config/aws_config.dart';
 import 'amplifyconfiguration.dart';
 import 'providers/enhanced_auth_provider.dart';
 import 'providers/permission_provider.dart';
-import 'providers/user_provider.dart';
 import 'utils/auth_error_handler.dart';
-import 'utils/auth_ux_utils.dart';
 import 'services/screen_capture_service.dart';
-import 'services/google_login_service.dart';
 import 'services/mobileok_api_service.dart';
 import 'providers/likes_provider.dart';
 import 'providers/notification_provider.dart';
@@ -69,11 +66,18 @@ void main() async {
     print('⚠️ 환경 변수 로딩 실패: $e');
   }
 
-  // 앱 빠른 시작 - 최소한의 초기화만 진행
+  // 필수 서비스 먼저 동기 초기화
+  try {
+    await _initializeCriticalServices();
+  } catch (e) {
+    print('❌ 필수 서비스 초기화 실패: $e');
+  }
+  
+  // 앱 시작
   runApp(const ProviderScope(child: MyApp()));
   
-  // 백그라운드에서 비동기 초기화
-  _initializeCriticalServices().catchError((e) {
+  // 백그라운드에서 추가 서비스 초기화
+  _initializeBackgroundServices().catchError((e) {
     print('❌ 백그라운드 초기화 실패: $e');
   });
 }
@@ -156,30 +160,76 @@ Future<void> _handleOnlineState() async {
   }
 }
 
-/// AWS Amplify 설정
+/// AWS Amplify 설정 - 웹 환경 최적화
 Future<void> _configureAmplify() async {
+  print('🚀 Amplify 초기화 시작...');
   try {
-    if (!Amplify.isConfigured) {
-      final auth = AmplifyAuthCognito();
-      final api = AmplifyAPI();
-      final storage = AmplifyStorageS3();
-      
-      // 타임아웃 설정으로 무한 대기 방지
-      await Amplify.addPlugins([auth, api, storage]).timeout(const Duration(seconds: 15));
-      await Amplify.configure(amplifyconfig).timeout(const Duration(seconds: 15));
-      print('✅ AWS Amplify 초기화 완료');
-    } else {
+    if (Amplify.isConfigured) {
       print('✅ AWS Amplify 이미 초기화됨');
+      return;
     }
+    
+    print('📦 Amplify 플러그인 추가 중...');
+    final auth = AmplifyAuthCognito();
+    final api = AmplifyAPI();
+    final storage = AmplifyStorageS3();
+    
+    // 플러그인 추가 (웹 환경에서 더 긴 타임아웃)
+    print('⚙️ 플러그인 추가: Auth, API, Storage');
+    await Amplify.addPlugins([auth, api, storage]).timeout(
+      const Duration(seconds: 60), // 웹 환경을 위해 더 긴 타임아웃
+      onTimeout: () {
+        print('⏰ 플러그인 추가 타임아웃');
+        throw TimeoutException('Amplify 플러그인 추가 타임아웃', const Duration(seconds: 60));
+      }
+    );
+    print('✅ 플러그인 추가 완료');
+    
+    // 설정 적용 (웹 환경에서 더 긴 타임아웃)
+    print('⚙️ Amplify 설정 적용 중...');
+    await Amplify.configure(amplifyconfig).timeout(
+      const Duration(seconds: 60), // 웹 환경을 위해 더 긴 타임아웃
+      onTimeout: () {
+        print('⏰ Amplify 설정 적용 타임아웃');
+        throw TimeoutException('Amplify 설정 적용 타임아웃', const Duration(seconds: 60));
+      }
+    );
+    
+    // 초기화 완료 후 추가 검증
+    await Future.delayed(const Duration(milliseconds: 500)); // 약간의 대기
+    if (Amplify.isConfigured) {
+      print('✅ AWS Amplify 초기화 완료');
+      print('🔍 Amplify.isConfigured: ${Amplify.isConfigured}');
+      
+      // API 플러그인 검증
+      try {
+        final hasApiPlugin = Amplify.API.plugins.isNotEmpty;
+        print('🔍 API 플러그인 사용 가능: $hasApiPlugin');
+      } catch (e) {
+        print('⚠️ API 플러그인 검증 실패: $e');
+      }
+    } else {
+      print('⚠️ Amplify 설정 후에도 초기화 상태가 false입니다');
+    }
+    
   } catch (e) {
-    print('⚠️ Amplify 초기화 실패: $e');
-    print('📝 개발 환경에서는 로컬 모드로 진행됩니다.');
+    print('❌ Amplify 초기화 실패: $e');
+    print('🔍 에러 타입: ${e.runtimeType}');
+    print('🔍 Amplify.isConfigured (에러 후): ${Amplify.isConfigured}');
+    
+    if (kIsWeb) {
+      print('🌐 웹 환경에서 Amplify 초기화 실패 - 시뮬레이션 모드로 진행');
+    } else {
+      print('📱 모바일 환경에서 Amplify 초기화 실패 - 시뮬레이션 모드로 진행');
+    }
+    
     // 에러 로깅은 optional로 처리
     try {
       await AuthErrorHandler.logError(e, 'amplify_initialization');
     } catch (logError) {
       print('로깅 실패: $logError');
     }
+    // 에러가 발생해도 앱은 계속 진행
   }
 }
 
@@ -444,16 +494,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       // 온라인 상태 복구
       await AuthErrorHandler.handleOnlineState();
       
-      // 로그인 상태 재확인
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      await authProvider.refreshAuthState();
-      
-      // 로그인 상태 확인
-      final authState = ref.read(enhancedAuthProvider);
-      if (!authState.isSignedIn) {
-        print('ℹ️ 로그인되지 않은 상태 - 데이터 새로고침 생략');
-        return;
-      }
+      // 자동 로그인 기능이 제거되어 수동 상태 확인만 수행
+      print('ℹ️ 앱 복귀 감지 - 자동 로그인 비활성화됨');
       
       // 좋아요 데이터 새로고침
       final likesNotifier = ref.read(likesProvider.notifier);
@@ -537,8 +579,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           // 백그라운드 서비스 초기화
           await _initializeBackgroundServices();
           
-          // 자동 로그인 체크
-          await _checkAutoLogin();
+          // 자동 로그인 기능 제거됨
+          print('ℹ️ 자동 로그인 기능이 비활성화되었습니다.');
           
         } catch (e) {
           print('백그라운드 초기화 실패: $e');
@@ -558,91 +600,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// 자동 로그인 체크 (백그라운드에서 실행)
-  Future<void> _checkAutoLogin() async {
-    try {
-      final authProvider = ref.read(enhancedAuthProvider.notifier);
-      
-      // 자동 로그인 시도 (타임아웃 설정)
-      final autoLoginResult = await authProvider.checkAutoLogin().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          print('⚠️ 자동 로그인 타임아웃');
-          return AutoLoginResult(success: false, user: null);
-        },
-      ).catchError((e) {
-        print('자동 로그인 에러: $e');
-        return AutoLoginResult(success: false, user: null);
-      });
-      
-      if (autoLoginResult.success == true) {
-        print('✅ 자동 로그인 성공');
-        
-        // 로그인 기록 추가 (백그라운드에서 실행)
-        _addLoginRecord(autoLoginResult);
-        
-        // 사용자 프로필 로드 (로그인 성공 시)
-        _loadUserProfile();
-        
-      } else {
-        print('ℹ️ 자동 로그인 실패 또는 비활성화');
-        
-        // 의심스러운 활동 감지 (백그라운드에서 실행)
-        _detectSuspiciousActivity();
-      }
-      
-    } catch (e) {
-      print('❌ 자동 로그인 체크 실패: $e');
-    }
-  }
   
-  /// 사용자 프로필 로드
-  Future<void> _loadUserProfile() async {
-    try {
-      print('🔄 사용자 프로필 로드 시작...');
-      
-      final userNotifier = ref.read(userProvider.notifier);
-      await userNotifier.initializeUser().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          print('⚠️ 사용자 프로필 로드 타임아웃');
-        },
-      );
-      
-      print('✅ 사용자 프로필 로드 완료');
-    } catch (e) {
-      print('❌ 사용자 프로필 로드 실패: $e');
-    }
-  }
-
-  /// 로그인 기록 추가 (백그라운드)
-  void _addLoginRecord(dynamic autoLoginResult) {
-    AuthUXUtils.addLoginRecord(
-      autoLoginResult.user?.username ?? 'unknown',
-      'auto_login',
-      true,
-    ).catchError((e) {
-      print('로그인 기록 추가 실패: $e');
-    });
-    
-    // 다중 기기 로그인 감지
-    if (autoLoginResult.user?.username != null) {
-      AuthUXUtils.checkMultiDeviceLogin(
-        autoLoginResult.user!.username!
-      ).catchError((e) {
-        print('다중 기기 로그인 감지 실패: $e');
-        return MultiDeviceResult(isMultiDevice: false, devices: [], message: '오류가 발생했습니다');
-      });
-    }
-  }
-  
-  /// 의심스러운 활동 감지 (백그라운드)
-  void _detectSuspiciousActivity() {
-    AuthUXUtils.detectSuspiciousActivity().catchError((e) {
-      print('의심스러운 활동 감지 실패: $e');
-      return <SuspiciousActivity>[]; // Return empty list as default
-    });
-  }
 
   /// 앱이 포그라운드로 돌아올 때
 

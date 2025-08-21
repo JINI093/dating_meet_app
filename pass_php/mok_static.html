@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<title>PASS 본인인증</title>
+<!-- PASS SDK -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // 페이지 로드 시 자동으로 PASS 인증 시작
+    setTimeout(startAuth, 1000);
+    
+    document.querySelector("#mok_popup").addEventListener("click", startAuth);
+});
+
+function startAuth() {
+    // PHP 서버 없이 순수 클라이언트 사이드에서 처리
+    setTimeout(function() {
+        const result = {
+            "resultCode": "2000",
+            "resultMsg": "성공",
+            "txId": "MOK" + Date.now(),
+            "clientTxId": "61624356-3699-4e48-aa27-41f1652eb928" + Date.now(),
+            "siteID": "a902a24c-5a7f-40c1-a5ba-92521fa8d731",
+            "providerId": "dreamsecurity", 
+            "serviceType": "telcoAuth",
+            "userName": "테스트사용자",
+            "userPhone": "01012345678",
+            "userBirthday": "19900101",
+            "userGender": "1",
+            "userNation": "0",
+            "ci": "CI" + Date.now() + "STATIC",
+            "di": "DI" + Date.now() + "STATIC",
+            "reqAuthType": "SMS",
+            "reqDate": getCurrentDateTime(),
+            "issuer": "mobile-ok.com",
+            "issueDate": getCurrentDateTime()
+        };
+        
+        document.querySelector("#result").value = JSON.stringify(result, null, 4);
+        
+        // Flutter WebView로 결과 전송
+        if (window.PassChannel && window.PassChannel.postMessage) {
+            window.PassChannel.postMessage(JSON.stringify(result));
+        }
+    }, 2500);
+}
+
+function getCurrentDateTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return year + month + day + hours + minutes + seconds;
+}
+</script>
+<style>
+body { margin:0; padding:20px; font-family:Arial,sans-serif; background:#f5f5f5; }
+.container { max-width:500px; margin:0 auto; background:white; border-radius:12px; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+.header { background:#FF3B30; color:white; padding:15px; text-align:center; font-size:18px; font-weight:bold; border-radius:8px; margin-bottom:20px; }
+textarea { width:100%; min-height:200px; padding:12px; border:1px solid #ddd; border-radius:8px; font-family:monospace; font-size:12px; box-sizing:border-box; margin-bottom:15px; }
+button { width:100%; background:#FF3B30; color:white; border:none; border-radius:8px; padding:16px; font-size:16px; font-weight:600; cursor:pointer; }
+button:hover { background:#E6342A; }
+.status { text-align:center; color:#666; margin-bottom:15px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">PASS 본인인증</div>
+    <div class="status">본인인증이 자동으로 시작됩니다...</div>
+    <textarea id="result" readonly placeholder="PASS 인증 결과가 여기에 표시됩니다..."></textarea>
+    <button id="mok_popup">본인인증 다시 시도</button>
+</div>
+</body>
+</html>

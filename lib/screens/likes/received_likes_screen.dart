@@ -8,6 +8,8 @@ import '../../utils/app_dimensions.dart';
 import '../../models/like_model.dart';
 import '../../widgets/cards/like_card.dart';
 import '../../providers/likes_provider.dart';
+import '../../widgets/sheets/sent_action_bottom_sheet.dart';
+import '../profile/other_profile_screen.dart';
 
 class ReceivedLikesScreen extends ConsumerWidget {
   const ReceivedLikesScreen({super.key});
@@ -69,7 +71,7 @@ class ReceivedLikesScreen extends ConsumerWidget {
       child: Row(
         children: [
           Text(
-            '받은 좋아요 ${totalCount}개',
+            '받은 좋아요 $totalCount개',
             style: AppTextStyles.bodyLarge.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -87,7 +89,7 @@ class ReceivedLikesScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppDimensions.radiusS),
               ),
               child: Text(
-                '새로운 ${unreadCount}개',
+                '새로운 $unreadCount개',
                 style: AppTextStyles.labelSmall.copyWith(
                   color: AppColors.textWhite,
                   fontWeight: FontWeight.w600,
@@ -210,8 +212,8 @@ class ReceivedLikesScreen extends ConsumerWidget {
     // Mark as read
     ref.read(likesProvider.notifier).markAsRead(like.id);
     
-    // TODO: Navigate to profile detail
-    _showProfileDetail(context, ref, like);
+    // Show profile unlock bottom sheet
+    _showProfileUnlockBottomSheet(context, ref, like);
   }
 
   void _handleAcceptLike(WidgetRef ref, LikeModel like) {
@@ -225,329 +227,33 @@ class ReceivedLikesScreen extends ConsumerWidget {
     ref.read(likesProvider.notifier).rejectLike(like.id);
   }
 
-  void _showProfileDetail(BuildContext context, WidgetRef ref, LikeModel like) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _buildProfileDetailSheet(ctx, ref, like),
-    );
-  }
-
-  Widget _buildProfileDetailSheet(BuildContext context, WidgetRef ref, LikeModel like) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppDimensions.bottomSheetRadius),
+  void _showProfileUnlockBottomSheet(BuildContext context, WidgetRef ref, LikeModel like) {
+    // 프로필이 이미 해제되었는지 확인
+    final isUnlocked = ref.read(likesProvider.notifier).isProfileUnlocked(like.fromUserId);
+    
+    if (isUnlocked && like.profile != null) {
+      // 이미 해제된 프로필은 바로 상세 프로필 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherProfileScreen(
+            profile: like.profile!,
+            isLocked: false,
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: AppDimensions.spacing12),
-            width: AppDimensions.bottomSheetHandleWidth,
-            height: AppDimensions.bottomSheetHandleHeight,
-            decoration: BoxDecoration(
-              color: AppColors.divider,
-              borderRadius: BorderRadius.circular(
-                AppDimensions.bottomSheetHandleHeight / 2,
-              ),
-            ),
-          ),
-          
-          // Header
-          Container(
-            padding: const EdgeInsets.all(AppDimensions.bottomSheetPadding),
-            child: Row(
-              children: [
-                Text(
-                  '${like.profile?.name ?? 'Unknown'}님의 프로필',
-                  style: AppTextStyles.h5,
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    CupertinoIcons.xmark,
-                    color: AppColors.textSecondary,
-                    size: AppDimensions.iconM,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Profile Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppDimensions.paddingM),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Profile Image
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusL),
-                    child: AspectRatio(
-                      aspectRatio: 0.8,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          image: like.profile?.profileImages?.isNotEmpty == true
-                              ? DecorationImage(
-                                  image: NetworkImage(like.profile!.profileImages!.first),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: like.profile?.profileImages?.isEmpty != false
-                            ? const Center(
-                                child: Icon(
-                                  CupertinoIcons.person_circle,
-                                  size: 80,
-                                  color: AppColors.textHint,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: AppDimensions.spacing20),
-                  
-                  // Basic Info
-                  Text(
-                    '${like.profile?.name ?? 'Unknown'}, ${like.profile?.age ?? 0}세',
-                    style: AppTextStyles.h4.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: AppDimensions.spacing8),
-                  
-                  Row(
-                    children: [
-                      const Icon(
-                        CupertinoIcons.location_solid,
-                        size: AppDimensions.iconS,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: AppDimensions.spacing4),
-                      Text(
-                        like.profile?.location ?? 'Unknown',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      if (like.profile?.distance != null) ...[
-                        const SizedBox(width: AppDimensions.spacing8),
-                        Text(
-                          '${like.profile!.distance!.toStringAsFixed(1)}km',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  
-                  const SizedBox(height: AppDimensions.spacing16),
-                  
-                  // Bio
-                  if (like.profile?.bio?.isNotEmpty == true) ...[
-                    Text(
-                      '자기소개',
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.spacing8),
-                    Text(
-                      like.profile!.bio!,
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                    const SizedBox(height: AppDimensions.spacing20),
-                  ],
-                  
-                  // Badges
-                  if (like.profile?.badges?.isNotEmpty == true) ...[
-                    Text(
-                      '뱃지',
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.spacing8),
-                    Wrap(
-                      spacing: AppDimensions.spacing8,
-                      runSpacing: AppDimensions.spacing8,
-                      children: like.profile!.badges!.map((badge) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.spacing12,
-                            vertical: AppDimensions.spacing6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(AppDimensions.radiusS),
-                            border: Border.all(
-                              color: AppColors.primary,
-                              width: AppDimensions.borderNormal,
-                            ),
-                          ),
-                          child: Text(
-                            badge,
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          
-          // Action Buttons
-          Container(
-            padding: const EdgeInsets.all(AppDimensions.paddingM),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      // TODO: Handle reject like
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppDimensions.spacing16,
-                      ),
-                    ),
-                    child: const Text('거절'),
-                  ),
-                ),
-                
-                const SizedBox(width: AppDimensions.spacing12),
-                
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      // TODO: Handle accept like
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppDimensions.spacing16,
-                      ),
-                    ),
-                    child: const Text('수락'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    } else {
+      // 해제되지 않은 프로필은 바텀시트 표시
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => SentActionBottomSheet(like: like),
+      );
+    }
   }
 
   void _showMatchSuccess(LikeModel like) {
     // TODO: Show match success dialog
-  }
-
-  void _showFilterOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppDimensions.bottomSheetRadius),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              margin: const EdgeInsets.only(top: AppDimensions.spacing12),
-              width: AppDimensions.bottomSheetHandleWidth,
-              height: AppDimensions.bottomSheetHandleHeight,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(
-                  AppDimensions.bottomSheetHandleHeight / 2,
-                ),
-              ),
-            ),
-            
-            // Header
-            Container(
-              padding: const EdgeInsets.all(AppDimensions.bottomSheetPadding),
-              child: Row(
-                children: [
-                  Text(
-                    '필터',
-                    style: AppTextStyles.h5,
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      CupertinoIcons.xmark,
-                      color: AppColors.textSecondary,
-                      size: AppDimensions.iconM,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Filter Options
-            ListTile(
-              leading: const Icon(CupertinoIcons.eye_slash),
-              title: const Text('숨김'),
-              trailing: Switch(
-                value: false, // TODO: Get from provider
-                onChanged: (value) {
-                  // TODO: Apply filter
-                },
-              ),
-            ),
-            
-            ListTile(
-              leading: const Icon(CupertinoIcons.location),
-              title: const Text('거리순'),
-              trailing: Switch(
-                value: true, // TODO: Get from provider
-                onChanged: (value) {
-                  // TODO: Apply sorting
-                },
-              ),
-            ),
-            
-            ListTile(
-              leading: const Icon(CupertinoIcons.star),
-              title: const Text('VIP만'),
-              trailing: Switch(
-                value: false, // TODO: Get from provider
-                onChanged: (value) {
-                  // TODO: Apply VIP filter
-                },
-              ),
-            ),
-            
-            const SizedBox(height: AppDimensions.spacing20),
-          ],
-        ),
-      ),
-    );
   }
 }

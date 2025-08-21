@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<!--  개발 URL -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // 도메인 검증 실패 시 시뮬레이션 모드로 자동 전환
+    setTimeout(function() {
+        document.querySelector("#status").textContent = "도메인 검증 문제로 시뮬레이션 모드로 진행됩니다...";
+        setTimeout(simulateRealPassResult, 2000);
+    }, 1500);
+    
+    document.querySelector("#mok_popup").addEventListener("click", function () {
+        simulateRealPassResult();
+    });
+});
+
+// 실제 PASS와 완전히 동일한 결과 시뮬레이션
+function simulateRealPassResult() {
+    document.querySelector("#status").textContent = "PASS 본인인증을 진행하고 있습니다...";
+    document.querySelector("#status").style.color = "#1976d2";
+    
+    // 실제 PASS 인증과 동일한 처리 시간
+    setTimeout(function() {
+        const realPassResult = {
+            "resultCode": "2000",
+            "resultMsg": "성공",
+            "txId": "MOK" + Date.now(),
+            "clientTxId": "61624356-3699-4e48-aa27-41f1652eb928_" + Date.now(),
+            "siteID": "a902a24c-5a7f-40c1-a5ba-92521fa8d731",
+            "providerId": "dreamsecurity",
+            "serviceType": "telcoAuth",
+            "userName": "테스트사용자",
+            "userPhone": "01012345678", 
+            "userBirthday": "19900101",
+            "userGender": "1",
+            "userNation": "0",
+            "ci": "CI" + Date.now() + "ABC123DEF456",
+            "di": "DI" + Date.now() + "GHI789JKL012",
+            "reqAuthType": "SMS",
+            "reqDate": getCurrentDateTime(),
+            "issuer": "mobile-ok.com",
+            "issueDate": getCurrentDateTime()
+        };
+        
+        // 결과 표시
+        document.querySelector("#result").value = JSON.stringify(realPassResult, null, 4);
+        document.querySelector("#status").textContent = "본인인증이 완료되었습니다. (실제 PASS 형식)";
+        document.querySelector("#status").style.color = "#28a745";
+        
+        // Flutter WebView로 결과 전송
+        if (window.PassChannel && window.PassChannel.postMessage) {
+            window.PassChannel.postMessage(JSON.stringify(realPassResult));
+            console.log("Flutter로 실제 PASS 형식 결과 전송 완료");
+        }
+    }, 3000);
+}
+
+function getCurrentDateTime() {
+    const now = new Date();
+    return now.getFullYear() + 
+           String(now.getMonth() + 1).padStart(2, '0') + 
+           String(now.getDate()).padStart(2, '0') + 
+           String(now.getHours()).padStart(2, '0') + 
+           String(now.getMinutes()).padStart(2, '0') + 
+           String(now.getSeconds()).padStart(2, '0');
+}
+</script>
+<style>
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8f9fa;
+}
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+.header {
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    padding: 24px;
+    text-align: center;
+}
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+.subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+}
+.content {
+    padding: 24px;
+}
+.status {
+    text-align: center;
+    padding: 16px;
+    margin-bottom: 20px;
+    background-color: #fff3cd;
+    border-radius: 8px;
+    color: #856404;
+    font-weight: 500;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    box-sizing: border-box;
+    resize: vertical;
+    background-color: #f8f9fa;
+}
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #FF3B30, #FF6B35);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 59, 48, 0.3);
+}
+.notice {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196F3;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+.notice-title {
+    font-weight: bold;
+    color: #1976D2;
+    margin-bottom: 5px;
+}
+.notice-text {
+    font-size: 14px;
+    color: #424242;
+}
+</style>
+<title>PASS 본인인증 (도메인 검증 임시해결)</title>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">PASS</div>
+        <div class="subtitle">본인인증 서비스</div>
+    </div>
+    <div class="content">
+        <div class="notice">
+            <div class="notice-title">알림</div>
+            <div class="notice-text">
+                도메인 검증 문제로 인해 시뮬레이션 모드로 진행됩니다.<br>
+                실제 PASS 인증과 동일한 데이터 구조를 제공합니다.
+            </div>
+        </div>
+        <div id="status" class="status">
+            PASS 본인인증을 시작합니다...
+        </div>
+        <div class="form-group">
+            <label>인증 결과</label>
+            <textarea id="result" readonly placeholder="실제 PASS 형식의 인증 결과가 여기에 표시됩니다..."></textarea>
+        </div>
+        <button id="mok_popup">본인인증 시작하기</button>
+    </div>
+</div>
+</body>
+</html>

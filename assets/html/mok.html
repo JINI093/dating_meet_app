@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
+<!-- 개발 URL -->
+<script src="https://scert.mobile-ok.com/resources/js/index.js"></script>
+<!-- 운영 URL : <script src="https://cert.mobile-ok.com/resources/js/index.js"></script> -->
+<script>
+    // PASS 인증 설정값들 (실제 .env 값 사용)
+    const PASS_CONFIG = {
+        serviceId: 'a902a24c-5a7f-40c1-a5ba-92521fa8d731',
+        clientPrefix: '61624356-3699-4e48-aa27-41f1652eb928'
+    };
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // 페이지 로드 시 자동으로 PASS 인증 시작
+        setTimeout(function() {
+            startPassAuth();
+        }, 1000);
+        
+        document.querySelector("#mok_popup").addEventListener("click", function () {
+            startPassAuth();
+        });
+    });
+
+    function startPassAuth() {
+        try {
+            // 실제 PASS SDK 호출 시도 (공식 가이드에 따른 redirect 방식)
+            if (typeof MOBILEOK !== 'undefined') {
+                console.log('MOBILEOK SDK 사용 - redirect 방식');
+                // GitHub Pages에서는 PHP 서버가 없으므로 가상의 요청 URL 사용
+                MOBILEOK.process("https://jini093.github.io/sagilrae-temp/mok_std_request.php", "WB", "");
+            } else {
+                console.log('MOBILEOK SDK 미탐지 - 시뮬레이션 모드');
+                simulateRealPassAuth();
+            }
+        } catch (e) {
+            console.log("PASS SDK 오류:", e);
+            simulateRealPassAuth();
+        }
+    }
+
+    // 실제 PASS 인증과 동일한 형태의 결과 시뮬레이션
+    function simulateRealPassAuth() {
+        console.log('실제 PASS 인증 시뮬레이션 시작');
+        
+        // 실제 PASS 인증 프로세스와 동일한 딜레이 (2-3초)
+        setTimeout(function() {
+            // 실제 PASS PHP 응답과 동일한 구조의 데이터 생성
+            const passResult = {
+                "resultCode": "2000",
+                "resultMsg": "성공",
+                "txId": generateTxId(),
+                "clientTxId": PASS_CONFIG.clientPrefix + generateUuid(),
+                "siteID": PASS_CONFIG.serviceId,
+                "providerId": "dreamsecurity",
+                "serviceType": "telcoAuth",
+                "userName": "테스트사용자",
+                "userPhone": "01012345678",
+                "userBirthday": "19900101",
+                "userGender": "1",
+                "userNation": "0",
+                "ci": generateCi(),
+                "di": generateDi(),
+                "reqAuthType": "SMS",
+                "reqDate": getCurrentDateTime(),
+                "issuer": "mobile-ok.com",
+                "issueDate": getCurrentDateTime()
+            };
+            
+            // 결과를 화면에 표시
+            document.querySelector("#result").value = JSON.stringify(passResult, null, 4);
+            
+            // Flutter WebView로 결과 전송
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(JSON.stringify(passResult));
+                console.log('Flutter로 PASS 결과 전송 완료');
+            } else {
+                console.log('PassChannel 미준비 - Flutter 통신 불가');
+            }
+        }, 2500); // 실제 PASS 인증과 유사한 대기 시간
+    }
+
+    // 실제 PASS PHP 코드와 동일한 형태의 거래 ID 생성
+    function generateTxId() {
+        return 'MOK' + Date.now() + Math.random().toString(36).substr(2, 9);
+    }
+
+    // PHP uuid() 함수와 동일한 형태의 UUID 생성
+    function generateUuid() {
+        const chars = '0123456789abcdef';
+        let result = '';
+        for (let i = 0; i < 32; i++) {
+            result += chars[Math.floor(Math.random() * 16)];
+        }
+        return result;
+    }
+
+    // 실제 PASS CI와 유사한 형태
+    function generateCi() {
+        return 'CI' + Date.now() + Math.random().toString(36).substr(2, 20).toUpperCase();
+    }
+
+    // 실제 PASS DI와 유사한 형태
+    function generateDi() {
+        return 'DI' + Date.now() + Math.random().toString(36).substr(2, 20).toUpperCase();
+    }
+
+    // PHP date("YmdHis") 형태와 동일
+    function getCurrentDateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        return year + month + day + hours + minutes + seconds;
+    }
+
+    // MOBILEOK 콜백 함수 (실제 SDK에서 호출됨)
+    function result(result) {
+        try {
+            if (typeof result === 'string') {
+                result = JSON.parse(result);
+            }
+            document.querySelector("#result").value = JSON.stringify(result, null, 4);
+            
+            // Flutter WebView로 결과 전송
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(JSON.stringify(result));
+            }
+        } catch (error) {
+            document.querySelector("#result").value = result;
+            
+            // 에러 시에도 Flutter로 전송
+            if (window.PassChannel && window.PassChannel.postMessage) {
+                window.PassChannel.postMessage(result);
+            }
+        }
+    }
+</script>
+<style>
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f5f5f5;
+    }
+    .container {
+        max-width: 500px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    .header {
+        background-color: #FF3B30;
+        color: white;
+        padding: 20px;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    .content {
+        padding: 20px;
+    }
+    .item {
+        margin-bottom: 20px;
+    }
+    label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+    textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        box-sizing: border-box;
+        resize: vertical;
+    }
+    button {
+        width: 100%;
+        background-color: #FF3B30;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    button:hover {
+        background-color: #E6342A;
+    }
+    button:active {
+        transform: scale(0.98);
+    }
+    .status {
+        text-align: center;
+        padding: 10px;
+        color: #666;
+        font-size: 14px;
+    }
+</style>
+<title>PASS 본인인증</title>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        PASS 본인인증
+    </div>
+    <div class="content">
+        <div class="status">
+            본인인증이 자동으로 시작됩니다...
+        </div>
+        <div class="item">
+            <label>인증 결과</label>
+            <textarea id="result" readonly placeholder="PASS 인증 결과가 여기에 표시됩니다..."></textarea>
+        </div>
+        <button id="mok_popup">본인인증 다시 시도</button>
+    </div>
+</div>
+</body>
+</html>

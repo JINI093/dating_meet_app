@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/vip_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../screens/vip/vip_intro_screen.dart';
 import '../../screens/vip/vip_dating_screen.dart';
+import '../../screens/vip/vip_purchase_screen.dart';
 import '../../models/vip_model.dart';
 
 /// VIP 라우트 가드 위젯
@@ -33,8 +33,8 @@ class VipRouteGuard extends ConsumerWidget {
       // VIP 사용자: VIP 데이팅 화면으로 이동
       return const VipDatingScreen();
     } else {
-      // 비VIP 사용자: VIP 소개 화면으로 이동
-      return const VipIntroScreen();
+      // 비VIP 사용자: 바로 VIP 구매 화면으로 이동
+      return const VipPurchaseScreen();
     }
   }
 
@@ -106,7 +106,6 @@ class VipNavigationHelper {
   
   /// VIP 등급 확인
   static String? getVipTier(WidgetRef ref) {
-    final userState = ref.read(userProvider);
     final vipState = ref.read(vipProvider);
     
     // VIP 상태에서 확인

@@ -220,7 +220,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
   Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isAutoLoginEnabled = prefs.getBool('auto_login_enabled') ?? false;
+      final isAutoLoginEnabled = prefs.getBool('auto_login_enabled') ?? true;
       final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
       final lastLoginMethod = prefs.getString('last_login_method');
       final lastLoginAtStr = prefs.getString('last_login_at');
@@ -422,6 +422,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
           isSignedIn: true,
           lastLoginMethod: 'COGNITO',
           lastLoginAt: DateTime.now(),
+          isAutoLoginEnabled: true,
         );
         _updateLoginRecord('COGNITO', true);
         await _savePreferences();
@@ -465,6 +466,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
           isSignedIn: true,
           lastLoginMethod: 'PHONE',
           lastLoginAt: DateTime.now(),
+          isAutoLoginEnabled: true,
         );
         _updateLoginRecord('PHONE', true);
         await _savePreferences();
@@ -501,6 +503,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
           isPhoneVerificationPending: false,
           lastLoginMethod: 'PHONE',
           lastLoginAt: DateTime.now(),
+          isAutoLoginEnabled: true,
         );
         _updateLoginRecord('PHONE', true);
         await _savePreferences();
@@ -553,6 +556,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
           isSignedIn: true,
           lastLoginMethod: provider.toUpperCase(),
           lastLoginAt: DateTime.now(),
+          isAutoLoginEnabled: true,
         );
         _updateLoginRecord(provider.toUpperCase(), true);
         await _savePreferences();
