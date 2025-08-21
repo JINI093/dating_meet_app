@@ -39,7 +39,7 @@ try {
         'encryptReqClientInfo' => base64_encode($clientTxId . "|" . $dateTime),
         'serviceType' => 'telcoAuth',
         'retTransferType' => 'MOKToken',
-        'returnUrl' => 'https://withroyal.dothome.co.kr/mok_std_result_working.php'
+        'returnUrl' => 'https://sagilrae.com/mok_std_result_working.php'
     );
     
     echo json_encode($sendData, JSON_UNESCAPED_SLASHES);

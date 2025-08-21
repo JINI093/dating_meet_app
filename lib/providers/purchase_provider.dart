@@ -6,6 +6,7 @@ import 'dart:convert';
 import '../services/in_app_purchase_service.dart';
 import '../models/purchase_models.dart';
 import '../utils/logger.dart';
+import '../utils/debug_config.dart';
 import 'points_provider.dart';
 import 'heart_provider.dart';
 
@@ -227,14 +228,16 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
         orElse: () => throw Exception('제품을 찾을 수 없습니다'),
       );
 
-      // 영수증 검증
-      if (result.purchaseDetails != null) {
+      // 영수증 검증 (디버그 모드에서는 스킵)
+      if (result.purchaseDetails != null && !DebugConfig.enableDebugPayments) {
         final bool isValid = await _purchaseService.verifyPurchase(result.purchaseDetails!);
         if (!isValid) {
           Logger.error('구매 영수증 검증 실패', name: 'PurchaseProvider');
           state = state.copyWith(error: '구매 검증에 실패했습니다');
           return;
         }
+      } else if (DebugConfig.enableDebugPayments) {
+        Logger.log('[DEBUG] 디버그 모드: 영수증 검증 스킵', name: 'PurchaseProvider');
       }
 
       // 제품 타입별 처리

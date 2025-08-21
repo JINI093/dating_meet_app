@@ -617,14 +617,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     errorBuilder: (context, state) => const NotFoundScreen(),
     redirect: (context, state) {
-      // Admin authentication redirect
-      if (state.matchedLocation.startsWith('/admin')) {
-        // TODO: Check admin authentication status
-        // For now, allow access to admin routes
-      }
-      
-      // TODO: 인증 상태에 따른 리다이렉트 로직 구현
-      // 현재는 모든 라우트를 허용
+      // 관리자 페이지 인증 제거됨 - 모든 라우트 접근 허용
       return null;
     },
   );

@@ -45,28 +45,29 @@ class AdminAuthNotifier extends StateNotifier<AdminAuthState> {
     _checkAuthStatus();
   }
 
-  /// 초기 인증 상태 확인
+  /// 초기 인증 상태 확인 (로그인 불필요)
   Future<void> _checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('admin_token');
+      // 임시로 기본 관리자 사용자 생성 (로그인 불필요)
+      final defaultAdmin = AdminUser(
+        id: 'admin_1',
+        username: 'admin',
+        email: 'admin@example.com',
+        name: '관리자',
+        role: AdminRole.superAdmin,
+        isActive: true,
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+      );
       
-      if (token != null) {
-        final user = await _authService.verifyToken(token);
-        if (user != null) {
-          state = state.copyWith(
-            user: user,
-            token: token,
-            isAuthenticated: true,
-            isLoading: false,
-          );
-          return;
-        }
-      }
-      
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(
+        user: defaultAdmin,
+        token: 'temp_admin_token',
+        isAuthenticated: true,
+        isLoading: false,
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

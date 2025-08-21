@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../providers/admin_auth_provider.dart';
 import '../utils/admin_theme.dart';
 import '../widgets/admin_sidebar.dart';
 import '../widgets/admin_header.dart';
@@ -27,18 +25,8 @@ class _AdminMainLayoutState extends ConsumerState<AdminMainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(adminAuthProvider);
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AdminTheme.mobileBreakpoint;
-    final isTablet = screenWidth < AdminTheme.tabletBreakpoint;
-    
-    // 인증되지 않은 경우 로그인 페이지로
-    if (!authState.isAuthenticated) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go('/admin/login');
-      });
-      return const SizedBox.shrink();
-    }
 
     return Scaffold(
       key: _scaffoldKey,
@@ -87,7 +75,7 @@ class _AdminMainLayoutState extends ConsumerState<AdminMainLayout> {
                 
                 // Content Area
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: Container(
                     padding: EdgeInsets.all(
                       isMobile ? AdminTheme.spacingM : AdminTheme.spacingL,
                     ),

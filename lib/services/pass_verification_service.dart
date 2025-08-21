@@ -126,7 +126,7 @@ class PassVerificationService {
         _webServerUrl = dotenv.env['WEB_SERVER_URL'] ?? 'https://jini093.github.io/sagilrae-temp';
         print('🔧 GitHub Pages 사용: $_webServerUrl');
         
-        _webPassUrl = '$_webServerUrl/mok.html';
+        _webPassUrl = '$_webServerUrl/html/mok.html';
         
         print('최종 웹서버 URL: $_webServerUrl');
         print('최종 PASS URL: $_webPassUrl');
@@ -155,7 +155,7 @@ class PassVerificationService {
       print('❌ PassVerificationService 초기화 실패: $e');
       // 폴백 설정 (GitHub Pages)
       _webServerUrl = 'https://jini093.github.io/sagilrae-temp';
-      _webPassUrl = '$_webServerUrl/mok.html';
+      _webPassUrl = '$_webServerUrl/html/mok.html';
       _isInitialized = true;
       print('🔄 폴백 URL로 초기화 완료: $_webPassUrl');
     }

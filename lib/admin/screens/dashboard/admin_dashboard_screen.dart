@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/admin_theme.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/chart_card.dart';
+import '../../utils/create_sample_data.dart';
 
 /// 관리자 대시보드 화면
 class AdminDashboardScreen extends ConsumerStatefulWidget {
@@ -22,11 +23,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Page Title
-        Text(
-          '대시보드',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '대시보드',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            // Temporary sample data creation button
+            ElevatedButton.icon(
+              onPressed: () => _createSampleData(),
+              icon: const Icon(Icons.data_usage),
+              label: const Text('샘플 데이터 생성'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
               ),
+            ),
+          ],
         ),
         const SizedBox(height: AdminTheme.spacingXL),
         
@@ -362,5 +378,56 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _createSampleData() async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('샘플 데이터 생성 중...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Create payment data first
+      await SampleDataCreator.createSamplePayments();
+      
+      // Then create report data
+      await SampleDataCreator.createSampleReports();
+      
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 샘플 데이터가 성공적으로 생성되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 샘플 데이터 생성 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

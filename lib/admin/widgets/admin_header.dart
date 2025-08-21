@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_auth_provider.dart';
 import '../utils/admin_theme.dart';
 
 /// 관리자 헤더
@@ -14,7 +13,12 @@ class AdminHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final adminUser = ref.watch(currentAdminUserProvider);
+    // 로그인 제거로 인해 기본 관리자 정보 사용
+    final adminUser = {
+      'name': '관리자',
+      'role': 'ADMIN',
+      'displayName': '시스템 관리자'
+    };
     
     return Container(
       height: 64,
@@ -78,7 +82,7 @@ class AdminHeader extends ConsumerWidget {
           const SizedBox(width: AdminTheme.spacingM),
           
           // User Profile
-          if (adminUser != null) _buildUserProfile(adminUser),
+          _buildUserProfile(adminUser),
         ],
       ),
     );
@@ -109,7 +113,7 @@ class AdminHeader extends ConsumerWidget {
     );
   }
 
-  Widget _buildUserProfile(adminUser) {
+  Widget _buildUserProfile(Map<String, String> adminUser) {
     return PopupMenuButton<String>(
       offset: const Offset(0, 40),
       shape: RoundedRectangleBorder(
@@ -130,7 +134,7 @@ class AdminHeader extends ConsumerWidget {
               radius: 16,
               backgroundColor: AdminTheme.primaryColor,
               child: Text(
-                adminUser.name.substring(0, 1).toUpperCase(),
+                adminUser['name']!.substring(0, 1).toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -144,14 +148,14 @@ class AdminHeader extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  adminUser.name,
+                  adminUser['name']!,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  adminUser.role.displayName,
+                  adminUser['displayName']!,
                   style: const TextStyle(
                     fontSize: 12,
                     color: AdminTheme.secondaryTextColor,
@@ -189,20 +193,6 @@ class AdminHeader extends ConsumerWidget {
             ],
           ),
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'logout',
-          child: Row(
-            children: [
-              Icon(Icons.logout, size: 20, color: AdminTheme.errorColor),
-              const SizedBox(width: AdminTheme.spacingM),
-              Text(
-                '로그아웃',
-                style: TextStyle(color: AdminTheme.errorColor),
-              ),
-            ],
-          ),
-        ),
       ],
       onSelected: (value) {
         switch (value) {
@@ -211,9 +201,6 @@ class AdminHeader extends ConsumerWidget {
             break;
           case 'settings':
             // TODO: Navigate to settings
-            break;
-          case 'logout':
-            // TODO: Logout
             break;
         }
       },

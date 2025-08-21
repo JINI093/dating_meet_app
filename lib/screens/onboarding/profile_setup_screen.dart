@@ -95,12 +95,27 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         
         // PASS 인증 정보에서 생년월일 자동 입력
         final mobileOKVerification = widget.signupData!['mobileOKVerification'] as Map<String, dynamic>?;
-        if (mobileOKVerification != null && mobileOKVerification['birthDate'] != null) {
+        if (mobileOKVerification != null && mobileOKVerification['birthDate'] != null && mobileOKVerification['skipPassAuth'] != true) {
           final birthDateStr = mobileOKVerification['birthDate'] as String;
           if (birthDateStr.length == 8) {
-            _selectedYear = birthDateStr.substring(0, 4);
-            _selectedMonth = birthDateStr.substring(4, 6);
-            _selectedDay = birthDateStr.substring(6, 8);
+            final year = int.tryParse(birthDateStr.substring(0, 4));
+            final month = int.tryParse(birthDateStr.substring(4, 6));
+            final day = int.tryParse(birthDateStr.substring(6, 8));
+            
+            // 년도 유효성 검사: 드롭다운 범위 내에 있는지 확인
+            final currentYear = DateTime.now().year;
+            final minYear = currentYear - 139; // 140세
+            final maxYear = currentYear - 18;   // 18세
+            
+            if (year != null && year >= minYear && year <= maxYear) {
+              _selectedYear = year.toString();
+            }
+            if (month != null && month >= 1 && month <= 12) {
+              _selectedMonth = month.toString().padLeft(2, '0');
+            }
+            if (day != null && day >= 1 && day <= 31) {
+              _selectedDay = day.toString().padLeft(2, '0');
+            }
           }
         }
         
@@ -729,8 +744,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    items: List.generate(100, (index) {
-                      final year = DateTime.now().year - 40 - index;
+                    items: List.generate(122, (index) {
+                      final year = DateTime.now().year - 18 - index; // 18세부터 시작
                       return DropdownMenuItem(
                         value: year.toString(),
                         child: Text(year.toString()),

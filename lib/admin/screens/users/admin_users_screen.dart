@@ -4,6 +4,7 @@ import '../../utils/admin_theme.dart';
 import '../../widgets/admin_data_table.dart';
 import '../../widgets/excel_download_button.dart';
 import '../../widgets/filter_bar.dart';
+import '../../widgets/user_detail_card.dart';
 import '../../models/user_model.dart';
 import '../../providers/users_provider.dart';
 
@@ -23,6 +24,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   String _selectedStatus = '전체';
   DateTime? _startDate;
   DateTime? _endDate;
+  String? _selectedUserId; // 상세보기가 열린 사용자 ID
 
   @override
   void dispose() {
@@ -34,9 +36,15 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   Widget build(BuildContext context) {
     final usersState = ref.watch(adminUsersProvider);
     
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User detail view (if selected)
+          if (_selectedUserId != null) ...[
+            _buildUserDetailView(usersState),
+            const SizedBox(height: AdminTheme.spacingL),
+          ],
         // Page Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -109,14 +117,15 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
         const SizedBox(height: AdminTheme.spacingL),
         
         // Data Table
-        Expanded(
+        SizedBox(
+          height: _selectedUserId != null ? 400 : 600, // Reduced height when detail view is shown
           child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AdminTheme.spacingL),
-              child: Column(
-                children: [
-                  // Table Header
-                  Row(
+            child: Column(
+              children: [
+                // Table Header
+                Padding(
+                  padding: const EdgeInsets.all(AdminTheme.spacingL),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
@@ -135,6 +144,25 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                             ),
                             const SizedBox(width: AdminTheme.spacingM),
                             PopupMenuButton<String>(
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'vip',
+                                  child: Text('VIP 부여'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'suspend',
+                                  child: Text('계정 정지'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'activate',
+                                  child: Text('계정 활성화'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('계정 삭제'),
+                                ),
+                              ],
+                              onSelected: _onBulkAction,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AdminTheme.spacingM,
@@ -159,34 +187,17 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                                   ],
                                 ),
                               ),
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'vip',
-                                  child: Text('VIP 부여'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'suspend',
-                                  child: Text('계정 정지'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'activate',
-                                  child: Text('계정 활성화'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('계정 삭제'),
-                                ),
-                              ],
-                              onSelected: _onBulkAction,
                             ),
                           ],
                         ),
                     ],
                   ),
-                  const SizedBox(height: AdminTheme.spacingM),
-                  
-                  // Table
-                  Expanded(
+                ),
+                
+                // Table
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AdminTheme.spacingL),
                     child: AdminDataTable(
                       columns: _buildColumns(),
                       rows: _buildRows(usersState.users),
@@ -198,37 +209,45 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                       sortAscending: usersState.sortAscending,
                     ),
                   ),
-                  
-                  // Pagination
-                  const SizedBox(height: AdminTheme.spacingM),
-                  _buildPagination(usersState),
-                ],
-              ),
+                ),
+                
+                // Pagination
+                Padding(
+                  padding: const EdgeInsets.all(AdminTheme.spacingL),
+                  child: _buildPagination(usersState),
+                ),
+              ],
             ),
           ),
         ),
       ],
+    ),
     );
   }
 
   List<DataColumn> _buildColumns() {
     return [
       DataColumn(
-        label: const Text('회원번호'),
-        onSort: (index, ascending) => _onSort(index, ascending, 'id'),
+        label: const Text('회원이름'),
+        onSort: (index, ascending) => _onSort(index, ascending, 'name'),
       ),
       const DataColumn(
-        label: Text('프로필'),
+        label: Text('성별'),
       ),
       DataColumn(
-        label: const Text('이름/나이/성별'),
-        onSort: (index, ascending) => _onSort(index, ascending, 'name'),
+        label: const Text('나이'),
+        numeric: true,
+        onSort: (index, ascending) => _onSort(index, ascending, 'age'),
       ),
       const DataColumn(
         label: Text('전화번호'),
       ),
+      DataColumn(
+        label: const Text('보유 포인트'),
+        numeric: true,
+      ),
       const DataColumn(
-        label: Text('이메일'),
+        label: Text('승인여부'),
       ),
       DataColumn(
         label: const Text('가입일'),
@@ -239,24 +258,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
         onSort: (index, ascending) => _onSort(index, ascending, 'lastLoginAt'),
       ),
       const DataColumn(
-        label: Text('지역'),
-      ),
-      const DataColumn(
-        label: Text('VIP'),
-      ),
-      const DataColumn(
-        label: Text('인증'),
-      ),
-      DataColumn(
-        label: const Text('활동점수'),
-        numeric: true,
-        onSort: (index, ascending) => _onSort(index, ascending, 'activityScore'),
-      ),
-      const DataColumn(
-        label: Text('상태'),
-      ),
-      const DataColumn(
-        label: Text('관리'),
+        label: Text('상세보기'),
       ),
     ];
   }
@@ -271,39 +273,131 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           ref.read(adminUsersProvider.notifier).toggleSelectUser(user.id);
         },
         cells: [
-          DataCell(Text(user.id)),
           DataCell(
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: user.profileImage != null
-                  ? NetworkImage(user.profileImage!)
-                  : null,
-              child: user.profileImage == null
-                  ? const Icon(Icons.person, size: 16)
-                  : null,
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: user.profileImage != null
+                      ? NetworkImage(user.profileImage!)
+                      : null,
+                  child: user.profileImage == null
+                      ? const Icon(Icons.person, size: 16)
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  user.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
           ),
+          DataCell(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: user.gender == 'male' 
+                    ? Colors.blue.withValues(alpha: 0.1)
+                    : Colors.pink.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: user.gender == 'male' ? Colors.blue : Colors.pink,
+                ),
+              ),
+              child: Text(
+                user.gender == 'male' ? '남성' : '여성',
+                style: TextStyle(
+                  color: user.gender == 'male' ? Colors.blue : Colors.pink,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          DataCell(Text('${user.age}세')),
+          DataCell(Text(user.phoneNumber)),
           DataCell(
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  user.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  '${user.points.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} P',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AdminTheme.primaryColor,
+                  ),
                 ),
                 Text(
-                  '${user.age}세 / ${user.gender}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AdminTheme.secondaryTextColor,
+                  '사용가능',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AdminTheme.successColor,
                   ),
                 ),
               ],
             ),
           ),
-          DataCell(Text(user.phoneNumber)),
-          DataCell(Text(user.email)),
+          DataCell(
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (user.isPhoneVerified)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AdminTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AdminTheme.successColor),
+                    ),
+                    child: Text(
+                      '본인인증',
+                      style: TextStyle(
+                        color: AdminTheme.successColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (user.isJobVerified)
+                  Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AdminTheme.infoColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AdminTheme.infoColor),
+                    ),
+                    child: Text(
+                      '직업인증',
+                      style: TextStyle(
+                        color: AdminTheme.infoColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (!user.isPhoneVerified && !user.isJobVerified)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AdminTheme.warningColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AdminTheme.warningColor),
+                    ),
+                    child: Text(
+                      '미인증',
+                      style: TextStyle(
+                        color: AdminTheme.warningColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           DataCell(Text(_formatDate(user.createdAt))),
           DataCell(
             Column(
@@ -331,79 +425,22 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
               ],
             ),
           ),
-          DataCell(Text(user.location)),
           DataCell(
-            user.isVip
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AdminTheme.secondaryColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'VIP',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                : const Text('-'),
-          ),
-          DataCell(
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (user.isPhoneVerified)
-                  Tooltip(
-                    message: '본인인증',
-                    child: Icon(
-                      Icons.verified_user,
-                      size: 16,
-                      color: AdminTheme.successColor,
-                    ),
-                  ),
-                if (user.isJobVerified)
-                  Tooltip(
-                    message: '직업인증',
-                    child: Icon(
-                      Icons.work,
-                      size: 16,
-                      color: AdminTheme.infoColor,
-                    ),
-                  ),
-                if (user.isPhotoVerified)
-                  Tooltip(
-                    message: '사진인증',
-                    child: Icon(
-                      Icons.camera_alt,
-                      size: 16,
-                      color: AdminTheme.warningColor,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          DataCell(Text('${user.activityScore}')),
-          DataCell(
-            _buildStatusChip(user.status),
-          ),
-          DataCell(
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  onPressed: () => _viewUserDetail(user),
-                  tooltip: '상세보기',
+            ElevatedButton(
+              onPressed: () => _viewUserDetail(user),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                '상세보기',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  onPressed: () => _editUser(user),
-                  tooltip: '수정',
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -411,42 +448,6 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     }).toList();
   }
 
-  Widget _buildStatusChip(UserStatus status) {
-    Color color;
-    String text;
-    
-    switch (status) {
-      case UserStatus.active:
-        color = AdminTheme.successColor;
-        text = '활성';
-        break;
-      case UserStatus.suspended:
-        color = AdminTheme.warningColor;
-        text = '정지';
-        break;
-      case UserStatus.deleted:
-        color = AdminTheme.errorColor;
-        text = '탈퇴';
-        break;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
 
   Widget _buildPagination(AdminUsersState state) {
     final totalPages = (state.totalCount / state.pageSize).ceil();
@@ -506,11 +507,13 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return '-';
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  bool _isRecentlyActive(DateTime lastLogin) {
+  bool _isRecentlyActive(DateTime? lastLogin) {
+    if (lastLogin == null) return false;
     return DateTime.now().difference(lastLogin).inMinutes < 5;
   }
 
@@ -519,11 +522,28 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   }
 
   void _applyFilters() {
+    String? statusFilter;
+    if (_selectedStatus != '전체') {
+      switch (_selectedStatus) {
+        case '활성':
+          statusFilter = 'active';
+          break;
+        case '정지':
+          statusFilter = 'suspended';
+          break;
+        case '탈퇴':
+          statusFilter = 'deleted';
+          break;
+        default:
+          statusFilter = null;
+      }
+    }
+
     ref.read(adminUsersProvider.notifier).applyFilters({
-      'gender': _selectedGender,
-      'vipStatus': _selectedVipStatus,
-      'region': _selectedRegion,
-      'status': _selectedStatus,
+      'gender': _selectedGender == '전체' ? null : (_selectedGender == '남성' ? 'male' : 'female'),
+      'isVip': _selectedVipStatus == '전체' ? null : (_selectedVipStatus == 'VIP' ? true : false),
+      'location': _selectedRegion == '전체' ? null : _selectedRegion,
+      'status': statusFilter,
       'startDate': _startDate,
       'endDate': _endDate,
     });
@@ -541,23 +561,32 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   }
 
   void _viewUserDetail(UserModel user) {
-    // TODO: Navigate to user detail
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${user.name} 상세보기')),
-    );
+    setState(() {
+      _selectedUserId = _selectedUserId == user.id ? null : user.id;
+    });
   }
 
-  void _editUser(UserModel user) {
-    // TODO: Navigate to user edit
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${user.name} 수정')),
-    );
-  }
 
   void _downloadExcel() {
     // TODO: Implement excel download
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('엑셀 다운로드 시작')),
+    );
+  }
+
+  Widget _buildUserDetailView(AdminUsersState usersState) {
+    final selectedUser = usersState.users.firstWhere(
+      (user) => user.id == _selectedUserId,
+      orElse: () => usersState.users.first, // fallback
+    );
+
+    return UserDetailCard(
+      user: selectedUser,
+      onClose: () {
+        setState(() {
+          _selectedUserId = null;
+        });
+      },
     );
   }
 }

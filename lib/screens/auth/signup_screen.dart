@@ -70,6 +70,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (widget.additionalData != null) {
       final passResult = widget.additionalData!['passResult'];
       final agreedTerms = widget.additionalData!['agreedTerms'];
+      final skipPassAuth = widget.additionalData!['skipPassAuth'] ?? false;
       
       if (passResult != null) {
         // PASS 인증 결과를 mobileOKData로 저장
@@ -81,18 +82,26 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           'ci': passResult.ci,
           'di': passResult.di,
           'agreedTerms': agreedTerms,
+          'skipPassAuth': skipPassAuth, // PASS 인증을 건너뛰었는지 표시
         };
         
         // 바로 아이디 입력 단계부터 시작
         currentStep = SignupStep.idInput;
         
-        // PASS 인증 데이터로 필드 미리 채우기
-        if (passResult.name != null) {
+        // PASS 인증 데이터로 필드 미리 채우기 (인증을 건너뛰지 않은 경우만)
+        if (!skipPassAuth && passResult.name != null) {
           _nameController.text = passResult.name!;
         }
-        if (passResult.phoneNumber != null) {
+        if (!skipPassAuth && passResult.phoneNumber != null) {
           _phoneController.text = passResult.phoneNumber!;
         }
+      } else if (skipPassAuth) {
+        // PASS 인증을 건너뛰고 바로 아이디 입력으로 진행
+        currentStep = SignupStep.idInput;
+        _mobileOKData = {
+          'skipPassAuth': true,
+          'agreedTerms': agreedTerms,
+        };
       }
     }
     // 기존 MobileOK 인증 데이터가 있으면 바로 아이디 입력 단계부터 시작 (이전 버전 호환성)

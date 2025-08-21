@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
 import '../../utils/app_dimensions.dart';
+import '../../utils/debug_config.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/points_provider.dart';
 import '../../models/purchase_models.dart';
@@ -41,9 +42,32 @@ class _PointsPurchaseScreenState extends ConsumerState<PointsPurchaseScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          '포인트 구매',
-          style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '포인트 구매',
+              style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+            ),
+            if (DebugConfig.enableDebugPayments) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'DEBUG',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         centerTitle: true,
         actions: [
@@ -62,6 +86,10 @@ class _PointsPurchaseScreenState extends ConsumerState<PointsPurchaseScreen> {
         children: [
           // 현재 포인트 표시
           _buildCurrentPointsHeader(pointsState),
+          
+          // 디버그 모드 배너
+          if (DebugConfig.enableDebugPayments)
+            _buildDebugBanner(),
           
           Expanded(
             child: purchaseState.isLoading
@@ -555,6 +583,49 @@ class _PointsPurchaseScreenState extends ConsumerState<PointsPurchaseScreen> {
         _showErrorDialog('구매 복원에 실패했습니다: $e');
       }
     }
+  }
+
+  Widget _buildDebugBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingL),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        border: Border.all(color: Colors.orange, width: 1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.bug_report,
+            color: Colors.orange.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '디버그 모드 활성화됨',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.orange.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '실제 결제 없이 구매가 가능합니다',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showErrorDialog(String message) {

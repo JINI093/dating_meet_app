@@ -7,14 +7,14 @@ class UserModel {
   final String phoneNumber;
   final String email;
   final DateTime createdAt;
-  final DateTime lastLoginAt;
+  final DateTime? lastLoginAt;
   final String location;
   final String? job;
   final bool isVip;
   final bool isPhoneVerified;
   final bool isJobVerified;
   final bool isPhotoVerified;
-  final int activityScore;
+  final double activityScore;
   final int receivedLikes;
   final int sentLikes;
   final int successfulMatches;
@@ -30,6 +30,8 @@ class UserModel {
   final String? religion;
   final String? mbti;
   final List<String> hobbies;
+  final int points;
+  final String? vipGrade; // VIP 등급 추가
 
   UserModel({
     required this.id,
@@ -39,14 +41,14 @@ class UserModel {
     required this.phoneNumber,
     required this.email,
     required this.createdAt,
-    required this.lastLoginAt,
+    this.lastLoginAt,
     required this.location,
     this.job,
     this.isVip = false,
     this.isPhoneVerified = false,
     this.isJobVerified = false,
     this.isPhotoVerified = false,
-    this.activityScore = 0,
+    this.activityScore = 0.0,
     this.receivedLikes = 0,
     this.sentLikes = 0,
     this.successfulMatches = 0,
@@ -62,6 +64,8 @@ class UserModel {
     this.religion,
     this.mbti,
     this.hobbies = const [],
+    this.points = 0,
+    this.vipGrade,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -73,14 +77,14 @@ class UserModel {
       phoneNumber: json['phoneNumber'] as String,
       email: json['email'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      lastLoginAt: DateTime.parse(json['lastLoginAt'] as String),
+      lastLoginAt: json['lastLoginAt'] != null ? DateTime.parse(json['lastLoginAt'] as String) : null,
       location: json['location'] as String,
       job: json['job'] as String?,
       isVip: json['isVip'] as bool? ?? false,
       isPhoneVerified: json['isPhoneVerified'] as bool? ?? false,
       isJobVerified: json['isJobVerified'] as bool? ?? false,
       isPhotoVerified: json['isPhotoVerified'] as bool? ?? false,
-      activityScore: json['activityScore'] as int? ?? 0,
+      activityScore: (json['activityScore'] as num?)?.toDouble() ?? 0.0,
       receivedLikes: json['receivedLikes'] as int? ?? 0,
       sentLikes: json['sentLikes'] as int? ?? 0,
       successfulMatches: json['successfulMatches'] as int? ?? 0,
@@ -99,6 +103,8 @@ class UserModel {
       religion: json['religion'] as String?,
       mbti: json['mbti'] as String?,
       hobbies: List<String>.from(json['hobbies'] ?? []),
+      points: json['points'] as int? ?? 0,
+      vipGrade: json['vipGrade'] as String?,
     );
   }
 
@@ -111,7 +117,7 @@ class UserModel {
       'phoneNumber': phoneNumber,
       'email': email,
       'createdAt': createdAt.toIso8601String(),
-      'lastLoginAt': lastLoginAt.toIso8601String(),
+      'lastLoginAt': lastLoginAt?.toIso8601String(),
       'location': location,
       'job': job,
       'isVip': isVip,
@@ -134,6 +140,8 @@ class UserModel {
       'religion': religion,
       'mbti': mbti,
       'hobbies': hobbies,
+      'points': points,
+      'vipGrade': vipGrade,
     };
   }
 
@@ -152,7 +160,7 @@ class UserModel {
     bool? isPhoneVerified,
     bool? isJobVerified,
     bool? isPhotoVerified,
-    int? activityScore,
+    double? activityScore,
     int? receivedLikes,
     int? sentLikes,
     int? successfulMatches,
@@ -168,6 +176,8 @@ class UserModel {
     String? religion,
     String? mbti,
     List<String>? hobbies,
+    int? points,
+    String? vipGrade,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -200,6 +210,8 @@ class UserModel {
       religion: religion ?? this.religion,
       mbti: mbti ?? this.mbti,
       hobbies: hobbies ?? this.hobbies,
+      points: points ?? this.points,
+      vipGrade: vipGrade ?? this.vipGrade,
     );
   }
 }

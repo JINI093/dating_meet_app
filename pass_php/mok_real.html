@@ -27,7 +27,7 @@ function startRealPassAuth() {
             console.log('실제 PASS 인증 시작');
             
             // 실제 서버의 mok_std_request.php 호출
-            MOBILEOK.process("https://withroyal.dothome.co.kr/mok_std_request.php", "WB", "result");
+            MOBILEOK.process("https://sagilrae.com/mok_std_request.php", "WB", "result");
             
             // 상태 메시지 업데이트
             document.querySelector("#status").textContent = "PASS 앱으로 본인인증을 진행해주세요...";

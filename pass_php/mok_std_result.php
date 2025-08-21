@@ -21,7 +21,7 @@
     // $MOK_RESULT_REQUEST_URL = "https://cert.mobile-ok.com/gui/service/v1/result/request";  //운영
 
     // (/* 7.2 : 페이지 이동 : redirect 방식, 이용기관 지정 페이지로 이동 */) 이용시 이동 URL
-    $MOK_RESULT_REDIRECT_URL = "https://withroyal.dothome.co.kr/result_page.php";  // withroyal.dothome.co.kr
+    $MOK_RESULT_REDIRECT_URL = "https://sagilrae.com/result_page.php";  // sagilrae.com
 
     /* 2. 본인확인 서비스 API 설정 */
     $mobileOK = new mobileOK_Key_Manager();

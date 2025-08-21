@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../utils/logger.dart';
 import '../models/purchase_models.dart';
+import '../utils/debug_config.dart';
 
 /// 인앱결제 서비스
 /// iOS App Store와 Google Play Store에서 제품 구매, 복원 등을 처리
@@ -122,11 +124,16 @@ class InAppPurchaseService {
     }
   }
 
-  /// 제품 구매
+  /// 제품 구매 (디버그 모드 지원)
   Future<bool> purchaseProduct(ProductDetails product) async {
     try {
       Logger.log('제품 구매 시작: ${product.id}', name: 'InAppPurchase');
       
+      // 디버그 모드에서는 실제 결제 없이 성공 시뮬레이션
+      if (DebugConfig.enableDebugPayments) {
+        return await _simulateDebugPurchase(product);
+      }
+
       final PurchaseParam purchaseParam = PurchaseParam(
         productDetails: product,
         applicationUserName: null, // 사용자 ID를 넣을 수 있음
@@ -154,6 +161,50 @@ class InAppPurchaseService {
       onPurchaseError?.call('구매 중 오류가 발생했습니다: $e');
       return false;
     }
+  }
+
+  /// 디버그 구매 시뮬레이션
+  Future<bool> _simulateDebugPurchase(ProductDetails product) async {
+    try {
+      Logger.log('[DEBUG] 디버그 모드 구매 시뮬레이션: ${product.id}', name: 'InAppPurchase');
+
+      // 디버그 지연 시간 시뮬레이션
+      await Future.delayed(DebugConfig.debugPaymentDelay);
+
+      // 성공률에 따른 결과 결정
+      final random = Random();
+      final shouldSucceed = random.nextDouble() <= DebugConfig.debugPaymentSuccessRate;
+
+      if (!shouldSucceed) {
+        Logger.log('[DEBUG] 디버그 모드 구매 실패 시뮬레이션', name: 'InAppPurchase');
+        onPurchaseError?.call('[DEBUG] 시뮬레이션된 결제 실패');
+        return false;
+      }
+
+      // 구매 성공 콜백 직접 호출
+      Future.delayed(Duration(milliseconds: 100), () {
+        _triggerMockPurchaseSuccess(product);
+      });
+
+      Logger.log('[DEBUG] 디버그 모드 구매 성공 시뮬레이션', name: 'InAppPurchase');
+      return true;
+    } catch (e) {
+      Logger.error('[DEBUG] 디버그 구매 시뮬레이션 오류: $e', name: 'InAppPurchase');
+      return false;
+    }
+  }
+
+  /// Mock PurchaseDetails 생성 (디버그용)
+  void _triggerMockPurchaseSuccess(ProductDetails product) {
+    // 직접 PurchaseResult를 생성해서 성공 콜백 호출
+    final mockResult = PurchaseResult(
+      status: PurchaseResultStatus.success,
+      productId: product.id,
+      transactionId: DebugConfig.generateMockTransactionId(),
+      purchaseDetails: null, // 디버그 모드에서는 null로 처리
+    );
+    
+    onPurchaseUpdated?.call(mockResult);
   }
 
   /// 구매 복원

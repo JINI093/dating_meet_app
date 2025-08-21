@@ -1,28 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_auth_provider.dart';
-import '../screens/admin_login_screen.dart';
 import '../screens/admin_main_layout.dart';
 import '../screens/dashboard/admin_dashboard_screen.dart';
+// 회원관리 화면
 import '../screens/users/admin_users_screen.dart';
 import '../screens/users/admin_vip_screen.dart';
 import '../screens/users/admin_points_screen.dart';
 import '../screens/users/admin_realtime_screen.dart';
-import '../screens/users/admin_reports_screen.dart';
 import '../screens/users/admin_rankings_screen.dart';
 import '../screens/users/admin_admins_screen.dart';
+
+// 상품 스토어 관리 화면
+import '../screens/store/admin_general_products_screen.dart';
+import '../screens/store/admin_vip_products_screen.dart';
+
+// 결제 및 정산 화면
+import '../screens/payment/admin_payment_history_screen.dart';
+import '../screens/payment/admin_settlement_screen.dart';
+import '../screens/payment/admin_coupons_screen.dart';
+
+// 신고 관리 화면
+import '../screens/report/admin_report_screen.dart';
+import '../screens/report/admin_blacklist_screen.dart';
+
+// 통계 및 공지사항 화면
+import '../screens/statistics/admin_statistics_screen.dart';
+import '../screens/notice/admin_notice_screen.dart';
+import '../screens/notice/admin_male_notice_screen.dart';
+import '../screens/notice/admin_female_notice_screen.dart';
+import '../screens/settings/admin_settings_screen.dart';
 
 /// 관리자 라우터 설정
 class AdminRouter {
   static final adminRoutes = [
-    // Admin Login
+    // Admin 기본 경로 - 바로 대시보드로 리다이렉트
     GoRoute(
-      path: '/admin/login',
-      pageBuilder: (context, state) => MaterialPage(
-        key: state.pageKey,
-        child: const AdminLoginScreen(),
-      ),
+      path: '/admin',
+      redirect: (context, state) => '/admin/dashboard',
     ),
     
     // Admin Shell Route
@@ -76,68 +90,127 @@ class AdminRouter {
           path: '/admin/reports',
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
-            child: const AdminReportsScreen(),
+            child: const AdminReportScreen(),
+          ),
+        ),
+        // GoRoute(
+        //   path: '/admin/rankings',
+        //   pageBuilder: (context, state) => MaterialPage(
+        //     key: state.pageKey,
+        //     child: const AdminRankingsScreen(),
+        //   ),
+        // ),
+        // GoRoute(
+        //   path: '/admin/admins',
+        //   pageBuilder: (context, state) => MaterialPage(
+        //     key: state.pageKey,
+        //     child: const AdminAdminsScreen(),
+        //   ),
+        // ),
+        
+        // 상품 스토어 관리
+        GoRoute(
+          path: '/admin/store/general',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminGeneralProductsScreen(),
           ),
         ),
         GoRoute(
-          path: '/admin/rankings',
+          path: '/admin/store/vip',
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
-            child: const AdminRankingsScreen(),
-          ),
-        ),
-        GoRoute(
-          path: '/admin/admins',
-          pageBuilder: (context, state) => MaterialPage(
-            key: state.pageKey,
-            child: const AdminAdminsScreen(),
+            child: const AdminVipProductsScreen(),
           ),
         ),
         
-        // TODO: Add more routes for other screens
+        // 결제 및 정산
+        GoRoute(
+          path: '/admin/payment/history',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminPaymentHistoryScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/payment/settlement',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminSettlementScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/payment/coupons',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminCouponsScreen(),
+          ),
+        ),
+        
+        // 신고 관리
+        GoRoute(
+          path: '/admin/report/history',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminReportScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/report/blacklist',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminBlacklistScreen(),
+          ),
+        ),
+        
+        // 통계 데이터
+        GoRoute(
+          path: '/admin/statistics',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminStatisticsScreen(),
+          ),
+        ),
+        
+        // 공지사항
+        GoRoute(
+          path: '/admin/notice',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminNoticeScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/notice/male',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminMaleNoticeScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/admin/notice/female',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminFemaleNoticeScreen(),
+          ),
+        ),
+        
+        // 설정
+        GoRoute(
+          path: '/admin/settings',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const AdminSettingsScreen(),
+          ),
+        ),
       ],
     ),
   ];
 
-  /// 관리자 인증 리다이렉트
+  /// 관리자 인증 리다이렉트 (로그인 제거됨)
   static String? adminRedirect(BuildContext context, GoRouterState state) {
-    final container = ProviderScope.containerOf(context);
-    final authState = container.read(adminAuthProvider);
-    
-    final isLoginRoute = state.uri.toString() == '/admin/login';
-    final isAuthenticated = authState.isAuthenticated;
-    
-    // 로그인되지 않았는데 로그인 페이지가 아닌 경우
-    if (!isAuthenticated && !isLoginRoute) {
-      return '/admin/login';
-    }
-    
-    // 로그인되었는데 로그인 페이지인 경우
-    if (isAuthenticated && isLoginRoute) {
-      return '/admin/dashboard';
-    }
-    
-    // 권한 체크
-    if (isAuthenticated && !isLoginRoute) {
-      final path = state.uri.toString();
-      final menu = _extractMenuFromPath(path);
-      
-      if (menu != null) {
-        final hasPermission = container.read(hasAdminPermissionProvider(menu));
-        if (!hasPermission) {
-          return '/admin/dashboard';
-        }
-      }
-    }
-    
+    // 로그인 검증 없이 모든 관리자 페이지 접근 허용
     return null;
   }
-  
-  static String? _extractMenuFromPath(String path) {
-    final parts = path.split('/');
-    if (parts.length >= 3 && parts[1] == 'admin') {
-      return parts[2];
-    }
-    return null;
-  }
+
 }

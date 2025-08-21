@@ -87,6 +87,83 @@ type Superchat @model @auth(rules: [{ allow: public }]) {
   updatedAt: AWSDateTime!
 }
 
+# Notice Model for Admin Panel
+type Notice @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  title: String!
+  content: String!
+  targetType: String! @index(name: "byTargetType")
+  status: String! @index(name: "byStatus")
+  authorId: String!
+  authorName: String!
+  viewCount: Int
+  isPinned: Boolean
+  isImportant: Boolean
+  tags: [String]
+  metadata: String
+  publishedAt: AWSDateTime
+  scheduledAt: AWSDateTime
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Report Model for Admin Panel
+type Report @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  reporterUserId: String! @index(name: "byReporterUserId")
+  reporterName: String!
+  reportedUserId: String! @index(name: "byReportedUserId")
+  reportedName: String!
+  reportType: String! @index(name: "byReportType")
+  reportReason: String!
+  reportContent: String!
+  evidence: [String]
+  status: String! @index(name: "byStatus")
+  priority: String!
+  adminNotes: String
+  processedBy: String
+  processedAt: AWSDateTime
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Banner Model for Admin Panel
+type Banner @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  type: String! @index(name: "byType")
+  title: String!
+  description: String
+  imageUrl: String!
+  linkUrl: String
+  isActive: Boolean!
+  order: Int!
+  startDate: AWSDateTime
+  endDate: AWSDateTime
+  createdBy: String!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+# Payment Model for Admin Panel
+type Payment @model @auth(rules: [{ allow: public }]) {
+  id: ID!
+  userId: String! @index(name: "byUserId")
+  userName: String!
+  productName: String!
+  productType: String!
+  amount: Int!
+  paymentMethod: String!
+  status: String! @index(name: "byStatus")
+  transactionId: String
+  gatewayResponse: String
+  refundAmount: Int
+  refundReason: String
+  refundedAt: AWSDateTime
+  failureReason: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
 # Keep existing Todo model for backward compatibility
 type Todo @model @auth(rules: [{ allow: public }]) {
   id: ID!

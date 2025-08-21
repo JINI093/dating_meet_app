@@ -25,7 +25,7 @@
     $clientPrefix = "61624356-3699-4e48-aa27-41f1652eb928";  // MOBILEOK_CLIENT_PREFIX
 
     /* 결과 수신 후 전달 URL 설정 - withroyal.dothome.co.kr */
-    $result_return_url = "https://withroyal.dothome.co.kr/mok_std_result.php";
+    $result_return_url = "https://sagilrae.com/mok_std_result.php";
 
     /* 2. 거래 정보 호출 */
     echo mobileOK_std_request($mobileOK, $result_return_url, $clientPrefix);

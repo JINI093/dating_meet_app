@@ -75,9 +75,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         final result = await authProvider.checkAutoLogin();
         
         if (result.success) {
-          print('자동로그인 성공 - 메인화면으로 이동');
+          print('자동로그인 성공 - 홈화면으로 이동');
           if (mounted) {
-            context.go('/main');
+            context.go('/home');
           }
           return;
         } else {

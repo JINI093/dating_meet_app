@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../routes/route_names.dart';
+import '../../providers/point_exchange_provider.dart';
+import '../../providers/points_provider.dart';
 
-class PointExchangeMainScreen extends StatelessWidget {
+class PointExchangeMainScreen extends ConsumerStatefulWidget {
   final int userPoint;
   const PointExchangeMainScreen({Key? key, required this.userPoint}) : super(key: key);
+
+  @override
+  ConsumerState<PointExchangeMainScreen> createState() => _PointExchangeMainScreenState();
+}
+
+class _PointExchangeMainScreenState extends ConsumerState<PointExchangeMainScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +28,13 @@ class PointExchangeMainScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back, color: Colors.black),
-          onPressed: () => context.go(RouteNames.profile),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(RouteNames.profile);
+            }
+          },
         ),
         title: const Text(
           '포인트 전환',
@@ -38,7 +56,7 @@ class PointExchangeMainScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Expanded(
-                  child: _PointCard(userPoint: userPoint),
+                  child: _PointCard(userPoint: widget.userPoint),
                 ),
                 const SizedBox(width: 20),
                 const Icon(
@@ -61,10 +79,7 @@ class PointExchangeMainScreen extends StatelessWidget {
                 width: 120,
                 height: 36,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // 상품권 전환 신청 완료 화면 이동
-                    context.go(RouteNames.pointsSuccess);
-                  },
+                  onPressed: () => _handleExchangeRequest(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFFA726),
                     elevation: 0,
@@ -113,6 +128,216 @@ class PointExchangeMainScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Handle exchange request with HonetCon API
+  Future<void> _handleExchangeRequest() async {
+    try {
+      // Show input dialog for email and additional info
+      final result = await _showExchangeInputDialog();
+      
+      if (result == null) return; // User cancelled
+      
+      // Show loading dialog
+      _showLoadingDialog();
+
+      // Get current user points
+      final pointsState = ref.read(pointsProvider);
+      final userPoints = pointsState.currentPoints;
+
+      // Calculate gift card value (1,000P = 100,000원)
+      const int pointsToExchange = 1000;
+      const int giftCardValue = 100000;
+      
+      if (userPoints < pointsToExchange) {
+        if (mounted) {
+          Navigator.of(context).pop(); // Close loading dialog
+          _showErrorDialog('보유 포인트가 부족합니다. (필요: ${pointsToExchange}P, 보유: ${userPoints}P)');
+        }
+        return;
+      }
+
+      // Call HonetCon API through provider
+      final success = await ref.read(pointExchangeProvider.notifier).exchangePointsToGiftCard(
+        points: pointsToExchange,
+        giftCardType: 'random', // Random gift card type
+        giftCardValue: giftCardValue,
+        recipientEmail: result['email']!,
+        recipientPhone: result['phone'],
+        message: result['message'],
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+
+        if (success) {
+          // Navigate to success screen
+          context.go(RouteNames.pointsSuccess);
+        } else {
+          // Show error from provider
+          final exchangeState = ref.read(pointExchangeProvider);
+          _showErrorDialog(exchangeState.error ?? '상품권 전환에 실패했습니다');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        _showErrorDialog('오류가 발생했습니다: $e');
+      }
+    }
+  }
+
+  /// Show exchange input dialog
+  Future<Map<String, String>?> _showExchangeInputDialog() async {
+    _emailController.clear();
+    _phoneController.clear();
+    _messageController.clear();
+
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          '상품권 전환 신청',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('전환할 포인트: 1,000P'),
+              const Text('받을 상품권: 100,000원'),
+              const SizedBox(height: 16),
+              
+              // Email input
+              const Text('이메일 주소 *', style: TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: '상품권을 받을 이메일 주소',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Phone input (optional)
+              const Text('전화번호 (선택사항)', style: TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  hintText: '010-1234-5678',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Message input (optional)
+              const Text('메모 (선택사항)', style: TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _messageController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: '추가 메모사항',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              Text(
+                '• 상품권은 영업일 기준 10-15일 내에 이메일로 발송됩니다.\n• 전환 후 취소가 불가능하니 신중히 결정해주세요.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final email = _emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('이메일 주소를 입력해주세요')),
+                );
+                return;
+              }
+              
+              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('올바른 이메일 주소를 입력해주세요')),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop({
+                'email': email,
+                'phone': _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+                'message': _messageController.text.trim().isNotEmpty ? _messageController.text.trim() : null,
+              });
+            },
+            child: const Text('전환 신청'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show loading dialog
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('상품권 전환 중...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show error dialog
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('오류'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _phoneController.dispose();
+    _messageController.dispose();
+    super.dispose();
   }
 }
 
