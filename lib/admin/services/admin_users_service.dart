@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import '../models/user_model.dart';
 import '../../config/api_config.dart' as app_api_config;
-import '../../models/Profile.dart';
+import '../../models/Profiles.dart';
 import '../../utils/logger.dart';
 
 /// 관리자 회원 관리 서비스 (AWS Cognito + DynamoDB 연동)
@@ -125,14 +125,14 @@ class AdminUsersService {
       if (allProfiles.isNotEmpty) {
         Logger.log('✅ GraphQL 응답 성공', name: 'AdminUsersService');
         
-        // Profile 객체로 변환 및 중복 제거
+        // Profiles 객체로 변환 및 중복 제거
         final profiles = allProfiles
             .where((item) => item != null)
-            .map((item) => Profile.fromJson(item))
+            .map((item) => Profiles.fromJson(item))
             .toList();
         
         // 중복된 userId를 가진 프로필 제거 (가장 최근 업데이트된 것만 유지)
-        final uniqueProfiles = <String, Profile>{};
+        final uniqueProfiles = <String, Profiles>{};
         for (final profile in profiles) {
           final existingProfile = uniqueProfiles[profile.userId];
           if (existingProfile == null || 
@@ -151,7 +151,7 @@ class AdminUsersService {
         // 실제 사용자 정보 조회 (전화번호, 실제 성별 등)
         final userInfoMap = await _fetchUserInfo(deduplicatedProfiles.map((p) => p.userId).toList());
         
-        // Profile을 UserModel로 변환
+        // Profiles을 UserModel로 변환
         final users = deduplicatedProfiles.map((profile) {
           final points = userPointsMap[profile.userId] ?? 0;
           final userInfo = userInfoMap[profile.userId];
@@ -285,8 +285,8 @@ class AdminUsersService {
     }
   }
 
-  /// Profile을 UserModel로 변환
-  UserModel _convertProfileToUser(Profile profile, int points, [Map<String, dynamic>? userInfo]) {
+  /// Profiles을 UserModel로 변환
+  UserModel _convertProfileToUser(Profiles profile, int points, [Map<String, dynamic>? userInfo]) {
     // userInfo에서 전화번호와 성별 정보 가져오기, 없으면 기본값 생성
     String phoneNumber;
     String determinedGender;
@@ -785,10 +785,10 @@ class AdminUsersService {
     try {
       Logger.log('🏆 VIP 등급 업데이트 시작: $vipGrade', name: 'AdminUsersService');
       
-      // GraphQL Mutation으로 Profile의 badges 필드 업데이트
+      // GraphQL Mutation으로 Profiles의 badges 필드 업데이트
       const graphQLDocument = '''
-        mutation UpdateProfile(\$input: UpdateProfileInput!) {
-          updateProfile(input: \$input) {
+        mutation UpdateProfiles(\$input: UpdateProfilesInput!) {
+          updateProfiles(input: \$input) {
             id
             userId
             badges

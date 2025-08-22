@@ -23,19 +23,20 @@ import 'ModelProvider.dart';
 import 'package:amplify_core/amplify_core.dart' as amplify_core;
 
 
-/** This is an auto generated class representing the Superchat type in your schema. */
-class Superchat extends amplify_core.Model {
-  static const classType = const _SuperchatModelType();
+/** This is an auto generated class representing the Banner type in your schema. */
+class Banner extends amplify_core.Model {
+  static const classType = const _BannerModelType();
   final String id;
-  final String? _fromUserId;
-  final String? _toProfilesId;
-  final String? _message;
-  final int? _pointsUsed;
-  final String? _templateType;
-  final String? _customData;
-  final String? _status;
-  final int? _priority;
-  final amplify_core.TemporalDateTime? _expiresAt;
+  final String? _type;
+  final String? _title;
+  final String? _description;
+  final String? _imageUrl;
+  final String? _linkUrl;
+  final bool? _isActive;
+  final int? _order;
+  final amplify_core.TemporalDateTime? _startDate;
+  final amplify_core.TemporalDateTime? _endDate;
+  final String? _createdBy;
   final amplify_core.TemporalDateTime? _createdAt;
   final amplify_core.TemporalDateTime? _updatedAt;
 
@@ -46,15 +47,15 @@ class Superchat extends amplify_core.Model {
   @override
   String getId() => id;
   
-  SuperchatModelIdentifier get modelIdentifier {
-      return SuperchatModelIdentifier(
+  BannerModelIdentifier get modelIdentifier {
+      return BannerModelIdentifier(
         id: id
       );
   }
   
-  String get fromUserId {
+  String get type {
     try {
-      return _fromUserId!;
+      return _type!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -65,9 +66,9 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  String get toProfilesId {
+  String get title {
     try {
-      return _toProfilesId!;
+      return _title!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -78,9 +79,13 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  String get message {
+  String? get description {
+    return _description;
+  }
+  
+  String get imageUrl {
     try {
-      return _message!;
+      return _imageUrl!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -91,9 +96,13 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  int get pointsUsed {
+  String? get linkUrl {
+    return _linkUrl;
+  }
+  
+  bool get isActive {
     try {
-      return _pointsUsed!;
+      return _isActive!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -104,17 +113,9 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  String? get templateType {
-    return _templateType;
-  }
-  
-  String? get customData {
-    return _customData;
-  }
-  
-  String get status {
+  int get order {
     try {
-      return _status!;
+      return _order!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -125,22 +126,17 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  int get priority {
-    try {
-      return _priority!;
-    } catch(e) {
-      throw amplify_core.AmplifyCodeGenModelException(
-          amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
-          recoverySuggestion:
-            amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastRecoverySuggestion,
-          underlyingException: e.toString()
-          );
-    }
+  amplify_core.TemporalDateTime? get startDate {
+    return _startDate;
   }
   
-  amplify_core.TemporalDateTime get expiresAt {
+  amplify_core.TemporalDateTime? get endDate {
+    return _endDate;
+  }
+  
+  String get createdBy {
     try {
-      return _expiresAt!;
+      return _createdBy!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -177,20 +173,21 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  const Superchat._internal({required this.id, required fromUserId, required toProfilesId, required message, required pointsUsed, templateType, customData, required status, required priority, required expiresAt, required createdAt, required updatedAt}): _fromUserId = fromUserId, _toProfilesId = toProfilesId, _message = message, _pointsUsed = pointsUsed, _templateType = templateType, _customData = customData, _status = status, _priority = priority, _expiresAt = expiresAt, _createdAt = createdAt, _updatedAt = updatedAt;
+  const Banner._internal({required this.id, required type, required title, description, required imageUrl, linkUrl, required isActive, required order, startDate, endDate, required createdBy, required createdAt, required updatedAt}): _type = type, _title = title, _description = description, _imageUrl = imageUrl, _linkUrl = linkUrl, _isActive = isActive, _order = order, _startDate = startDate, _endDate = endDate, _createdBy = createdBy, _createdAt = createdAt, _updatedAt = updatedAt;
   
-  factory Superchat({String? id, required String fromUserId, required String toProfilesId, required String message, required int pointsUsed, String? templateType, String? customData, required String status, required int priority, required amplify_core.TemporalDateTime expiresAt, required amplify_core.TemporalDateTime createdAt, required amplify_core.TemporalDateTime updatedAt}) {
-    return Superchat._internal(
+  factory Banner({String? id, required String type, required String title, String? description, required String imageUrl, String? linkUrl, required bool isActive, required int order, amplify_core.TemporalDateTime? startDate, amplify_core.TemporalDateTime? endDate, required String createdBy, required amplify_core.TemporalDateTime createdAt, required amplify_core.TemporalDateTime updatedAt}) {
+    return Banner._internal(
       id: id == null ? amplify_core.UUID.getUUID() : id,
-      fromUserId: fromUserId,
-      toProfilesId: toProfilesId,
-      message: message,
-      pointsUsed: pointsUsed,
-      templateType: templateType,
-      customData: customData,
-      status: status,
-      priority: priority,
-      expiresAt: expiresAt,
+      type: type,
+      title: title,
+      description: description,
+      imageUrl: imageUrl,
+      linkUrl: linkUrl,
+      isActive: isActive,
+      order: order,
+      startDate: startDate,
+      endDate: endDate,
+      createdBy: createdBy,
       createdAt: createdAt,
       updatedAt: updatedAt);
   }
@@ -202,17 +199,18 @@ class Superchat extends amplify_core.Model {
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is Superchat &&
+    return other is Banner &&
       id == other.id &&
-      _fromUserId == other._fromUserId &&
-      _toProfilesId == other._toProfilesId &&
-      _message == other._message &&
-      _pointsUsed == other._pointsUsed &&
-      _templateType == other._templateType &&
-      _customData == other._customData &&
-      _status == other._status &&
-      _priority == other._priority &&
-      _expiresAt == other._expiresAt &&
+      _type == other._type &&
+      _title == other._title &&
+      _description == other._description &&
+      _imageUrl == other._imageUrl &&
+      _linkUrl == other._linkUrl &&
+      _isActive == other._isActive &&
+      _order == other._order &&
+      _startDate == other._startDate &&
+      _endDate == other._endDate &&
+      _createdBy == other._createdBy &&
       _createdAt == other._createdAt &&
       _updatedAt == other._updatedAt;
   }
@@ -224,17 +222,18 @@ class Superchat extends amplify_core.Model {
   String toString() {
     var buffer = new StringBuffer();
     
-    buffer.write("Superchat {");
+    buffer.write("Banner {");
     buffer.write("id=" + "$id" + ", ");
-    buffer.write("fromUserId=" + "$_fromUserId" + ", ");
-    buffer.write("toProfilesId=" + "$_toProfilesId" + ", ");
-    buffer.write("message=" + "$_message" + ", ");
-    buffer.write("pointsUsed=" + (_pointsUsed != null ? _pointsUsed!.toString() : "null") + ", ");
-    buffer.write("templateType=" + "$_templateType" + ", ");
-    buffer.write("customData=" + "$_customData" + ", ");
-    buffer.write("status=" + "$_status" + ", ");
-    buffer.write("priority=" + (_priority != null ? _priority!.toString() : "null") + ", ");
-    buffer.write("expiresAt=" + (_expiresAt != null ? _expiresAt!.format() : "null") + ", ");
+    buffer.write("type=" + "$_type" + ", ");
+    buffer.write("title=" + "$_title" + ", ");
+    buffer.write("description=" + "$_description" + ", ");
+    buffer.write("imageUrl=" + "$_imageUrl" + ", ");
+    buffer.write("linkUrl=" + "$_linkUrl" + ", ");
+    buffer.write("isActive=" + (_isActive != null ? _isActive!.toString() : "null") + ", ");
+    buffer.write("order=" + (_order != null ? _order!.toString() : "null") + ", ");
+    buffer.write("startDate=" + (_startDate != null ? _startDate!.format() : "null") + ", ");
+    buffer.write("endDate=" + (_endDate != null ? _endDate!.format() : "null") + ", ");
+    buffer.write("createdBy=" + "$_createdBy" + ", ");
     buffer.write("createdAt=" + (_createdAt != null ? _createdAt!.format() : "null") + ", ");
     buffer.write("updatedAt=" + (_updatedAt != null ? _updatedAt!.format() : "null"));
     buffer.write("}");
@@ -242,100 +241,106 @@ class Superchat extends amplify_core.Model {
     return buffer.toString();
   }
   
-  Superchat copyWith({String? fromUserId, String? toProfilesId, String? message, int? pointsUsed, String? templateType, String? customData, String? status, int? priority, amplify_core.TemporalDateTime? expiresAt, amplify_core.TemporalDateTime? createdAt, amplify_core.TemporalDateTime? updatedAt}) {
-    return Superchat._internal(
+  Banner copyWith({String? type, String? title, String? description, String? imageUrl, String? linkUrl, bool? isActive, int? order, amplify_core.TemporalDateTime? startDate, amplify_core.TemporalDateTime? endDate, String? createdBy, amplify_core.TemporalDateTime? createdAt, amplify_core.TemporalDateTime? updatedAt}) {
+    return Banner._internal(
       id: id,
-      fromUserId: fromUserId ?? this.fromUserId,
-      toProfilesId: toProfilesId ?? this.toProfilesId,
-      message: message ?? this.message,
-      pointsUsed: pointsUsed ?? this.pointsUsed,
-      templateType: templateType ?? this.templateType,
-      customData: customData ?? this.customData,
-      status: status ?? this.status,
-      priority: priority ?? this.priority,
-      expiresAt: expiresAt ?? this.expiresAt,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
+      linkUrl: linkUrl ?? this.linkUrl,
+      isActive: isActive ?? this.isActive,
+      order: order ?? this.order,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt);
   }
   
-  Superchat copyWithModelFieldValues({
-    ModelFieldValue<String>? fromUserId,
-    ModelFieldValue<String>? toProfilesId,
-    ModelFieldValue<String>? message,
-    ModelFieldValue<int>? pointsUsed,
-    ModelFieldValue<String?>? templateType,
-    ModelFieldValue<String?>? customData,
-    ModelFieldValue<String>? status,
-    ModelFieldValue<int>? priority,
-    ModelFieldValue<amplify_core.TemporalDateTime>? expiresAt,
+  Banner copyWithModelFieldValues({
+    ModelFieldValue<String>? type,
+    ModelFieldValue<String>? title,
+    ModelFieldValue<String?>? description,
+    ModelFieldValue<String>? imageUrl,
+    ModelFieldValue<String?>? linkUrl,
+    ModelFieldValue<bool>? isActive,
+    ModelFieldValue<int>? order,
+    ModelFieldValue<amplify_core.TemporalDateTime?>? startDate,
+    ModelFieldValue<amplify_core.TemporalDateTime?>? endDate,
+    ModelFieldValue<String>? createdBy,
     ModelFieldValue<amplify_core.TemporalDateTime>? createdAt,
     ModelFieldValue<amplify_core.TemporalDateTime>? updatedAt
   }) {
-    return Superchat._internal(
+    return Banner._internal(
       id: id,
-      fromUserId: fromUserId == null ? this.fromUserId : fromUserId.value,
-      toProfilesId: toProfilesId == null ? this.toProfilesId : toProfilesId.value,
-      message: message == null ? this.message : message.value,
-      pointsUsed: pointsUsed == null ? this.pointsUsed : pointsUsed.value,
-      templateType: templateType == null ? this.templateType : templateType.value,
-      customData: customData == null ? this.customData : customData.value,
-      status: status == null ? this.status : status.value,
-      priority: priority == null ? this.priority : priority.value,
-      expiresAt: expiresAt == null ? this.expiresAt : expiresAt.value,
+      type: type == null ? this.type : type.value,
+      title: title == null ? this.title : title.value,
+      description: description == null ? this.description : description.value,
+      imageUrl: imageUrl == null ? this.imageUrl : imageUrl.value,
+      linkUrl: linkUrl == null ? this.linkUrl : linkUrl.value,
+      isActive: isActive == null ? this.isActive : isActive.value,
+      order: order == null ? this.order : order.value,
+      startDate: startDate == null ? this.startDate : startDate.value,
+      endDate: endDate == null ? this.endDate : endDate.value,
+      createdBy: createdBy == null ? this.createdBy : createdBy.value,
       createdAt: createdAt == null ? this.createdAt : createdAt.value,
       updatedAt: updatedAt == null ? this.updatedAt : updatedAt.value
     );
   }
   
-  Superchat.fromJson(Map<String, dynamic> json)  
+  Banner.fromJson(Map<String, dynamic> json)  
     : id = json['id'],
-      _fromUserId = json['fromUserId'],
-      _toProfilesId = json['toProfilesId'],
-      _message = json['message'],
-      _pointsUsed = (json['pointsUsed'] as num?)?.toInt(),
-      _templateType = json['templateType'],
-      _customData = json['customData'],
-      _status = json['status'],
-      _priority = (json['priority'] as num?)?.toInt(),
-      _expiresAt = json['expiresAt'] != null ? amplify_core.TemporalDateTime.fromString(json['expiresAt']) : null,
+      _type = json['type'],
+      _title = json['title'],
+      _description = json['description'],
+      _imageUrl = json['imageUrl'],
+      _linkUrl = json['linkUrl'],
+      _isActive = json['isActive'],
+      _order = (json['order'] as num?)?.toInt(),
+      _startDate = json['startDate'] != null ? amplify_core.TemporalDateTime.fromString(json['startDate']) : null,
+      _endDate = json['endDate'] != null ? amplify_core.TemporalDateTime.fromString(json['endDate']) : null,
+      _createdBy = json['createdBy'],
       _createdAt = json['createdAt'] != null ? amplify_core.TemporalDateTime.fromString(json['createdAt']) : null,
       _updatedAt = json['updatedAt'] != null ? amplify_core.TemporalDateTime.fromString(json['updatedAt']) : null;
   
   Map<String, dynamic> toJson() => {
-    'id': id, 'fromUserId': _fromUserId, 'toProfilesId': _toProfilesId, 'message': _message, 'pointsUsed': _pointsUsed, 'templateType': _templateType, 'customData': _customData, 'status': _status, 'priority': _priority, 'expiresAt': _expiresAt?.format(), 'createdAt': _createdAt?.format(), 'updatedAt': _updatedAt?.format()
+    'id': id, 'type': _type, 'title': _title, 'description': _description, 'imageUrl': _imageUrl, 'linkUrl': _linkUrl, 'isActive': _isActive, 'order': _order, 'startDate': _startDate?.format(), 'endDate': _endDate?.format(), 'createdBy': _createdBy, 'createdAt': _createdAt?.format(), 'updatedAt': _updatedAt?.format()
   };
   
   Map<String, Object?> toMap() => {
     'id': id,
-    'fromUserId': _fromUserId,
-    'toProfilesId': _toProfilesId,
-    'message': _message,
-    'pointsUsed': _pointsUsed,
-    'templateType': _templateType,
-    'customData': _customData,
-    'status': _status,
-    'priority': _priority,
-    'expiresAt': _expiresAt,
+    'type': _type,
+    'title': _title,
+    'description': _description,
+    'imageUrl': _imageUrl,
+    'linkUrl': _linkUrl,
+    'isActive': _isActive,
+    'order': _order,
+    'startDate': _startDate,
+    'endDate': _endDate,
+    'createdBy': _createdBy,
     'createdAt': _createdAt,
     'updatedAt': _updatedAt
   };
 
-  static final amplify_core.QueryModelIdentifier<SuperchatModelIdentifier> MODEL_IDENTIFIER = amplify_core.QueryModelIdentifier<SuperchatModelIdentifier>();
+  static final amplify_core.QueryModelIdentifier<BannerModelIdentifier> MODEL_IDENTIFIER = amplify_core.QueryModelIdentifier<BannerModelIdentifier>();
   static final ID = amplify_core.QueryField(fieldName: "id");
-  static final FROMUSERID = amplify_core.QueryField(fieldName: "fromUserId");
-  static final TOPROFILESID = amplify_core.QueryField(fieldName: "toProfilesId");
-  static final MESSAGE = amplify_core.QueryField(fieldName: "message");
-  static final POINTSUSED = amplify_core.QueryField(fieldName: "pointsUsed");
-  static final TEMPLATETYPE = amplify_core.QueryField(fieldName: "templateType");
-  static final CUSTOMDATA = amplify_core.QueryField(fieldName: "customData");
-  static final STATUS = amplify_core.QueryField(fieldName: "status");
-  static final PRIORITY = amplify_core.QueryField(fieldName: "priority");
-  static final EXPIRESAT = amplify_core.QueryField(fieldName: "expiresAt");
+  static final TYPE = amplify_core.QueryField(fieldName: "type");
+  static final TITLE = amplify_core.QueryField(fieldName: "title");
+  static final DESCRIPTION = amplify_core.QueryField(fieldName: "description");
+  static final IMAGEURL = amplify_core.QueryField(fieldName: "imageUrl");
+  static final LINKURL = amplify_core.QueryField(fieldName: "linkUrl");
+  static final ISACTIVE = amplify_core.QueryField(fieldName: "isActive");
+  static final ORDER = amplify_core.QueryField(fieldName: "order");
+  static final STARTDATE = amplify_core.QueryField(fieldName: "startDate");
+  static final ENDDATE = amplify_core.QueryField(fieldName: "endDate");
+  static final CREATEDBY = amplify_core.QueryField(fieldName: "createdBy");
   static final CREATEDAT = amplify_core.QueryField(fieldName: "createdAt");
   static final UPDATEDAT = amplify_core.QueryField(fieldName: "updatedAt");
   static var schema = amplify_core.Model.defineSchema(define: (amplify_core.ModelSchemaDefinition modelSchemaDefinition) {
-    modelSchemaDefinition.name = "Superchat";
-    modelSchemaDefinition.pluralName = "Superchats";
+    modelSchemaDefinition.name = "Banner";
+    modelSchemaDefinition.pluralName = "Banners";
     
     modelSchemaDefinition.authRules = [
       amplify_core.AuthRule(
@@ -349,103 +354,108 @@ class Superchat extends amplify_core.Model {
     ];
     
     modelSchemaDefinition.indexes = [
-      amplify_core.ModelIndex(fields: const ["fromUserId"], name: "byFromUserId"),
-      amplify_core.ModelIndex(fields: const ["toProfilesId"], name: "byToProfilesId")
+      amplify_core.ModelIndex(fields: const ["type"], name: "byType")
     ];
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.id());
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.FROMUSERID,
+      key: Banner.TYPE,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.TOPROFILESID,
+      key: Banner.TITLE,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.MESSAGE,
-      isRequired: true,
-      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
-    ));
-    
-    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.POINTSUSED,
-      isRequired: true,
-      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.int)
-    ));
-    
-    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.TEMPLATETYPE,
+      key: Banner.DESCRIPTION,
       isRequired: false,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.CUSTOMDATA,
+      key: Banner.IMAGEURL,
+      isRequired: true,
+      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
+    ));
+    
+    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
+      key: Banner.LINKURL,
       isRequired: false,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.STATUS,
+      key: Banner.ISACTIVE,
       isRequired: true,
-      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
+      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.bool)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.PRIORITY,
+      key: Banner.ORDER,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.int)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.EXPIRESAT,
+      key: Banner.STARTDATE,
+      isRequired: false,
+      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.dateTime)
+    ));
+    
+    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
+      key: Banner.ENDDATE,
+      isRequired: false,
+      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.dateTime)
+    ));
+    
+    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
+      key: Banner.CREATEDBY,
+      isRequired: true,
+      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
+    ));
+    
+    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
+      key: Banner.CREATEDAT,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.dateTime)
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.CREATEDAT,
-      isRequired: true,
-      ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.dateTime)
-    ));
-    
-    modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.UPDATEDAT,
+      key: Banner.UPDATEDAT,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.dateTime)
     ));
   });
 }
 
-class _SuperchatModelType extends amplify_core.ModelType<Superchat> {
-  const _SuperchatModelType();
+class _BannerModelType extends amplify_core.ModelType<Banner> {
+  const _BannerModelType();
   
   @override
-  Superchat fromJson(Map<String, dynamic> jsonData) {
-    return Superchat.fromJson(jsonData);
+  Banner fromJson(Map<String, dynamic> jsonData) {
+    return Banner.fromJson(jsonData);
   }
   
   @override
   String modelName() {
-    return 'Superchat';
+    return 'Banner';
   }
 }
 
 /**
  * This is an auto generated class representing the model identifier
- * of [Superchat] in your schema.
+ * of [Banner] in your schema.
  */
-class SuperchatModelIdentifier implements amplify_core.ModelIdentifier<Superchat> {
+class BannerModelIdentifier implements amplify_core.ModelIdentifier<Banner> {
   final String id;
 
-  /** Create an instance of SuperchatModelIdentifier using [id] the primary key. */
-  const SuperchatModelIdentifier({
+  /** Create an instance of BannerModelIdentifier using [id] the primary key. */
+  const BannerModelIdentifier({
     required this.id});
   
   @override
@@ -463,7 +473,7 @@ class SuperchatModelIdentifier implements amplify_core.ModelIdentifier<Superchat
   String serializeAsString() => serializeAsMap().values.join('#');
   
   @override
-  String toString() => 'SuperchatModelIdentifier(id: $id)';
+  String toString() => 'BannerModelIdentifier(id: $id)';
   
   @override
   bool operator ==(Object other) {
@@ -471,7 +481,7 @@ class SuperchatModelIdentifier implements amplify_core.ModelIdentifier<Superchat
       return true;
     }
     
-    return other is SuperchatModelIdentifier &&
+    return other is BannerModelIdentifier &&
       id == other.id;
   }
   

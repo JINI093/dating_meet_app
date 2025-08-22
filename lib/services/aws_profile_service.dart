@@ -52,6 +52,130 @@ class AWSProfileService {
     }
   }
 
+  /// GraphQL을 통한 프로필 생성 (admin과 동일한 테이블 사용)
+  Future<ProfileModel?> _createProfileWithGraphQL(Map<String, dynamic> profileData) async {
+    try {
+      const graphQLDocument = '''
+        mutation CreateProfile(\$input: CreateProfileInput!) {
+          createProfile(input: \$input) {
+            id
+            userId
+            name
+            age
+            gender
+            location
+            profileImages
+            bio
+            occupation
+            education
+            height
+            bodyType
+            smoking
+            drinking
+            religion
+            mbti
+            hobbies
+            badges
+            isVip
+            isPremium
+            isVerified
+            isOnline
+            likeCount
+            superChatCount
+            meetingType
+            incomeCode
+            lastSeen
+            createdAt
+            updatedAt
+          }
+        }
+      ''';
+
+      final variables = {
+        'input': {
+          'userId': profileData['userId'],
+          'name': profileData['name'],
+          'age': profileData['age'],
+          'gender': profileData['gender'],
+          'location': profileData['location'],
+          'profileImages': profileData['profileImages'],
+          'bio': profileData['bio'],
+          'occupation': profileData['occupation'],
+          'education': profileData['education'],
+          'height': profileData['height'],
+          'bodyType': profileData['bodyType'],
+          'smoking': profileData['smoking'],
+          'drinking': profileData['drinking'],
+          'religion': profileData['religion'],
+          'mbti': profileData['mbti'],
+          'hobbies': profileData['hobbies'],
+          'badges': profileData['badges'],
+          'isVip': profileData['isVip'],
+          'isPremium': profileData['isPremium'],
+          'isVerified': profileData['isVerified'],
+          'isOnline': profileData['isOnline'],
+          'likeCount': profileData['likeCount'],
+          'superChatCount': profileData['superChatCount'],
+        }
+      };
+
+      Logger.log('GraphQL 프로필 생성 시도: userId=${variables['input']!['userId']}', name: 'AWSProfileService');
+
+      final request = GraphQLRequest<String>(
+        document: graphQLDocument,
+        variables: variables,
+      );
+
+      final response = await Amplify.API.mutate(request: request).response;
+
+      if (response.errors?.isNotEmpty == true) {
+        final errors = response.errors!.map((e) => e.message).join(', ');
+        Logger.error('GraphQL 뮤테이션 에러: $errors', name: 'AWSProfileService');
+        throw Exception('프로필 생성 실패: $errors');
+      }
+
+      if (response.data != null) {
+        final responseData = json.decode(response.data!) as Map<String, dynamic>;
+        final createdProfile = responseData['createProfile'] as Map<String, dynamic>;
+
+        Logger.log('GraphQL을 통한 프로필 생성 성공: id=${createdProfile['id']}', name: 'AWSProfileService');
+
+        return ProfileModel(
+          id: createdProfile['id'] ?? profileData['id'],
+          name: createdProfile['name'],
+          age: createdProfile['age'],
+          gender: createdProfile['gender'],
+          location: createdProfile['location'],
+          profileImages: List<String>.from(createdProfile['profileImages'] ?? []),
+          bio: createdProfile['bio'],
+          occupation: createdProfile['occupation'],
+          education: createdProfile['education'],
+          height: createdProfile['height'],
+          bodyType: createdProfile['bodyType'],
+          smoking: createdProfile['smoking'],
+          drinking: createdProfile['drinking'],
+          religion: createdProfile['religion'],
+          mbti: createdProfile['mbti'],
+          hobbies: List<String>.from(createdProfile['hobbies'] ?? []),
+          badges: List<String>.from(createdProfile['badges'] ?? []),
+          isVip: createdProfile['isVip'] ?? false,
+          isPremium: createdProfile['isPremium'] ?? false,
+          isVerified: createdProfile['isVerified'] ?? false,
+          isOnline: createdProfile['isOnline'] ?? true,
+          likeCount: createdProfile['likeCount'] ?? 0,
+          superChatCount: createdProfile['superChatCount'] ?? 0,
+          createdAt: DateTime.parse(createdProfile['createdAt']),
+          updatedAt: DateTime.parse(createdProfile['updatedAt']),
+        );
+      } else {
+        throw Exception('GraphQL 응답 데이터가 없습니다.');
+      }
+    } catch (e) {
+      Logger.error('GraphQL 프로필 생성 실패: $e', name: 'AWSProfileService');
+      rethrow;
+    }
+  }
+
   /// 프로필 생성
   Future<ProfileModel?> createProfile({
     required String userId,
@@ -163,92 +287,24 @@ class AWSProfileService {
         return localProfile;
       }
       
-      // GraphQL 대신 REST API를 직접 사용 (GraphQL이 구현되지 않았을 가능성)
-      Logger.log('REST API를 통한 프로필 생성 시도', name: 'AWSProfileService');
-      
+      // GraphQL 뮤테이션을 사용하여 프로필 생성 (admin과 동일한 테이블)
       try {
-        final apiService = ApiService();
-        Logger.log('REST API 요청 데이터: ${profileData.keys.join(', ')}', name: 'AWSProfileService');
-        Logger.log('주요 필드 값 확인: name=${profileData['name']}, age=${profileData['age']}, userId=${profileData['userId']}', name: 'AWSProfileService');
-        Logger.log('전체 profileData: ${json.encode(profileData)}', name: 'AWSProfileService');
+        return await _createProfileWithGraphQL(profileData);
+      } catch (e) {
+        Logger.error('GraphQL 프로필 생성 실패, REST API 폴백 시도: $e', name: 'AWSProfileService');
         
-        final response = await apiService.post('/profiles', data: profileData);
-        
-        Logger.log('REST API 응답: statusCode=${response.statusCode}, data=${response.data != null ? 'exists' : 'null'}', name: 'AWSProfileService');
-        Logger.log('REST API 응답 내용: ${response.data}', name: 'AWSProfileService');
-        
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          // 백엔드 에러 응답 체크
-          if (response.data != null && response.data is Map<String, dynamic> && 
-              response.data.containsKey('errorType')) {
-            Logger.error('백엔드에서 에러 반환: ${response.data['errorMessage']}', name: 'AWSProfileService');
-            throw Exception('DynamoDB 저장 실패: ${response.data['errorMessage']}');
-          }
+        // GraphQL 실패 시 기존 REST API로 폴백
+        try {
+          final apiService = ApiService();
+          final response = await apiService.post('/profiles', data: profileData);
           
-          Logger.log('REST API를 통한 프로필 생성 성공', name: 'AWSProfileService');
-          
-          // 응답 데이터 검증
-          if (response.data != null && response.data is Map<String, dynamic>) {
-            try {
-              final responseMap = response.data as Map<String, dynamic>;
-              
-              // Lambda가 {statusCode, headers, body} 형태로 응답하는 경우
-              if (responseMap.containsKey('body') && responseMap['body'] is String) {
-                final bodyString = responseMap['body'] as String;
-                final bodyData = json.decode(bodyString) as Map<String, dynamic>;
-                
-                if (bodyData.containsKey('data') && bodyData['data'] != null) {
-                  final profileData = bodyData['data'] as Map<String, dynamic>;
-                  return ProfileModel.fromJson(profileData);
-                }
-              }
-              // 직접 data 객체가 있는 경우
-              else if (responseMap.containsKey('data') && responseMap['data'] != null) {
-                final profileData = responseMap['data'] as Map<String, dynamic>;
-                return ProfileModel.fromJson(profileData);
-              } 
-              // 전체 응답을 사용
-              else {
-                return ProfileModel.fromJson(responseMap);
-              }
-            } catch (parseError) {
-              Logger.error('응답 파싱 오류: $parseError', name: 'AWSProfileService');
-              Logger.log('응답 데이터 구조가 예상과 다르지만 API는 성공. 원본 데이터로 프로필 생성', name: 'AWSProfileService');
-              // 파싱 실패해도 API는 성공했으므로 원본 프로필 데이터로 반환
-              return ProfileModel(
-                id: profileData['userId'],
-                name: profileData['name'],
-                age: profileData['age'],
-                location: profileData['location'],
-                profileImages: List<String>.from(profileData['profileImages']),
-                bio: profileData['bio'],
-                occupation: profileData['occupation'],
-                education: profileData['education'],
-                height: profileData['height'],
-                bodyType: profileData['bodyType'],
-                smoking: profileData['smoking'],
-                drinking: profileData['drinking'],
-                religion: profileData['religion'],
-                mbti: profileData['mbti'],
-                hobbies: List<String>.from(profileData['hobbies']),
-                badges: List<String>.from(profileData['badges']),
-                isVip: profileData['isVip'],
-                isPremium: profileData['isPremium'],
-                isVerified: profileData['isVerified'],
-                isOnline: profileData['isOnline'],
-                likeCount: profileData['likeCount'],
-                superChatCount: profileData['superChatCount'],
-                createdAt: DateTime.parse(profileData['createdAt']),
-                updatedAt: DateTime.parse(profileData['updatedAt']),
-              );
-            }
-          } else {
-            Logger.log('응답 데이터가 올바른 형식이 아니지만 API는 성공. 원본 데이터로 프로필 생성', name: 'AWSProfileService');
-            // API는 성공했으므로 원본 프로필 데이터로 반환
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            Logger.log('REST API 폴백 성공', name: 'AWSProfileService');
             return ProfileModel(
-              id: profileData['userId'],
+              id: profileData['id'],
               name: profileData['name'],
               age: profileData['age'],
+              gender: profileData['gender'],
               location: profileData['location'],
               profileImages: List<String>.from(profileData['profileImages']),
               bio: profileData['bio'],
@@ -271,23 +327,13 @@ class AWSProfileService {
               createdAt: DateTime.parse(profileData['createdAt']),
               updatedAt: DateTime.parse(profileData['updatedAt']),
             );
+          } else {
+            throw Exception('REST API 폴백도 실패: HTTP ${response.statusCode}');
           }
-        } else {
-          Logger.error('REST API 응답 상태 코드: ${response.statusCode}, 응답: ${response.data}', name: 'AWSProfileService');
-          throw Exception('프로필 생성 실패: HTTP ${response.statusCode}');
+        } catch (restError) {
+          Logger.error('REST API 폴백도 실패: $restError', name: 'AWSProfileService');
+          rethrow;
         }
-      } catch (e) {
-        Logger.error('REST API 호출 실패: $e', name: 'AWSProfileService');
-        
-        // 403 오류의 경우 더 구체적인 오류 메시지 제공
-        if (e.toString().contains('403')) {
-          Logger.error('403 인증 오류: AWS API Gateway 또는 Lambda 권한 설정을 확인하세요', name: 'AWSProfileService');
-          throw Exception('프로필 저장 권한이 없습니다. 관리자에게 문의하세요. (HTTP 403)');
-        }
-        
-        // 기타 API 오류는 그대로 던지기
-        Logger.error('API 호출 실패로 프로필 저장을 중단합니다', name: 'AWSProfileService');
-        rethrow;
       }
     } catch (e) {
       Logger.error('프로필 생성 오류', error: e, name: 'AWSProfileService');
