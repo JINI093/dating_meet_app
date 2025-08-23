@@ -6,6 +6,7 @@ import 'dart:io';
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
 import '../../models/profile_model.dart';
+import '../../utils/app_text_styles.dart';
 
 class ProfileCard extends StatelessWidget {
   final ProfileModel profile;
@@ -50,7 +51,7 @@ class ProfileCard extends StatelessWidget {
               _buildGradientOverlay(),
               
               // Top Badges
-              _buildTopBadges(),
+              _buildTopBadges(profile),
               
               // Bottom Content
               _buildBottomContent(),
@@ -125,7 +126,7 @@ class ProfileCard extends StatelessWidget {
           end: Alignment.bottomCenter,
           stops: const [0.0, 0.3, 0.6, 1.0],
           colors: [
-            Colors.black.withValues(alpha: 0.1),
+            Colors.black.withValues(alpha: 0.2),
             Colors.transparent,
             Colors.black.withValues(alpha: 0.4),
             Colors.black.withValues(alpha: 0.9),
@@ -135,7 +136,7 @@ class ProfileCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTopBadges() {
+  Widget _buildTopBadges(ProfileModel profile) {
     return Positioned(
       top: 16,
       left: 16,
@@ -143,21 +144,30 @@ class ProfileCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Top Badge (pop.png)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: _buildPopBadge(),
+          Visibility(
+            visible: popularityRank <= 10,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: _buildPopBadge(),
+            ),
           ),
           
           // Middle Badge (check.png)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: _buildCheckBadge(),
+          Visibility(
+            visible: profile.isVerified,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: _buildCheckBadge(),
+            ),
           ),
           
           // Bottom Badge (gold_level.png)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: _buildGoldLevelBadge(),
+          Visibility(
+            visible: profile.isVip,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: _buildGoldLevelBadge(),
+            ),
           ),
         ],
       ),
@@ -169,22 +179,23 @@ class ProfileCard extends StatelessWidget {
     if (popularityRank <= 0 || popularityRank > 10) {
       return const SizedBox.shrink();
     }
+
+    var badgeColor = popularityRank <= 3
+        ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
+        : popularityRank <= 5
+        ? [const Color(0xFFC0C0C0), const Color(0xFF808080)]
+        : [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
     
     return Image.asset(
       'assets/icons/$popularityRank.png',
-      width: 80,
-      height: 80,
+      width: 70,
       errorBuilder: (context, error, stackTrace) {
         // 이미지가 없는 경우 순위 표시 배지
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: popularityRank <= 3 
-                ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
-                : popularityRank <= 5
-                  ? [const Color(0xFFC0C0C0), const Color(0xFF808080)]
-                  : [const Color(0xFFCD7F32), const Color(0xFF8B4513)],
+              colors: badgeColor,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -223,13 +234,12 @@ class ProfileCard extends StatelessWidget {
 
   Widget _buildCheckBadge() {
     return Image.asset(
-      'assets/icons/check.png',
-      width: 80,
-      height: 80,
+      'assets/icons/ic_verified.png',
+      width: 70,
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          width: 80,
-          height: 80,
+          width: 70,
+          height: 70,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFF4CAF50),

@@ -566,22 +566,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
               print('⚠️ AuthProvider 초기화 타임아웃');
             },
           );
-          
-          // 권한 초기화
-          final permissionNotifier = ref.read(permissionProvider.notifier);
-          await permissionNotifier.initializePermissions().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              print('⚠️ 권한 초기화 타임아웃');
-            },
-          );
-          
+
           // 백그라운드 서비스 초기화
           await _initializeBackgroundServices();
           
           // 자동 로그인 기능 제거됨
           print('ℹ️ 자동 로그인 기능이 비활성화되었습니다.');
-          
+
         } catch (e) {
           print('백그라운드 초기화 실패: $e');
         }
@@ -599,7 +590,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       }
     }
   }
-
   
 
   /// 앱이 포그라운드로 돌아올 때

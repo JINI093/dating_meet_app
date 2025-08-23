@@ -47,7 +47,7 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   final SwiperController _swiperController = SwiperController();
   final DailyCounterService _dailyCounterService = DailyCounterService();
-  
+
   // Filter states
   List<String> _selectedRegions = [];
   double _selectedDistance = 15.0; // km 단위로 변경
@@ -56,6 +56,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   final bool _isVipFilterActive = false;
   Position? _userPosition;
   int _swipeCount = 0;
+
+  // 다이얼로그 중복 호출 방지 플래그 (static으로 전역 관리)
+  static bool _isCardLimitDialogOpen = false;
 
   @override
   void initState() {
@@ -132,9 +135,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             height: 40,
             fit: BoxFit.contain,
           ),
-          
+
           const Spacer(),
-          
+
           // Notification & Points
           Row(
             children: [
@@ -156,7 +159,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: AppDimensions.spacing8),
 
               // Points
@@ -218,63 +221,59 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Stack(
+      child: Row(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // 지역 필터
-                _buildFilterChip(
-                  _selectedRegions.isEmpty 
-                      ? '지역' 
-                      : _selectedRegions.length == 1 
-                          ? _selectedRegions.first 
-                          : '지역 ${_selectedRegions.length}개',
-                  isSelected: _selectedRegions.isNotEmpty,
-                  onTap: () => _showRegionSelectorBottomSheet(),
-                ),
-                const SizedBox(width: 4),
-                // 거리 필터
-                _buildFilterChip(
-                  _isDistanceFilterActive ? '${_selectedDistance.round()}km' : '거리',
-                  isSelected: _isDistanceFilterActive,
-                  selectedColor: Colors.pink,
-                  onTap: () => _showDistanceFilter(),
-                ),
-                const SizedBox(width: 4),
-                // 인기 필터
-                _buildFilterChip(
-                  _selectedPopularity,
-                  isSelected: _selectedPopularity != '인기',
-                  onTap: () => _showPopularityCustomSheet(),
-                ),
-                const SizedBox(width: 12),
-                // VIP Frame 버튼
-                GestureDetector(
-                  onTap: () => context.go('/ticket-shop?tab=4'),
-                  child: Image.asset(
-                    'assets/icons/VIP Frame.png',
-                    width: 40,
-                    height: 40,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // 지역 필터
+                  _buildFilterChip(
+                    _selectedRegions.isEmpty
+                        ? '지역'
+                        : _selectedRegions.length == 1
+                            ? _selectedRegions.first
+                            : '지역 ${_selectedRegions.length}개',
+                    isSelected: _selectedRegions.isNotEmpty,
+                    onTap: () => _showRegionSelectorBottomSheet(),
                   ),
-                ),
-              ],
-            ),
-          ),
-          // 상점 버튼을 오른쪽에 고정
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: _buildFilterChip(
-                '상점',
-                isSelected: false,
-                onTap: () => context.go(RouteNames.pointShop),
+                  const SizedBox(width: 4),
+                  // 거리 필터
+                  _buildFilterChip(
+                    _isDistanceFilterActive
+                        ? '${_selectedDistance.round()}km'
+                        : '거리',
+                    isSelected: _isDistanceFilterActive,
+                    selectedColor: Colors.pink,
+                    onTap: () => _showDistanceFilter(),
+                  ),
+                  const SizedBox(width: 4),
+                  // 인기 필터
+                  _buildFilterChip(
+                    _selectedPopularity,
+                    isSelected: _selectedPopularity != '인기',
+                    onTap: () => _showPopularityCustomSheet(),
+                  ),
+                  const SizedBox(width: 4),
+                  // VIP Frame 버튼
+                  GestureDetector(
+                    onTap: () => context.go('/ticket-shop?tab=4'),
+                    child: Image.asset(
+                      'assets/icons/ic_vip_home.png',
+                      height: 30,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          // 상점 버튼을 오른쪽에 고정
+          _buildFilterChip(
+            '상점',
+            isSelected: false,
+            onTap: () => context.go(RouteNames.pointShop),
+          )
         ],
       ),
     );
@@ -292,12 +291,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? (selectedColor ?? Colors.black)
-              : Colors.white,
+          color: isSelected ? (selectedColor ?? Colors.black) : Colors.white,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: isSelected 
+            color: isSelected
                 ? (selectedColor ?? Colors.black)
                 : const Color(0xFFE0E0E0),
             width: 1,
@@ -309,9 +306,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             Text(
               label,
               style: TextStyle(
-                color: isSelected 
-                    ? Colors.white 
-                    : Colors.grey[600],
+                color: isSelected ? Colors.white : Colors.grey[600],
                 fontWeight: FontWeight.w500,
                 fontSize: 12,
               ),
@@ -321,9 +316,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               Text(
                 '>',
                 style: TextStyle(
-                  color: isSelected 
-                      ? Colors.white 
-                      : Colors.grey[600],
+                  color: isSelected ? Colors.white : Colors.grey[600],
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
                 ),
@@ -339,17 +332,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (profiles.isEmpty) {
       return _buildEmptyState();
     }
-    
+
     // 프로필을 좋아요 수 기준으로 정렬하여 순위 계산
     final sortedProfiles = List<ProfileModel>.from(profiles)
       ..sort((a, b) => b.likeCount.compareTo(a.likeCount));
-    
+
     // 각 프로필의 순위를 매핑
     final profileRankMap = <String, int>{};
     for (int i = 0; i < sortedProfiles.length; i++) {
       profileRankMap[sortedProfiles[i].id] = i + 1;
     }
-    
+
     return Stack(
       children: [
         Positioned.fill(
@@ -361,7 +354,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               itemBuilder: (context, index) {
                 final profile = profiles[index];
                 final rank = profileRankMap[profile.id] ?? 0;
-                
+
                 return ProfileCard(
                   profile: profile,
                   popularityRank: rank,
@@ -373,15 +366,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 setState(() {
                   _swipeCount++;
                 });
-                
+
                 // matchProvider의 currentIndex와 동기화
                 ref.read(matchProvider.notifier).setCurrentIndex(index);
-                
+
                 // 일일 프로필 조회 카운터 증가
                 _incrementDailyProfileCounter();
-                
+
                 // 4. 카드를 5번 넘기면 모달 노출
                 if (_swipeCount == 5) {
+                  print("=-=-=-=-=-=-=-=-==");
                   _showCardLimitModal();
                 }
               },
@@ -408,29 +402,29 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         GestureDetector(
           onTap: _onPassTap,
           child: Image.asset(
-            'assets/icons/x.png',
+            'assets/icons/ic_close_homecard.png',
             width: 60,
             height: 60,
             fit: BoxFit.contain,
           ),
         ),
-        
+
         // Super Chat Button
         GestureDetector(
           onTap: _onSuperChatTap,
           child: Image.asset(
-            'assets/icons/superchat.png',
+            'assets/icons/ic_superchat_homecard.png',
             width: 60,
             height: 60,
             fit: BoxFit.contain,
           ),
         ),
-        
+
         // Like Button
         GestureDetector(
           onTap: _onLikeTap,
           child: Image.asset(
-            'assets/icons/like.png',
+            'assets/icons/ic_like_homecard.png',
             width: 60,
             height: 60,
             fit: BoxFit.contain,
@@ -449,10 +443,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Widget _buildEmptyState() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDailyMatchEndDialog(context);
-    });
-    
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   showDailyMatchEndDialog(context);
+    // });
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -487,7 +481,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDailyMatchEndDialog(context);
       });
-      
+
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -516,7 +510,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
-    
+
     // 일반적인 에러 상태
     return Center(
       child: Column(
@@ -587,13 +581,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       // 먼저 현재 프로필 확인
       final currentProfile = ref.read(matchProvider).currentProfile;
       if (currentProfile == null) return;
-      
+
       // 이미 좋아요를 누른 프로필인지 확인
       final sentLikesState = ref.read(likesProvider);
-      final alreadyLiked = sentLikesState.sentLikes.any((like) => 
-        like.toProfileId == currentProfile.id && like.likeType != LikeType.pass
-      );
-      
+      final alreadyLiked = sentLikesState.sentLikes.any((like) =>
+          like.toProfileId == currentProfile.id &&
+          like.likeType != LikeType.pass);
+
       if (alreadyLiked) {
         // 이미 좋아요를 누른 상대
         if (mounted) {
@@ -615,11 +609,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
         return;
       }
-      
+
       // 하트가 충분한지 확인
       final heartState = ref.read(heartProvider);
       const requiredHearts = 1; // 좋아요를 보내는데 필요한 하트 수
-      
+
       if (heartState.currentHearts < requiredHearts) {
         // 하트가 부족한 경우 알림 표시
         if (mounted) {
@@ -644,13 +638,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
         return;
       }
-      
+
       // 하트 소모 처리
       final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
-        requiredHearts,
-        description: '좋아요 보내기',
-      );
-      
+            requiredHearts,
+            description: '좋아요 보내기',
+          );
+
       if (!heartSpent) {
         // 하트 소모 실패
         if (mounted) {
@@ -663,7 +657,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
         return;
       }
-      
+
       // 좋아요 보내기
       final result = await ref.read(matchProvider.notifier).likeProfile();
       if (result != null && mounted) {
@@ -684,13 +678,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       // 먼저 하트가 충분한지 확인
       final heartState = ref.read(heartProvider);
       const requiredHearts = 3; // 슈퍼챗을 보내는데 필요한 하트 수
-      
+
       if (heartState.currentHearts < requiredHearts) {
         // 하트가 부족한 경우 알림 표시
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('슈퍼챗을 보내려면 하트 $requiredHearts개가 필요합니다. (현재: ${heartState.currentHearts}개)'),
+              content: Text(
+                  '슈퍼챗을 보내려면 하트 $requiredHearts개가 필요합니다. (현재: ${heartState.currentHearts}개)'),
               backgroundColor: AppColors.error,
               action: SnackBarAction(
                 label: '하트 구매',
@@ -709,7 +704,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
         return;
       }
-      
+
       final currentProfile = ref.read(matchProvider).currentProfile;
       if (currentProfile == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -723,7 +718,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (context) => SuperChatBottomSheet(
-          profileImageUrl: currentProfile.profileImages.isNotEmpty ? currentProfile.profileImages.first : '',
+          profileImageUrl: currentProfile.profileImages.isNotEmpty
+              ? currentProfile.profileImages.first
+              : '',
           name: currentProfile.name,
           age: currentProfile.age,
           location: currentProfile.location,
@@ -732,14 +729,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           },
         ),
       );
-      
+
       if (result != null && result.isNotEmpty) {
         // 하트 소모 처리
         final heartSpent = await ref.read(heartProvider.notifier).spendHearts(
-          requiredHearts,
-          description: '슈퍼챗 보내기',
-        );
-        
+              requiredHearts,
+              description: '슈퍼챗 보내기',
+            );
+
         if (!heartSpent) {
           // 하트 소모 실패
           if (mounted) {
@@ -752,9 +749,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           }
           return;
         }
-        
+
         // 슈퍼챗 보내기
-        final matchResult = await ref.read(matchProvider.notifier).superChatProfile(result);
+        final matchResult =
+            await ref.read(matchProvider.notifier).superChatProfile(result);
         if (matchResult != null && mounted) {
           _swiperController.next();
           _showActionResult(matchResult);
@@ -778,22 +776,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
     );
   }
-  
+
   Future<void> _incrementDailyProfileCounter() async {
     try {
       final authState = ref.read(enhancedAuthProvider);
-      if (!authState.isSignedIn || authState.currentUser?.user?.userId == null) {
+      if (!authState.isSignedIn ||
+          authState.currentUser?.user?.userId == null) {
         return;
       }
-      
+
       final userId = authState.currentUser!.user!.userId;
       final userState = ref.read(userProvider);
       final vipTier = userState.vipTier ?? 'FREE';
-      
+
       await _dailyCounterService.incrementCounter(userId, vipTier);
     } catch (e) {
       // 일일 카운터 증가 실패는 조용히 처리
-      Logger.log('Failed to increment daily profile counter: $e', name: 'MainScreen');
+      Logger.log('Failed to increment daily profile counter: $e',
+          name: 'MainScreen');
     }
   }
 
@@ -855,18 +855,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           currentDistance: _selectedDistance,
         ),
       );
-      
+
       if (result != null) {
         final distance = result['distance'] as double;
         final position = result['position'] as Position?;
         final isLocationEnabled = result['isLocationEnabled'] as bool;
-        
+
         setState(() {
           _selectedDistance = distance;
           _userPosition = position;
           _isDistanceFilterActive = true; // 거리 필터 활성화
         });
-        
+
         // Apply filter with distance and location
         await ref.read(matchProvider.notifier).applyFilters({
           'distance': distance,
@@ -924,7 +924,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       }
     }
   }
-  
+
   void _showActionResult(MatchResult result) {
     if (result.isMatch) {
       // Show match success snackbar and automatically navigate to chat
@@ -949,7 +949,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (result.matchModel != null) {
         // Add match to matches provider so it appears in chat list
         ref.read(matchesProvider.notifier).addNewMatch(result.matchModel!);
-        
+
         Future.delayed(const Duration(milliseconds: 800), () {
           if (mounted) {
             // Use direct Navigator.push instead of GoRouter
@@ -984,10 +984,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
   }
-  
+
   void _showMatchDialog(MatchResult result) {
     if (result.matchedProfile == null) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -996,7 +996,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         onChatTap: () {
           // Navigate to chat screen with match data
           Navigator.pop(context); // Close dialog first
-          
+
           if (result.matchModel != null) {
             final matchId = result.matchModel!.id;
             final chatRoomPath = RouteNames.getChatRoomPath(matchId);
@@ -1012,13 +1012,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _showCardLimitModal() {
+    // 이미 다이얼로그가 열려있는지 확인하여 중복 호출 방지
+    if (_isCardLimitDialogOpen) {
+      return;
+    }
+
+    // Navigator에서 현재 열려있는 다이얼로그 확인
+    if (Navigator.of(context).canPop()) {
+      return;
+    }
+
+    // ModalRoute에서 현재 열려있는 다이얼로그 확인
+    final currentRoute = ModalRoute.of(context);
+    if (currentRoute != null && currentRoute.isCurrent == false) {
+      return;
+    }
+
+    // 전역 플래그를 true로 설정
+    _isCardLimitDialogOpen = true;
+
     showDialog(
       context: context,
       barrierDismissible: true,
+      barrierColor: Colors.black54,
       builder: (context) => _CardLimitDialog(),
-    );
+    ).then((_) {
+      // 다이얼로그가 닫힐 때 플래그를 false로 설정
+      _isCardLimitDialogOpen = false;
+    }).catchError((_) {
+      // 에러가 발생해도 플래그를 false로 설정
+      _isCardLimitDialogOpen = false;
+    });
   }
-  
+
   void _goToPointShopScreen() {
     context.go(RouteNames.pointShop);
   }
@@ -1029,11 +1055,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 }
 
 // 커스텀 인기순 바텀시트 위젯
-class _PopularitySheet extends StatelessWidget {
-  final String selected;
+class _PopularitySheet extends StatefulWidget {
+  final String? selected;
   final ValueChanged<String> onSelect;
-  const _PopularitySheet({required this.selected, required this.onSelect});
+  String? tempSelected = null;
 
+  _PopularitySheet({required this.selected, required this.onSelect}) {
+    tempSelected = selected;
+  }
+
+  @override
+  State<_PopularitySheet> createState() => _PopularitySheetState();
+}
+
+class _PopularitySheetState extends State<_PopularitySheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1048,7 +1083,8 @@ class _PopularitySheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text('인기 순 정렬', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text('인기 순 정렬',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
@@ -1061,18 +1097,57 @@ class _PopularitySheet extends StatelessWidget {
             context,
             icon: CupertinoIcons.paperplane_fill,
             text: '슈퍼챗 많이 받은 순',
-            gradient: const LinearGradient(colors: [Color(0xFF3FE37F), Color(0xFF1CB5E0)]),
-            selected: selected == '슈퍼챗 많이 받은 순',
-            onTap: () => onSelect('슈퍼챗 많이 받은 순'),
+            gradient: const LinearGradient(
+                colors: [Color(0xFF3FE37F), Color(0xFF1CB5E0)]),
+            selected: widget.tempSelected == '슈퍼챗 많이 받은 순',
+            onTap: () {
+              setState(() {
+                if (widget.tempSelected == '슈퍼챗 많이 받은 순') {
+                  widget.tempSelected = '인기';
+                } else {
+                  widget.tempSelected = '슈퍼챗 많이 받은 순';
+                }
+              });
+            },
           ),
           const SizedBox(height: 16),
           _popularityButton(
             context,
             icon: CupertinoIcons.heart_fill,
             text: '좋아요 많은 순',
-            gradient: const LinearGradient(colors: [Color(0xFFFF5F6D), Color(0xFFFFC371)]),
-            selected: selected == '좋아요 많은 순',
-            onTap: () => onSelect('좋아요 많은 순'),
+            gradient: const LinearGradient(
+                colors: [Color(0xFFFF5F6D), Color(0xFFFFC371)]),
+            selected: widget.tempSelected == '좋아요 많은 순',
+            onTap: () {
+              setState(() {
+                if (widget.tempSelected == '좋아요 많은 순') {
+                  widget.tempSelected = '인기';
+                } else {
+                  widget.tempSelected = '좋아요 많은 순';
+                }
+              });
+            },
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () {
+              widget.onSelect(widget.tempSelected ?? '인기');
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 19),
+              decoration: BoxDecoration(
+                color: Color(0xFF000000),
+                borderRadius: BorderRadius.circular(32),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                "설정",
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
           const SizedBox(height: 24),
         ],
@@ -1080,23 +1155,32 @@ class _PopularitySheet extends StatelessWidget {
     );
   }
 
-  Widget _popularityButton(BuildContext context, {required IconData icon, required String text, required LinearGradient gradient, required bool selected, required VoidCallback onTap}) {
+  Widget _popularityButton(BuildContext context,
+      {required IconData icon,
+      required String text,
+      required LinearGradient gradient,
+      required bool selected,
+      required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(32),
-          border: selected ? Border.all(color: Colors.black, width: 2) : null,
-        ),
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: selected ? Colors.black : Colors.transparent,
+              width: 2,
+            )),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white),
             const SizedBox(width: 8),
-            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(text,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -1105,50 +1189,74 @@ class _PopularitySheet extends StatelessWidget {
 }
 
 // 카드 제한 모달
-class _CardLimitDialog extends StatelessWidget {
+class _CardLimitDialog extends StatefulWidget {
+  @override
+  State<_CardLimitDialog> createState() => _CardLimitDialogState();
+}
+
+class _CardLimitDialogState extends State<_CardLimitDialog> {
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 64),
-            const SizedBox(height: 16),
-            const Text('오늘의 추천 카드는\n여기까지에요', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            const SizedBox(height: 12),
-            const Text('더 많은 상대를 보고싶으면 [추천카드 더 보기]를 사용할 수 있습니다.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-                  elevation: 0,
+    return WillPopScope(
+        onWillPop: () async {
+          // 다이얼로그가 닫힐 때 전역 플래그 초기화
+          _MainScreenState._isCardLimitDialogOpen = false;
+          return true;
+        },
+        child: Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.amber, size: 64),
+                const SizedBox(height: 16),
+                const Text('오늘의 추천 카드는\n여기까지에요',
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                const SizedBox(height: 12),
+                const Text('더 많은 상대를 보고싶으면 [추천카드 더 보기]를 사용할 수 있습니다.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(32)),
+                      elevation: 0,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('이용권 사용하기 : 3회 남음',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('이용권 사용하기 : 3회 남음', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-                  elevation: 0,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pink,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(32)),
+                      elevation: 0,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('이용권 구매 이동하기',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('이용권 구매 이동하기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }

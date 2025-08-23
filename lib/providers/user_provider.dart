@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/profile_model.dart';
 import '../services/aws_profile_service.dart';
 import '../utils/logger.dart';
@@ -40,7 +41,7 @@ class UserState {
 class UserNotifier extends StateNotifier<UserState> {
   final Ref _ref;
   final AWSProfileService _profileService = AWSProfileService();
-  
+
   UserNotifier(this._ref) : super(const UserState(isLoading: false));
 
   // Initialize current user
@@ -87,6 +88,7 @@ class UserNotifier extends StateNotifier<UserState> {
           Logger.log('   반환된 프로필 나이: ${currentUser.age}', name: 'UserProvider');
           Logger.log('   반환된 프로필 성별: ${currentUser.gender}', name: 'UserProvider');
           Logger.log('   반환된 프로필 직업: ${currentUser.occupation}', name: 'UserProvider');
+
         } else {
           Logger.log('   반환된 프로필: null', name: 'UserProvider');
         }
@@ -108,7 +110,10 @@ class UserNotifier extends StateNotifier<UserState> {
         Logger.log('   슈퍼챗 수: ${currentUser.superChatCount}', name: 'UserProvider');
         Logger.log('   VIP 여부: ${currentUser.isVip}', name: 'UserProvider');
         Logger.log('   인증 여부: ${currentUser.isVerified}', name: 'UserProvider');
-        
+
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString("profile_image", currentUser.primaryImage);
+
         if (currentUser.profileImages.isNotEmpty) {
           Logger.log('   첫 번째 이미지: ${currentUser.profileImages.first}', name: 'UserProvider');
         }

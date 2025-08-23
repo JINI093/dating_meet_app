@@ -121,9 +121,11 @@ class AWSPointsService {
 
       if (response.data != null) {
         final data = response.data as Map<String, dynamic>;
+        var test = data['createUserPoints'];
+        print("초초초초초 =? ${test}");
         final userPointsData = data['createUserPoints'] as Map<String, dynamic>;
         
-        Logger.log('초기 포인트 생성 완료: ${userPointsData['currentPoints']}P', name: 'AWSPointsService');
+        Logger.log('초기 포인트 생성 완료: ${userPointsData['currentPoints']}', name: 'AWSPointsService');
         
         return UserPointsModel(
           userId: userPointsData['userId'],
