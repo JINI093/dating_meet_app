@@ -1,3 +1,4 @@
+import 'package:dating_app_40s/screens/profile/register_coupon_textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,82 +48,93 @@ class _CouponStatusScreenState extends ConsumerState<CouponStatusScreen> {
       body: Column(
         children: [
           // 쿠폰 번호 등록 입력 필드 (이미지 위에 텍스트 입력)
-          Container(
-            margin: const EdgeInsets.all(20),
-            height: 50,
-            child: Stack(
-              children: [
-                // 배경 이미지
-                Image.asset(
-                  'assets/icons/coupon_input.png',
-                  width: double.infinity,
-                  height: 50,
-                  fit: BoxFit.fill,
-                  errorBuilder: (context, error, stackTrace) {
-                    // 이미지 로드 실패시 기존 스타일로 표시
-                    return Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF02062),
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    );
-                  },
-                ),
-                // 텍스트 입력 필드
-                Positioned.fill(
-                  child: Row(
-                    children: [
-                      // 텍스트 입력 영역 (흰색 부분)
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.only(left: 30, right: 10),
-                          alignment: Alignment.center,
-                          color: Colors.transparent, // 투명 배경
-                          child: TextField(
-                            controller: _couponController,
-                            decoration: const InputDecoration(
-                              hintText: '쿠폰번호 등록',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF999999),
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              filled: false, // 배경 채우기 비활성화
-                            ),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 등록 버튼 영역
-                      GestureDetector(
-                        onTap: () => _registerCoupon(_couponController.text),
-                        child: Container(
-                          width: 80,
-                          height: 50,
-                          alignment: Alignment.center,
-                          color: Colors.transparent, // 투명 배경
-                          child: const Text(
-                            '등록',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          Padding(
+            padding: EdgeInsets.only(left: 24, right: 24),
+            child: RegisterCouponTextField(
+                controller: _couponController,
+                hint: "",
+                onClickSearch: () {
+                  _registerCoupon(_couponController.text);
+                }),
           ),
+          // Container(
+          //   margin: const EdgeInsets.all(20),
+          //   height: 50,
+          //   child: Stack(
+          //     children: [
+          //       // 배경 이미지
+          //       Image.asset(
+          //         'assets/icons/coupon_input.png',
+          //         width: double.infinity,
+          //         height: 50,
+          //         fit: BoxFit.fill,
+          //         errorBuilder: (context, error, stackTrace) {
+          //           // 이미지 로드 실패시 기존 스타일로 표시
+          //           return Container(
+          //             padding: const EdgeInsets.all(4),
+          //             decoration: BoxDecoration(
+          //               color: const Color(0xFFF02062),
+          //               borderRadius: BorderRadius.circular(25),
+          //             ),
+          //           );
+          //         },
+          //       ),
+          //
+          //
+          //       // 텍스트 입력 필드
+          //       Positioned.fill(
+          //         child: Row(
+          //           children: [
+          //             // 텍스트 입력 영역 (흰색 부분)
+          //             Expanded(
+          //               child: Container(
+          //                 padding: const EdgeInsets.only(left: 30, right: 10),
+          //                 alignment: Alignment.center,
+          //                 color: Colors.transparent, // 투명 배경
+          //                 child: TextField(
+          //                   controller: _couponController,
+          //                   decoration: const InputDecoration(
+          //                     hintText: '쿠폰번호 등록',
+          //                     hintStyle: TextStyle(
+          //                       color: Color(0xFF999999),
+          //                       fontSize: 14,
+          //                     ),
+          //                     border: InputBorder.none,
+          //                     isDense: true,
+          //                     contentPadding: EdgeInsets.zero,
+          //                     filled: false, // 배경 채우기 비활성화
+          //                   ),
+          //                   style: const TextStyle(
+          //                     fontSize: 14,
+          //                     color: Colors.black,
+          //                   ),
+          //                 ),
+          //               ),
+          //             ),
+          //             // 등록 버튼 영역
+          //             GestureDetector(
+          //               onTap: () => _registerCoupon(_couponController.text),
+          //               child: Container(
+          //                 width: 80,
+          //                 height: 50,
+          //                 alignment: Alignment.center,
+          //                 color: Colors.transparent, // 투명 배경
+          //                 child: const Text(
+          //                   '등록',
+          //                   style: TextStyle(
+          //                     color: Colors.white,
+          //                     fontSize: 14,
+          //                     fontWeight: FontWeight.w600,
+          //                   ),
+          //                 ),
+          //               ),
+          //             ),
+          //           ],
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
           // 쿠폰 목록
           Expanded(
             child: _buildCouponList(),

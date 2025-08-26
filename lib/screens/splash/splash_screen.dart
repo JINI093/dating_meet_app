@@ -76,6 +76,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               // 프로필이 존재하면 홈으로
               print('프로필 존재 - 홈으로 이동: ${profile.name}');
               context.pushReplacement(RouteNames.home);
+              // context.pushReplacement(RouteNames.profileSetup);
+
             } else {
               // 프로필이 없으면 온보딩으로
               print('프로필 없음 - 온보딩으로 이동');

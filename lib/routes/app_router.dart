@@ -436,16 +436,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.pointsCatalog,
         name: 'pointsCatalog',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: GiftCardCatalogScreen(userPoint: 0, userEmail: ''), // TODO: 실제 데이터 전달
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return SlideTransition(
-              position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(animation),
-              child: child,
-            );
-          },
-        ),
+        pageBuilder: (context, state) {
+          var extra = state.extra as Map<String, dynamic>?;
+          var currentPoint = extra?["CURRENT_POINT"] ?? 0;
+
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: GiftCardCatalogScreen(userPoint: currentPoint, userEmail: ''), // TODO: 실제 데이터 전달
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(animation),
+                child: child,
+              );
+            },
+          );
+        },
         redirect: (context, state) {
           // TODO: 인증 상태 체크
           return null;

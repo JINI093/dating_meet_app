@@ -1095,10 +1095,10 @@ class _PopularitySheetState extends State<_PopularitySheet> {
           const SizedBox(height: 24),
           _popularityButton(
             context,
-            icon: CupertinoIcons.paperplane_fill,
+            image: "assets/icons/icon_like_superchat.png",
             text: '슈퍼챗 많이 받은 순',
             gradient: const LinearGradient(
-                colors: [Color(0xFF3FE37F), Color(0xFF1CB5E0)]),
+                colors: [Color(0xFF5EF020), Color(0xD90088FF)]),
             selected: widget.tempSelected == '슈퍼챗 많이 받은 순',
             onTap: () {
               setState(() {
@@ -1113,10 +1113,10 @@ class _PopularitySheetState extends State<_PopularitySheet> {
           const SizedBox(height: 16),
           _popularityButton(
             context,
-            icon: CupertinoIcons.heart_fill,
+            image: "assets/icons/icon_like_sort.png",
             text: '좋아요 많은 순',
             gradient: const LinearGradient(
-                colors: [Color(0xFFFF5F6D), Color(0xFFFFC371)]),
+                colors: [Color(0xFFF02062), Color(0xFFFF00C3)]),
             selected: widget.tempSelected == '좋아요 많은 순',
             onTap: () {
               setState(() {
@@ -1144,7 +1144,10 @@ class _PopularitySheetState extends State<_PopularitySheet> {
               child: Text(
                 "설정",
                 style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -1156,7 +1159,7 @@ class _PopularitySheetState extends State<_PopularitySheet> {
   }
 
   Widget _popularityButton(BuildContext context,
-      {required IconData icon,
+      {required String image,
       required String text,
       required LinearGradient gradient,
       required bool selected,
@@ -1164,26 +1167,37 @@ class _PopularitySheetState extends State<_PopularitySheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: selected ? Colors.black : Colors.transparent,
-              width: 2,
-            )),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(text,
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: selected ? Colors.black : Colors.transparent,
+                width: 2,
+              )),
+          alignment: Alignment.center,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Image.asset(image),
+                ),
+                Center(
+                  child: Text(
+                    text,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                  ),
+                )
+              ],
+            ),
+          )),
     );
   }
 }
