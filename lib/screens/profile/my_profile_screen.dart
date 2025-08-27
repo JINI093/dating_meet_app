@@ -301,17 +301,28 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         return Text(
                           '${pointsState.currentPoints}',
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w800,
                             fontSize: 16,
                           ),
                         );
                       },
                     ),
                     const SizedBox(width: 16),
-                    _buildSmallButton('포인트 전환', const Color(0xFFFFC107), _goToPointExchange),
+                    GestureDetector(
+                        onTap: () {
+                          _goToPointExchange();
+                        },
+                        child: Image.asset('assets/icons/ic_exchange_point.png')
+                    ),
+                    // _buildSmallButton('포인트 전환', const Color(0xFFFFC107), _goToPointExchange),
                   ],
                 ),
-                _buildSmallButton('포인트 상점 >', const Color(0xFFFF6B35), _goToPointShop),
+                GestureDetector(
+                    onTap: () {
+                      _goToPointShop();
+                    },
+                    child: Image.asset('assets/icons/ic_point_store.png')
+                ),
               ],
             ),
           ),
@@ -333,7 +344,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     fontSize: 16,
                   ),
                 ),
-                _buildSmallButton('이용권 상점 >', const Color(0xFF666666), _goToTicketShop),
+                GestureDetector(
+                    onTap: () {
+                      _goToTicketShop();
+                    },
+                    child: Image.asset('assets/icons/ic_use_store.png')
+                ),
               ],
             ),
           ),
@@ -479,7 +495,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               Text(
                 '${(user.profileCompletionRate * 100).round()}%',
                 style: const TextStyle(
-                  color: Color(0xFFFF6B35),
+                  color: Color(0xFFF02062),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -499,7 +515,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   height: 8,
                   width: MediaQuery.of(context).size.width * user.profileCompletionRate * 0.8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B35),
+                    color: const Color(0xFFF02062),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),

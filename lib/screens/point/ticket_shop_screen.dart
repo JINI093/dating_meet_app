@@ -14,7 +14,7 @@ import '../../providers/recommend_card_provider.dart';
 
 class TicketShopScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
-  
+
   const TicketShopScreen({
     super.key,
     this.initialTabIndex = 0,
@@ -24,7 +24,8 @@ class TicketShopScreen extends ConsumerStatefulWidget {
   ConsumerState<TicketShopScreen> createState() => _TicketShopScreenState();
 }
 
-class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with SingleTickerProviderStateMixin {
+class _TicketShopScreenState extends ConsumerState<TicketShopScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedVipTier = 'GOLD';
   int _refreshKey = 0; // FutureBuilder 새로고침용
@@ -33,14 +34,14 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 5, 
+      length: 5,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
     _tabController.addListener(() {
       setState(() {});
     });
-    
+
     // 추천카드 데이터 초기화
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(recommendCardProvider.notifier).initialize();
@@ -56,6 +57,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -80,50 +82,48 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // 탭 바
-          TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            padding: EdgeInsets.zero,
-            indicatorPadding: EdgeInsets.zero,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            indicatorColor: Colors.black,
-            indicatorWeight: 2,
-            labelColor: Colors.black,
-            unselectedLabelColor: const Color(0xFF999999),
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.normal,
-            ),
-            tabs: const [
-              Tab(text: '하트'),
-              Tab(text: '슈퍼챗'),
-              Tab(text: '프로필 열람권'),
-              Tab(text: '추천카드 더보기'),
-              Tab(text: 'VIP'),
-            ],
-          ),
-          // 탭 컨텐츠
-          Expanded(
-            child: TabBarView(
+      body: Theme(
+        data: ThemeData.fallback(),
+        child: Column(
+          children: [
+            // 탭 바
+            TabBar(
               controller: _tabController,
-              children: [
-                _buildHeartTab(),
-                _buildSuperChatTab(),
-                _buildProfileViewTab(),
-                _buildRecommendCardTab(),
-                _buildVipTab(),
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorPadding: EdgeInsets.zero,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorColor:  Colors.black,
+              unselectedLabelColor: Colors.black.withOpacity(0.25),
+              labelStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+              tabs: const [
+                Tab(text: '하트'),
+                Tab(text: '슈퍼챗'),
+                Tab(text: '프로필 열람권'),
+                Tab(text: '추천카드 더보기'),
+                Tab(text: 'VIP'),
               ],
             ),
-          ),
-        ],
+            // 탭 컨텐츠
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildHeartTab(),
+                  _buildSuperChatTab(),
+                  _buildProfileViewTab(),
+                  _buildRecommendCardTab(),
+                  _buildVipTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         color: Colors.white,
@@ -273,29 +273,65 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
             builder: (context, ref, child) {
               return Column(
                 children: [
-                  _buildHeartPackageItem(HeartPackage(id: 1, baseCount: 1, bonusCount: 0, price: 10), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 1, baseCount: 1, bonusCount: 0, price: 10),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 2, baseCount: 3, bonusCount: 0, price: 30), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 2, baseCount: 3, bonusCount: 0, price: 30),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 3, baseCount: 5, bonusCount: 0, price: 50), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 3, baseCount: 5, bonusCount: 0, price: 50),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 4, baseCount: 10, bonusCount: 2, price: 100), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 4, baseCount: 10, bonusCount: 2, price: 100),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 5, baseCount: 15, bonusCount: 5, price: 150), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 5, baseCount: 15, bonusCount: 5, price: 150),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 6, baseCount: 20, bonusCount: 10, price: 200), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 6, baseCount: 20, bonusCount: 10, price: 200),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 7, baseCount: 30, bonusCount: 15, price: 300), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 7, baseCount: 30, bonusCount: 15, price: 300),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 8, baseCount: 50, bonusCount: 25, price: 500), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 8, baseCount: 50, bonusCount: 25, price: 500),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 9, baseCount: 80, bonusCount: 40, price: 800), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 9, baseCount: 80, bonusCount: 40, price: 800),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 10, baseCount: 100, bonusCount: 60, price: 1000), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 10, baseCount: 100, bonusCount: 60, price: 1000),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 11, baseCount: 150, bonusCount: 100, price: 1500), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 11, baseCount: 150, bonusCount: 100, price: 1500),
+                      ref),
                   const SizedBox(height: 12),
-                  _buildHeartPackageItem(HeartPackage(id: 12, baseCount: 200, bonusCount: 200, price: 2000), ref),
+                  _buildHeartPackageItem(
+                      HeartPackage(
+                          id: 12, baseCount: 200, bonusCount: 200, price: 2000),
+                      ref),
                 ],
               );
             },
@@ -306,7 +342,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Widget _buildProfileViewPackageItem(int baseCount, int bonusCount, int price, {int? imageNumber}) {
+  Widget _buildProfileViewPackageItem(int baseCount, int bonusCount, int price,
+      {int? imageNumber}) {
     return GestureDetector(
       onTap: () => _onProfileViewPackageSelected(baseCount, bonusCount, price),
       child: Container(
@@ -355,7 +392,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Future<void> _onProfileViewPackageSelected(int baseCount, int bonusCount, int price) async {
+  Future<void> _onProfileViewPackageSelected(
+      int baseCount, int bonusCount, int price) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -532,7 +570,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Widget _buildSuperChatPackageItem(int baseCount, int bonusCount, int price, {int? imageNumber}) {
+  Widget _buildSuperChatPackageItem(int baseCount, int bonusCount, int price,
+      {int? imageNumber}) {
     return GestureDetector(
       onTap: () => _onSuperChatPackageSelected(baseCount, bonusCount, price),
       child: Container(
@@ -581,7 +620,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Future<void> _onSuperChatPackageSelected(int baseCount, int bonusCount, int price) async {
+  Future<void> _onSuperChatPackageSelected(
+      int baseCount, int bonusCount, int price) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -609,7 +649,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     }
   }
 
-  Future<void> _processSuperChatPurchase(int baseCount, int bonusCount, int price) async {
+  Future<void> _processSuperChatPurchase(
+      int baseCount, int bonusCount, int price) async {
     try {
       // 로딩 다이얼로그 표시
       showDialog(
@@ -634,7 +675,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         bonusCount: bonusCount,
         price: price,
       );
-      
+
       final success = await superChatService.purchaseSuperChats(package);
 
       // 로딩 다이얼로그 닫기
@@ -645,7 +686,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         setState(() {
           _refreshKey++;
         });
-        
+
         // 성공 다이얼로그 표시
         if (mounted) {
           showDialog(
@@ -661,7 +702,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('슈퍼챗 $baseCount${bonusCount > 0 ? '+$bonusCount' : ''}개가 지급되었습니다.'),
+                  Text(
+                      '슈퍼챗 $baseCount${bonusCount > 0 ? '+$bonusCount' : ''}개가 지급되었습니다.'),
                   if (bonusCount > 0) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -707,7 +749,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     } catch (e) {
       // 로딩 다이얼로그 닫기
       if (mounted) Navigator.of(context).pop();
-      
+
       // 오류 스낵바 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -841,9 +883,12 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Widget _buildRecommendCardPackageItem(int baseCount, int bonusCount, int price, {int? imageNumber}) {
+  Widget _buildRecommendCardPackageItem(
+      int baseCount, int bonusCount, int price,
+      {int? imageNumber}) {
     return GestureDetector(
-      onTap: () => _onRecommendCardPackageSelected(baseCount, bonusCount, price),
+      onTap: () =>
+          _onRecommendCardPackageSelected(baseCount, bonusCount, price),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -890,7 +935,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Future<void> _onRecommendCardPackageSelected(int baseCount, int bonusCount, int price) async {
+  Future<void> _onRecommendCardPackageSelected(
+      int baseCount, int bonusCount, int price) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1028,7 +1074,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                 ),
                 Consumer(
                   builder: (context, ref, child) {
-                    final currentRecommendCards = ref.watch(currentRecommendCardsProvider);
+                    final currentRecommendCards =
+                        ref.watch(currentRecommendCardsProvider);
                     return Text(
                       '${currentRecommendCards}개',
                       style: const TextStyle(
@@ -1077,7 +1124,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       Consumer(
         builder: (context, ref, child) {
           final heartState = ref.watch(heartProvider);
-          
+
           if (heartState.isLoading) {
             return const Center(
               child: Padding(
@@ -1086,7 +1133,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               ),
             );
           }
-          
+
           if (heartState.error != null) {
             return Center(
               child: Padding(
@@ -1100,7 +1147,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                     ),
                     const SizedBox(height: 10),
                     ElevatedButton(
-                      onPressed: () => ref.read(heartProvider.notifier).refreshHearts(),
+                      onPressed: () =>
+                          ref.read(heartProvider.notifier).refreshHearts(),
                       child: const Text('다시 시도'),
                     ),
                   ],
@@ -1108,9 +1156,11 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               ),
             );
           }
-          
+
           return Column(
-            children: heartState.packages.map((package) => _buildHeartPackageItem(package, ref)).toList(),
+            children: heartState.packages
+                .map((package) => _buildHeartPackageItem(package, ref))
+                .toList(),
           );
         },
       ),
@@ -1203,7 +1253,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     );
   }
 
-  Future<void> _onHeartPackageSelected(HeartPackage package, WidgetRef ref) async {
+  Future<void> _onHeartPackageSelected(
+      HeartPackage package, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1231,7 +1282,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     }
   }
 
-  Future<void> _processHeartPurchase(HeartPackage package, WidgetRef ref) async {
+  Future<void> _processHeartPurchase(
+      HeartPackage package, WidgetRef ref) async {
     try {
       // 로딩 다이얼로그 표시
       showDialog(
@@ -1261,7 +1313,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       }
 
       // PurchaseProvider를 통해 인앱결제 시작
-      final success = await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
+      final success =
+          await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
 
       // 로딩 다이얼로그 닫기
       if (mounted) Navigator.of(context).pop();
@@ -1337,7 +1390,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     } catch (e) {
       // 로딩 다이얼로그 닫기
       if (mounted) Navigator.of(context).pop();
-      
+
       // 오류 스낵바 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1388,7 +1441,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                 if (package['discount'] != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF9800),
                       borderRadius: BorderRadius.circular(12),
@@ -1460,7 +1514,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                 if (package['bonus'] != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00BCD4),
                       borderRadius: BorderRadius.circular(12),
@@ -1532,7 +1587,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
                 if (package['bonus'] != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00BCD4),
                       borderRadius: BorderRadius.circular(12),
@@ -1569,7 +1625,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       child: Column(
         children: [
           const SizedBox(height: 20),
-          
+
           // 왕관 아이콘 - 선택된 티어에 따라 변경
           Image.asset(
             _getCrownAsset(_selectedVipTier),
@@ -1577,9 +1633,9 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
             height: 120,
             fit: BoxFit.contain,
           ),
-          
+
           const SizedBox(height: 30),
-          
+
           Text(
             'VIP $_selectedVipTier',
             style: const TextStyle(
@@ -1588,9 +1644,9 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               color: Colors.black,
             ),
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           const Text(
             'VIP 상품은 이성에게 더욱 매력적으로 보일 수 있습니다!',
             style: TextStyle(
@@ -1599,9 +1655,9 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 30),
-          
+
           // GOLD, SILVER, BRONZE 버튼들
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1613,9 +1669,9 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               _buildVipTierButton('BRONZE'),
             ],
           ),
-          
+
           const SizedBox(height: 30),
-          
+
           Text(
             _selectedVipTier,
             style: const TextStyle(
@@ -1624,21 +1680,21 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               color: Colors.black,
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // VIP 혜택 설명
           _buildVipBenefitDescription(_selectedVipTier),
-          
+
           const SizedBox(height: 30),
-          
+
           // VIP 상품 패키지들
           ..._buildVipPackages(),
         ],
       ),
     );
   }
-  
+
   String _getCrownAsset(String tier) {
     switch (tier) {
       case 'GOLD':
@@ -1654,7 +1710,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
 
   Widget _buildVipTierButton(String tier) {
     final isSelected = _selectedVipTier == tier;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -1694,7 +1750,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       ),
     );
   }
-  
+
   String _getTierButtonAsset(String tier) {
     switch (tier) {
       case 'GOLD':
@@ -1720,7 +1776,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         return Colors.grey;
     }
   }
-  
+
   Widget _buildVipBenefitDescription(String tier) {
     List<String> benefits;
     switch (tier) {
@@ -1751,17 +1807,17 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       default:
         benefits = [];
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...benefits.map((benefit) => Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Text(
-            '• $benefit',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
-          ),
-        )),
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '• $benefit',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
+              ),
+            )),
         const SizedBox(height: 4),
         const Text(
           '(혜택은 구매하신 기간내에만 유효합니다. 기간내 사용하지 않아 삭제된 혜택은 환불 및 추가 적립이 절대 불가합니다.)',
@@ -1784,7 +1840,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     return packages.map((package) {
       final days = package['days'] as int;
       final String cardAsset = _getVipCardAsset(_selectedVipTier, days);
-      
+
       return GestureDetector(
         onTap: () {
           // TODO: 결제 창으로 이동
@@ -1801,7 +1857,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       );
     }).toList();
   }
-  
+
   String _getVipCardAsset(String tier, int days) {
     String prefix;
     switch (tier) {
@@ -1817,10 +1873,10 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       default:
         prefix = 'G';
     }
-    
+
     return 'assets/vip/$prefix$days.png';
   }
-  
+
   void _onVipPackageSelected(Map<String, dynamic> package) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1837,8 +1893,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            ..._getVipBenefits(_selectedVipTier).map((benefit) => 
-              Padding(
+            ..._getVipBenefits(_selectedVipTier).map(
+              (benefit) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text('• $benefit', style: const TextStyle(fontSize: 12)),
               ),
@@ -1884,12 +1940,12 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
       final vipNotifier = ref.read(vipProvider.notifier);
       final days = package['days'] as int;
       final price = package['price'] as int;
-      
+
       // Use purchaseVipPlan instead as a workaround
       final originalPrice = package['originalPrice'] as int? ?? price * 2;
-      final discountPercent = package['discount'] as int? ?? 
-        ((originalPrice - price) * 100 / originalPrice).round();
-      
+      final discountPercent = package['discount'] as int? ??
+          ((originalPrice - price) * 100 / originalPrice).round();
+
       final plan = VipPlan(
         id: 'ticket_$_selectedVipTier',
         name: '$_selectedVipTier VIP $days일',
@@ -1903,7 +1959,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
         isRecommended: days == 30,
         type: _getVipPlanType(_selectedVipTier),
       );
-      
+
       final success = await vipNotifier.purchaseVipPlan(plan);
 
       // Close loading dialog
@@ -1916,7 +1972,8 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('구매 완료!'),
-              content: Text('VIP $_selectedVipTier ${package['days']}일 이용권이 활성화되었습니다.'),
+              content: Text(
+                  'VIP $_selectedVipTier ${package['days']}일 이용권이 활성화되었습니다.'),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -1951,7 +2008,7 @@ class _TicketShopScreenState extends ConsumerState<TicketShopScreen> with Single
     } catch (e) {
       // Close loading dialog if still open
       if (mounted) Navigator.of(context).pop();
-      
+
       // Show error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -21,7 +21,7 @@ class PointShopScreen extends ConsumerStatefulWidget {
 class _PointShopScreenState extends ConsumerState<PointShopScreen> {
   PageController? _pageController;
   int _currentPage = 0;
-  
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +33,7 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
       }
     });
   }
-  
+
   @override
   void dispose() {
     _pageController?.dispose();
@@ -264,8 +264,8 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: _currentPage == index 
-                      ? const Color(0xFFFF357B) 
+                  color: _currentPage == index
+                      ? const Color(0xFFFF357B)
                       : const Color(0xFFE0E0E0),
                   shape: BoxShape.circle,
                 ),
@@ -279,8 +279,14 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
 
   Widget _buildPointPackages() {
     final packageList = [
-      {'points': 50, 'price': 5000,},
-      {'points': 100,'price': 10000,},
+      {
+        'points': 50,
+        'price': 5000,
+      },
+      {
+        'points': 100,
+        'price': 10000,
+      },
       {'points': 300, 'bonusPoints': 6, 'price': 30000, 'bonusPercent': 2},
       {'points': 500, 'bonusPoints': 25, 'price': 50000, 'bonusPercent': 5},
       {'points': 1000, 'bonusPoints': 80, 'price': 100000, 'bonusPercent': 8},
@@ -288,11 +294,26 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
       {'points': 2000, 'bonusPoints': 240, 'price': 200000, 'bonusPercent': 12},
       {'points': 3000, 'bonusPoints': 450, 'price': 300000, 'bonusPercent': 15},
       {'points': 5000, 'bonusPoints': 900, 'price': 500000, 'bonusPercent': 18},
-      {'points': 8000, 'bonusPoints': 1600, 'price': 800000, 'bonusPercent': 20},
-      {'points': 10000, 'bonusPoints': 2500, 'price': 1000000, 'bonusPercent': 25},
-      {'points': 20000, 'bonusPoints': 6000, 'price': 2000000, 'bonusPercent': 30},
+      {
+        'points': 8000,
+        'bonusPoints': 1600,
+        'price': 800000,
+        'bonusPercent': 20
+      },
+      {
+        'points': 10000,
+        'bonusPoints': 2500,
+        'price': 1000000,
+        'bonusPercent': 25
+      },
+      {
+        'points': 20000,
+        'bonusPoints': 6000,
+        'price': 2000000,
+        'bonusPercent': 30
+      },
     ];
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -306,12 +327,15 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                   for (int j = 0; j < 3 && i + j < packageList.length; j++)
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: j == 1 ? 8 : 4),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: j == 1 ? 8 : 4),
                         child: _buildPointPackage(
                           points: packageList[i + j]['points'] as int,
-                          bonusPoints: packageList[i + j]['bonusPoints'] as int? ?? 0,
+                          bonusPoints:
+                              packageList[i + j]['bonusPoints'] as int? ?? 0,
                           price: packageList[i + j]['price'] as int,
-                          bonusPercent: packageList[i + j]['bonusPercent'] as int? ?? 0,
+                          bonusPercent:
+                              packageList[i + j]['bonusPercent'] as int? ?? 0,
                           imagePath: 'assets/point/${i + j + 1}.png',
                         ),
                       ),
@@ -335,7 +359,8 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
       clipBehavior: Clip.none,
       children: [
         GestureDetector(
-          onTap: () => _showPurchaseConfirmation(points, bonusPoints, price, bonusPercent),
+          onTap: () => _showPurchaseConfirmation(
+              points, bonusPoints, price, bonusPercent),
           child: Container(
             height: 160, // 모든 박스의 높이를 통일
             decoration: BoxDecoration(
@@ -364,39 +389,38 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                 ),
                 // 포인트 표시
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '+${points}P',
-                          style: const TextStyle(
-                            color: Color(0xFFFF357B),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '+${points}P',
+                        style: const TextStyle(
+                          color: Color(0xFFFF357B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (bonusPoints > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF357B),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '+${bonusPoints}P',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 9,
+                            ),
                           ),
                         ),
-                        if (bonusPoints > 0) ...[
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF357B),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '+${bonusPoints}P',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 9,
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 // 하단 가격 영역
@@ -405,7 +429,8 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: const BoxDecoration(
                     color: Color(0xFFFF357B),
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                    borderRadius:
+                        BorderRadius.vertical(bottom: Radius.circular(12)),
                   ),
                   child: Text(
                     '${_formatPriceWithComma(price)}원',
@@ -448,129 +473,137 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
 
   String _formatPriceWithComma(int price) {
     return price.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match match) => '${match.group(1)},',
-    );
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match match) => '${match.group(1)},',
+        );
   }
 
-  void _showPurchaseConfirmation(int points, int bonusPoints, int price, int bonusPercent) {
+  void _showPurchaseConfirmation(
+      int points, int bonusPoints, int price, int bonusPercent) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
+        clipBehavior: Clip.antiAliasWithSaveLayer,
+        insetPadding: EdgeInsets.symmetric(horizontal: 20),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimensions.radiusL),
+          borderRadius: BorderRadius.circular(30),
         ),
         contentPadding: const EdgeInsets.all(AppDimensions.paddingL),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Points display
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${points}P',
-                  style: AppTextStyles.h4.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+        content: Container(
+          width: MediaQuery.of(context).size.width - 32,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Points display
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${points}P',
+                    style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 24),
                   ),
-                ),
-                if (bonusPoints > 0) ...[
-                  const SizedBox(width: AppDimensions.spacing8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.spacing8,
-                      vertical: AppDimensions.spacing4,
+                  if (bonusPoints > 0) ...[
+                    const SizedBox(width: AppDimensions.spacing8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimensions.spacing8,
+                        vertical: AppDimensions.spacing4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '+${bonusPoints}P',
+                        style: AppTextStyles.labelMedium.copyWith(
+                            color: AppColors.textWhite,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 24),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusS),
+                  ],
+                ],
+              ),
+
+              const SizedBox(height: AppDimensions.spacing16),
+
+              Text(
+                '구매하시겠습니까?',
+                style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 24),
+              ),
+
+              const SizedBox(height: AppDimensions.spacing24),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => context.pop(),
+                      style: TextButton.styleFrom(
+                        backgroundColor: AppColors.textHint,
+                        foregroundColor: AppColors.textWhite,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingM),
+                        shape: StadiumBorder(),
+                      ),
+                      child: Text(
+                        '아니요',
+                        style: TextStyle(
+                            color: AppColors.textWhite,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 24),
+                      ),
                     ),
-                    child: Text(
-                      '+${bonusPoints}P',
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.textWhite,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  const SizedBox(width: AppDimensions.spacing12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.pop(); // 다이얼로그만 닫기
+                        // 인앱결제로 바로 연결
+                        _purchasePointsWithInApp(points, bonusPoints, price);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textWhite,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingM),
+                        shape: StadiumBorder(),
+                      ),
+                      child: Text(
+                        '예',
+                        style: TextStyle(
+                            color: AppColors.textWhite,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 24),
                       ),
                     ),
                   ),
                 ],
-              ],
-            ),
-            
-            const SizedBox(height: AppDimensions.spacing16),
-            
-            Text(
-              '구매하시겠습니까?',
-              style: AppTextStyles.h6.copyWith(
-                fontWeight: FontWeight.w600,
               ),
-            ),
-            
-            const SizedBox(height: AppDimensions.spacing24),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => context.pop(),
-                    style: TextButton.styleFrom(
-                      backgroundColor: AppColors.textHint,
-                      foregroundColor: AppColors.textWhite,
-                      padding: const EdgeInsets.symmetric(vertical: AppDimensions.paddingM),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-                      ),
-                    ),
-                    child: Text(
-                      '아니요',
-                      style: AppTextStyles.buttonMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppDimensions.spacing12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      context.pop(); // 다이얼로그만 닫기
-                      // 인앱결제로 바로 연결
-                      _purchasePointsWithInApp(points, bonusPoints, price);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.textWhite,
-                      padding: const EdgeInsets.symmetric(vertical: AppDimensions.paddingM),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-                      ),
-                    ),
-                    child: Text(
-                      '예',
-                      style: AppTextStyles.buttonMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   /// 인앱결제로 포인트 구매
-  Future<void> _purchasePointsWithInApp(int points, int bonusPoints, int price) async {
+  Future<void> _purchasePointsWithInApp(
+      int points, int bonusPoints, int price) async {
     // 인앱결제용 제품 ID 생성 (포인트 수량 기준으로)
     String productId;
     if (points <= 100) {
       productId = 'dating_points_100';
     } else if (points <= 500) {
-      productId = 'dating_points_500'; 
+      productId = 'dating_points_500';
     } else if (points <= 1000) {
       productId = 'dating_points_1000';
     } else if (points <= 3000) {
@@ -596,8 +629,9 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
       );
 
       // PurchaseProvider를 통해 인앱결제 시작
-      final success = await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
-      
+      final success =
+          await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
+
       // 로딩 다이얼로그 닫기
       if (mounted) {
         Navigator.of(context).pop();
@@ -645,7 +679,8 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.textWhite,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusXL),
                         ),
                       ),
                       child: Text(
@@ -758,5 +793,4 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
       }
     }
   }
-
 }

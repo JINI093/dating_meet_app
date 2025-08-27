@@ -73,32 +73,32 @@ class _BottomNavigationScreenState
 
   static const List<BottomNavItem> _navItems = [
     BottomNavItem(
-      icon: CupertinoIcons.home,
-      activeIcon: CupertinoIcons.home,
+      icon: "assets/icons/tab_home_unselected.png",
+      activeIcon: "assets/icons/tab_home_selected.png",
       label: '홈',
       route: '/home',
     ),
     BottomNavItem(
-      icon: CupertinoIcons.heart,
-      activeIcon: CupertinoIcons.heart_fill,
+      icon: "assets/icons/tab_like_unselected.png",
+      activeIcon: "assets/icons/tab_like_selected.png",
       label: '좋아요',
       route: '/likes',
     ),
     BottomNavItem(
-      icon: null, // VIP는 이미지로 대체
-      activeIcon: null,
+      icon: "", // VIP는 이미지로 대체
+      activeIcon: "",
       label: 'VIP',
       route: '/vip',
     ),
     BottomNavItem(
-      icon: CupertinoIcons.chat_bubble,
-      activeIcon: CupertinoIcons.chat_bubble_fill,
+      icon: "assets/icons/tab_chat_unselected.png",
+      activeIcon: "assets/icons/tab_chat_selected.png",
       label: '채팅',
       route: '/chat',
     ),
     BottomNavItem(
-      icon: null, // 프로필은 이미지로 대체
-      activeIcon: null,
+      icon: "", // 프로필은 이미지로 대체
+      activeIcon: "",
       label: '프로필',
       route: '/profile',
     ),
@@ -198,8 +198,9 @@ class _BottomNavigationScreenState
       // VIP: Use VIP.png asset
       iconWidget = Image.asset(
         'assets/icons/VIP.png',
-        width: 36,
-        height: 36,
+        width: 45,
+        height: 45,
+        fit: BoxFit.fitWidth,
       );
     } else if (index == 4) {
       // 프로필: 원형 프로필 이미지 또는 기본 아바타
@@ -208,10 +209,11 @@ class _BottomNavigationScreenState
       // 좋아요: 뱃지가 있는 하트 아이콘
       iconWidget = _buildLikesIcon(isActive, unreadLikesCount ?? 0);
     } else {
-      iconWidget = Icon(
-        isActive ? (item.activeIcon ?? item.icon) : item.icon,
-        color: isActive ? Colors.black : Colors.grey,
-        size: 28,
+      iconWidget = Image.asset(
+        isActive ? item.activeIcon : item.icon,
+        fit: BoxFit.fitWidth,
+        width: 30,
+        height: 30,
       );
     }
 
@@ -268,14 +270,14 @@ class _BottomNavigationScreenState
 
   Widget _buildProfileImage(String? profileImageUrl, bool isActive) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 34,
+      height: 34,
       decoration:
           BoxDecoration(color: Colors.transparent, shape: BoxShape.rectangle),
       alignment: Alignment.center,
       child: Container(
-        width: 26,
-        height: 26,
+        width: 27,
+        height: 27,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border:
@@ -285,8 +287,8 @@ class _BottomNavigationScreenState
           child: profileImageUrl != null && profileImageUrl.isNotEmpty
               ? Image.network(
                   profileImageUrl,
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return _buildDefaultProfileImage();
@@ -339,10 +341,11 @@ class _BottomNavigationScreenState
   }
 
   Widget _buildLikesIcon(bool isActive, int unreadCount) {
-    final icon = Icon(
-      isActive ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-      color: isActive ? Colors.black : Colors.grey,
-      size: 28,
+    final icon = Image.asset(
+      isActive ? "assets/icons/tab_like_selected.png"  : "assets/icons/tab_like_unselected.png",
+      width: 30,
+      height: 30,
+      fit: BoxFit.fitWidth,
     );
 
     if (unreadCount > 0) {
@@ -382,8 +385,8 @@ class _BottomNavigationScreenState
 }
 
 class BottomNavItem {
-  final IconData? icon;
-  final IconData? activeIcon;
+  final String icon;
+  final String activeIcon;
   final String label;
   final String route;
 

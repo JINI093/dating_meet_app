@@ -52,53 +52,67 @@ class _PointExchangeMainScreenState extends ConsumerState<PointExchangeMainScree
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 포인트 <-> 상품권 섹션
+            // Row(
+            //   mainAxisAlignment: MainAxisAlignment.center,
+            //   children: [
+            //     Expanded(
+            //       child: _PointCard(userPoint: widget.userPoint),
+            //     ),
+            //     const SizedBox(width: 20),
+            //     const Icon(
+            //       CupertinoIcons.right_chevron,
+            //       size: 20,
+            //       color: Colors.grey,
+            //     ),
+            //     const SizedBox(width: 20),
+            //     const Expanded(
+            //       child: _GiftCard(),
+            //     ),
+            //   ],
+            // ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: _PointCard(userPoint: widget.userPoint),
-                ),
-                const SizedBox(width: 20),
-                const Icon(
-                  CupertinoIcons.right_chevron,
-                  size: 20,
-                  color: Colors.grey,
-                ),
-                const SizedBox(width: 20),
-                const Expanded(
-                  child: _GiftCard(),
-                ),
+                Image.asset("assets/icons/ic_exchange_before.png"),
+                Image.asset("assets/icons/ic_polygon_exchange.png"),
+                GestureDetector(
+                  onTap: () {
+                    _handleExchangeRequest();
+                  },
+                    child: Image.asset("assets/icons/ic_exchange_after.png")
+                )
               ],
             ),
-            
-            const SizedBox(height: 30),
-            
-            // 전환신청하기 버튼
-            Center(
-              child: Container(
-                width: 120,
-                height: 36,
-                child: ElevatedButton(
-                  onPressed: () => _handleExchangeRequest(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFA726),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: const Text(
-                    '전환신청하기',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            //
+            // const SizedBox(height: 30),
+            //
+            // // 전환신청하기 버튼
+            // Center(
+            //   child: Container(
+            //     width: 120,
+            //     height: 36,
+            //     child: ElevatedButton(
+            //       onPressed: () => _handleExchangeRequest(),
+            //       style: ElevatedButton.styleFrom(
+            //         backgroundColor: const Color(0xFFFFA726),
+            //         elevation: 0,
+            //         shape: RoundedRectangleBorder(
+            //           borderRadius: BorderRadius.circular(18),
+            //         ),
+            //         padding: EdgeInsets.zero,
+            //       ),
+            //       child: const Text(
+            //         '전환신청하기',
+            //         style: TextStyle(
+            //           fontSize: 15,
+            //           fontWeight: FontWeight.w600,
+            //           color: Colors.white,
+            //         ),
+            //       ),
+            //     ),
+            //   ),
+            // ),
             
             const SizedBox(height: 40),
             
@@ -132,12 +146,15 @@ class _PointExchangeMainScreenState extends ConsumerState<PointExchangeMainScree
 
   /// Handle exchange request with HonetCon API
   Future<void> _handleExchangeRequest() async {
+    var pointsState = ref.read(pointsProvider);
+    var userPoints = pointsState.currentPoints;
+    // context.push(RouteNames.pointsCatalog, extra: { "CURRENT_POINT" : userPoints });
     try {
       // Show input dialog for email and additional info
       final result = await _showExchangeInputDialog();
-      
+
       if (result == null) return; // User cancelled
-      
+
       // Show loading dialog
       _showLoadingDialog();
 
@@ -148,7 +165,7 @@ class _PointExchangeMainScreenState extends ConsumerState<PointExchangeMainScree
       // Calculate gift card value (1,000P = 100,000원)
       const int pointsToExchange = 1000;
       const int giftCardValue = 100000;
-      
+
       if (userPoints < pointsToExchange) {
         if (mounted) {
           Navigator.of(context).pop(); // Close loading dialog
