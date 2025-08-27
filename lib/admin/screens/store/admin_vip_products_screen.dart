@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/admin_theme.dart';
+import '../../providers/vip_products_provider.dart';
+import '../../../models/VipProduct.dart';
+import '../../widgets/vip_product_edit_dialog.dart';
 
 /// VIP 상품 관리 화면
 class AdminVipProductsScreen extends ConsumerStatefulWidget {
@@ -13,200 +16,186 @@ class AdminVipProductsScreen extends ConsumerStatefulWidget {
 class _AdminVipProductsScreenState extends ConsumerState<AdminVipProductsScreen> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Page Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'VIP 상품 관리',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _addVipProduct(),
-              icon: const Icon(Icons.add),
-              label: const Text('VIP 상품 추가'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AdminTheme.secondaryColor,
+    final productsState = ref.watch(vipProductsProvider);
+    
+    return Container(
+      color: const Color(0xFFF5F7FA),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Error Message
+          if (productsState.error != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red),
+              ),
+              child: Text(
+                productsState.error!,
+                style: const TextStyle(color: Colors.red),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: AdminTheme.spacingL),
-        
-        // VIP Statistics
-        Row(
-          children: [
+            
+          // Loading Indicator
+          if (productsState.isLoading)
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
             Expanded(
-              child: _buildStatCard(
-                title: 'VIP 상품 수',
-                value: '8',
-                color: AdminTheme.secondaryColor,
-                icon: Icons.star,
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 24,
+                  mainAxisSpacing: 24,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: productsState.products.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == productsState.products.length) {
+                    return _buildAddProductCard();
+                  }
+                  return _buildProductCard(productsState.products[index]);
+                },
               ),
             ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: '이번 달 VIP 가입',
-                value: '156',
-                color: AdminTheme.infoColor,
-                icon: Icons.trending_up,
-              ),
-            ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: 'VIP 매출',
-                value: '2,450,000원',
-                color: AdminTheme.successColor,
-                icon: Icons.monetization_on,
-              ),
-            ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: '평균 구독 기간',
-                value: '3.2개월',
-                color: AdminTheme.warningColor,
-                icon: Icons.schedule,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AdminTheme.spacingL),
-        
-        // VIP Plans
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AdminTheme.spacingL),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'VIP 구독 플랜',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: AdminTheme.spacingL),
-                  Expanded(
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: AdminTheme.spacingL,
-                      mainAxisSpacing: AdminTheme.spacingL,
-                      children: [
-                        _buildVipPlanCard(
-                          title: '1개월 VIP',
-                          price: '29,000원',
-                          originalPrice: '35,000원',
-                          discount: '17%',
-                          features: [
-                            '무제한 좋아요',
-                            '슈퍼챗 20개',
-                            '프로필 부스트',
-                            '읽음 확인',
-                          ],
-                          isPopular: false,
-                          color: AdminTheme.primaryColor,
-                        ),
-                        _buildVipPlanCard(
-                          title: '3개월 VIP',
-                          price: '69,000원',
-                          originalPrice: '87,000원',
-                          discount: '21%',
-                          features: [
-                            '무제한 좋아요',
-                            '슈퍼챗 80개',
-                            '프로필 부스트',
-                            '읽음 확인',
-                            '특별 배지',
-                          ],
-                          isPopular: true,
-                          color: AdminTheme.secondaryColor,
-                        ),
-                        _buildVipPlanCard(
-                          title: '6개월 VIP',
-                          price: '129,000원',
-                          originalPrice: '174,000원',
-                          discount: '26%',
-                          features: [
-                            '무제한 좋아요',
-                            '슈퍼챗 200개',
-                            '프로필 부스트',
-                            '읽음 확인',
-                            '특별 배지',
-                            '우선 매칭',
-                          ],
-                          isPopular: false,
-                          color: AdminTheme.successColor,
-                        ),
-                        _buildVipPlanCard(
-                          title: '12개월 VIP',
-                          price: '199,000원',
-                          originalPrice: '348,000원',
-                          discount: '43%',
-                          features: [
-                            '무제한 좋아요',
-                            '슈퍼챗 500개',
-                            '프로필 부스트',
-                            '읽음 확인',
-                            '특별 배지',
-                            '우선 매칭',
-                            '전담 매니저',
-                          ],
-                          isPopular: false,
-                          color: AdminTheme.errorColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required Color color,
-    required IconData icon,
-  }) {
+  Widget _buildProductCard(VipProduct product) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AdminTheme.spacingL),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 32),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AdminTheme.spacingS),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AdminTheme.secondaryTextColor,
-                fontWeight: FontWeight.w500,
+            // Icon Container
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _getColorFromString(product.iconColor ?? '#FFD700').withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(40),
               ),
+              child: Center(
+                child: _buildVipIcon(
+                  product.tier ?? 'BRONZE',
+                  _getColorFromString(product.iconColor ?? '#FFD700'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Title
+            Text(
+              product.title ?? '',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Subtitle
+            Text(
+              product.subtitle ?? '',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            
+            // Features
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (product.features != null && product.features!.isNotEmpty) ...[
+                      ...product.features!.map((feature) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: _getColorFromString(product.iconColor ?? '#FFD700'),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                feature,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ] else ...[
+                      Text(
+                        product.description ?? '',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.left,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 5,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.edit,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: () => _editProduct(product),
+                  tooltip: '수정',
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: () => _deleteProduct(product),
+                  tooltip: '삭제',
+                ),
+                const SizedBox(width: 8),
+                _buildToggleSwitch(product),
+              ],
             ),
           ],
         ),
@@ -214,136 +203,87 @@ class _AdminVipProductsScreenState extends ConsumerState<AdminVipProductsScreen>
     );
   }
 
-  Widget _buildVipPlanCard({
-    required String title,
-    required String price,
-    required String originalPrice,
-    required String discount,
-    required List<String> features,
-    required bool isPopular,
-    required Color color,
-  }) {
+  Widget _buildVipIcon(String tier, Color color) {
+    switch (tier) {
+      case 'GOLD':
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.diamond, size: 40, color: color),
+            Icon(Icons.star, size: 20, color: Colors.white),
+          ],
+        );
+      case 'SILVER':
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.diamond, size: 40, color: color),
+            Icon(Icons.star_half, size: 20, color: Colors.white),
+          ],
+        );
+      case 'BRONZE':
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.diamond, size: 40, color: color),
+            Icon(Icons.star_border, size: 20, color: Colors.white),
+          ],
+        );
+      default:
+        return Icon(Icons.diamond, size: 40, color: color);
+    }
+  }
+
+  Widget _buildToggleSwitch(VipProduct product) {
+    return Switch(
+      value: product.isActive ?? true,
+      onChanged: (value) {
+        ref.read(vipProductsProvider.notifier).toggleProductStatus(product.id, value);
+      },
+      activeColor: AdminTheme.primaryColor,
+    );
+  }
+
+  Widget _buildAddProductCard() {
     return Card(
-      elevation: isPopular ? 8 : 2,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: isPopular ? Border.all(color: color, width: 2) : null,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.grey.withValues(alpha: 0.2),
+          width: 2,
+          style: BorderStyle.solid,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(AdminTheme.spacingL),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _addProduct,
+        child: Container(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  if (isPopular)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'BEST',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AdminTheme.spacingM),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  const SizedBox(width: AdminTheme.spacingS),
-                  Text(
-                    originalPrice,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      decoration: TextDecoration.lineThrough,
-                      color: AdminTheme.secondaryTextColor,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AdminTheme.spacingS),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
-                  color: AdminTheme.errorColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(40),
                 ),
-                child: Text(
-                  '$discount 할인',
-                  style: const TextStyle(
-                    color: AdminTheme.errorColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Icon(
+                  Icons.add,
+                  size: 40,
+                  color: Colors.grey[600],
                 ),
               ),
-              const SizedBox(height: AdminTheme.spacingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: features.map((feature) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: AdminTheme.successColor,
-                        ),
-                        const SizedBox(width: AdminTheme.spacingS),
-                        Text(
-                          feature,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  )).toList(),
+              const SizedBox(height: 20),
+              Text(
+                'VIP 상품 추가하기',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
                 ),
-              ),
-              const SizedBox(height: AdminTheme.spacingM),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _editVipPlan(title),
-                      child: const Text('수정'),
-                    ),
-                  ),
-                  const SizedBox(width: AdminTheme.spacingS),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _toggleVipPlan(title),
-                      style: ElevatedButton.styleFrom(backgroundColor: color),
-                      child: const Text('설정'),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -352,21 +292,50 @@ class _AdminVipProductsScreenState extends ConsumerState<AdminVipProductsScreen>
     );
   }
 
-  void _addVipProduct() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('VIP 상품 추가 기능 구현 예정')),
+  void _addProduct() {
+    _showProductDialog();
+  }
+
+  void _editProduct(VipProduct product) {
+    _showProductDialog(product: product);
+  }
+
+  void _deleteProduct(VipProduct product) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('VIP 상품 삭제'),
+        content: Text('${product.title} 상품을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref.read(vipProductsProvider.notifier).deleteProduct(product.id);
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
-  void _editVipPlan(String planName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$planName 수정 기능 구현 예정')),
+  void _showProductDialog({VipProduct? product}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => VipProductEditDialog(product: product),
     );
   }
 
-  void _toggleVipPlan(String planName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$planName 설정 변경 기능 구현 예정')),
-    );
+  Color _getColorFromString(String colorString) {
+    try {
+      return Color(int.parse(colorString.substring(1), radix: 16) | 0xFF000000);
+    } catch (e) {
+      return const Color(0xFFFFD700); // 기본 골드 색상
+    }
   }
 }

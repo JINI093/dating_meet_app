@@ -21,32 +21,44 @@
 
 import 'package:amplify_core/amplify_core.dart' as amplify_core;
 import 'Banner.dart';
+import 'Coupon.dart';
+import 'DiscountCoupon.dart';
+import 'GeneralProduct.dart';
 import 'Notice.dart';
 import 'Payment.dart';
 import 'PointPackage.dart';
 import 'PointTransaction.dart';
 import 'Profiles.dart';
+import 'ReferralCode.dart';
 import 'Report.dart';
+import 'SettlementRecord.dart';
 import 'Superchat.dart';
 import 'Todo.dart';
 import 'UserPoints.dart';
+import 'VipProduct.dart';
 
 export 'Banner.dart';
+export 'Coupon.dart';
+export 'DiscountCoupon.dart';
+export 'GeneralProduct.dart';
 export 'Notice.dart';
 export 'Payment.dart';
 export 'PointPackage.dart';
 export 'PointTransaction.dart';
 export 'Profiles.dart';
+export 'ReferralCode.dart';
 export 'Report.dart';
+export 'SettlementRecord.dart';
 export 'Superchat.dart';
 export 'Todo.dart';
 export 'UserPoints.dart';
+export 'VipProduct.dart';
 
 class ModelProvider implements amplify_core.ModelProviderInterface {
   @override
-  String version = "ac331fbdb854bd82a375f4fdb8613c6e";
+  String version = "448979a17e5a8a20ef060703d326c2ff";
   @override
-  List<amplify_core.ModelSchema> modelSchemas = [Banner.schema, Notice.schema, Payment.schema, PointPackage.schema, PointTransaction.schema, Profiles.schema, Report.schema, Superchat.schema, Todo.schema, UserPoints.schema];
+  List<amplify_core.ModelSchema> modelSchemas = [Banner.schema, Coupon.schema, DiscountCoupon.schema, GeneralProduct.schema, Notice.schema, Payment.schema, PointPackage.schema, PointTransaction.schema, Profiles.schema, ReferralCode.schema, Report.schema, SettlementRecord.schema, Superchat.schema, Todo.schema, UserPoints.schema, VipProduct.schema];
   @override
   List<amplify_core.ModelSchema> customTypeSchemas = [];
   static final ModelProvider _instance = ModelProvider();
@@ -57,6 +69,12 @@ class ModelProvider implements amplify_core.ModelProviderInterface {
     switch(modelName) {
       case "Banner":
         return Banner.classType;
+      case "Coupon":
+        return Coupon.classType;
+      case "DiscountCoupon":
+        return DiscountCoupon.classType;
+      case "GeneralProduct":
+        return GeneralProduct.classType;
       case "Notice":
         return Notice.classType;
       case "Payment":
@@ -67,14 +85,20 @@ class ModelProvider implements amplify_core.ModelProviderInterface {
         return PointTransaction.classType;
       case "Profiles":
         return Profiles.classType;
+      case "ReferralCode":
+        return ReferralCode.classType;
       case "Report":
         return Report.classType;
+      case "SettlementRecord":
+        return SettlementRecord.classType;
       case "Superchat":
         return Superchat.classType;
       case "Todo":
         return Todo.classType;
       case "UserPoints":
         return UserPoints.classType;
+      case "VipProduct":
+        return VipProduct.classType;
       default:
         throw Exception("Failed to find model in model provider for model name: " + modelName);
     }
