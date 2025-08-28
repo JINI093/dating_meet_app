@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/admin_theme.dart';
+import '../../providers/general_products_provider.dart';
+import '../../../models/GeneralProduct.dart';
+import '../../widgets/product_edit_dialog.dart';
+import '../../scripts/create_initial_products.dart';
 
 /// 일반 상품 관리 화면
 class AdminGeneralProductsScreen extends ConsumerStatefulWidget {
@@ -13,118 +17,255 @@ class AdminGeneralProductsScreen extends ConsumerStatefulWidget {
 class _AdminGeneralProductsScreenState extends ConsumerState<AdminGeneralProductsScreen> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Page Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final productsState = ref.watch(generalProductsProvider);
+    
+    return Container(
+      color: const Color(0xFFF5F7FA),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // 초기 데이터 생성 버튼 (상품이 없을 때만 표시)
+          if (productsState.products.isEmpty && !productsState.isLoading)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await CreateInitialProducts.createDefaultProducts();
+                  ref.read(generalProductsProvider.notifier).loadProducts();
+                },
+                icon: const Icon(Icons.add_circle),
+                label: const Text('기본 상품 4개 생성하기'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ),
+            
+          // Error Message
+          if (productsState.error != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red),
+              ),
+              child: Text(
+                productsState.error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+            
+          // Loading Indicator
+          if (productsState.isLoading)
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 24,
+                  mainAxisSpacing: 24,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: productsState.products.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == productsState.products.length) {
+                    return _buildAddProductCard();
+                  }
+                  return _buildProductCard(productsState.products[index]);
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductCard(GeneralProduct product) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // Icon Container
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _getColorFromString(product.iconColor ?? '#FF6B9D').withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: Center(
+                child: _buildIcon(
+                  product.iconType ?? 'heart',
+                  _getColorFromString(product.iconColor ?? '#FF6B9D'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Title
             Text(
-              '일반 상품 관리',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              product.title ?? '',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
-            ElevatedButton.icon(
-              onPressed: () => _addProduct(),
-              icon: const Icon(Icons.add),
-              label: const Text('상품 추가'),
+            const SizedBox(height: 8),
+            
+            // Subtitle
+            Text(
+              product.subtitle ?? '',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            
+            // Description
+            Expanded(
+              child: Text(
+                product.description ?? '',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.left,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 7,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Action Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.edit,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: () => _editProduct(product),
+                  tooltip: '수정',
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: () => _deleteProduct(product),
+                  tooltip: '삭제',
+                ),
+                const SizedBox(width: 8),
+                _buildToggleSwitch(product),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: AdminTheme.spacingL),
-        
-        // Statistics Cards
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                title: '전체 상품',
-                value: '24',
-                color: AdminTheme.primaryColor,
-                icon: Icons.inventory,
-              ),
+      ),
+    );
+  }
+
+  Widget _buildIcon(String type, Color color) {
+    switch (type) {
+      case 'heart':
+        return Icon(Icons.favorite, size: 40, color: color);
+      case 'chat':
+        return Icon(Icons.chat_bubble, size: 40, color: color);
+      case 'profile':
+        return _buildProfileIcon(color);
+      case 'stack':
+        return _buildStackIcon(color);
+      default:
+        return Icon(Icons.inventory_2, size: 40, color: color);
+    }
+  }
+
+  Widget _buildProfileIcon(Color color) {
+    return Stack(
+      children: [
+        Positioned(
+          left: 0,
+          child: Container(
+            width: 30,
+            height: 35,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: '활성 상품',
-                value: '18',
-                color: AdminTheme.successColor,
-                icon: Icons.check_circle,
-              ),
-            ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: '비활성 상품',
-                value: '6',
-                color: AdminTheme.warningColor,
-                icon: Icons.pause_circle,
-              ),
-            ),
-            const SizedBox(width: AdminTheme.spacingM),
-            Expanded(
-              child: _buildStatCard(
-                title: '이번 달 판매',
-                value: '145',
-                color: AdminTheme.infoColor,
-                icon: Icons.trending_up,
-              ),
-            ),
-          ],
+          ),
         ),
-        const SizedBox(height: AdminTheme.spacingL),
-        
-        // Content Area
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AdminTheme.spacingL),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '상품 목록',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                hintText: '상품명 검색...',
-                                prefixIcon: Icon(Icons.search),
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              onChanged: (value) => _onSearchChanged(value),
-                            ),
-                          ),
-                          const SizedBox(width: AdminTheme.spacingM),
-                          DropdownButton<String>(
-                            value: '전체',
-                            items: const [
-                              DropdownMenuItem(value: '전체', child: Text('전체')),
-                              DropdownMenuItem(value: '활성', child: Text('활성')),
-                              DropdownMenuItem(value: '비활성', child: Text('비활성')),
-                            ],
-                            onChanged: (value) => _onStatusFilterChanged(value),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AdminTheme.spacingL),
-                  Expanded(
-                    child: _buildProductTable(),
-                  ),
-                ],
+        Positioned(
+          right: 0,
+          top: 5,
+          child: Container(
+            width: 30,
+            height: 35,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.person, size: 20, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStackIcon(Color color) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Transform.translate(
+          offset: const Offset(-8, -8),
+          child: Transform.rotate(
+            angle: -0.1,
+            child: Container(
+              width: 35,
+              height: 45,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
               ),
+            ),
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(8, 8),
+          child: Transform.rotate(
+            angle: 0.1,
+            child: Container(
+              width: 35,
+              height: 45,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.person, size: 20, color: Colors.white),
             ),
           ),
         ),
@@ -132,153 +273,108 @@ class _AdminGeneralProductsScreenState extends ConsumerState<AdminGeneralProduct
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required Color color,
-    required IconData icon,
-  }) {
+  Widget _buildToggleSwitch(GeneralProduct product) {
+    return Switch(
+      value: product.isActive ?? true,
+      onChanged: (value) {
+        ref.read(generalProductsProvider.notifier).toggleProductStatus(product.id, value);
+      },
+      activeColor: AdminTheme.primaryColor,
+    );
+  }
+
+  Widget _buildAddProductCard() {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AdminTheme.spacingL),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 32),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AdminTheme.spacingS),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AdminTheme.secondaryTextColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.grey.withValues(alpha: 0.2),
+          width: 2,
+          style: BorderStyle.solid,
         ),
       ),
-    );
-  }
-
-  Widget _buildProductTable() {
-    return SingleChildScrollView(
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('상품명')),
-          DataColumn(label: Text('카테고리')),
-          DataColumn(label: Text('가격')),
-          DataColumn(label: Text('재고')),
-          DataColumn(label: Text('상태')),
-          DataColumn(label: Text('등록일')),
-          DataColumn(label: Text('관리')),
-        ],
-        rows: [
-          _buildProductRow('슈퍼챗 10개', '포인트', '9,900원', '무제한', '활성', '2024-01-15'),
-          _buildProductRow('슈퍼챗 50개', '포인트', '45,000원', '무제한', '활성', '2024-01-15'),
-          _buildProductRow('프로필 부스트', '기능', '5,000원', '무제한', '활성', '2024-01-20'),
-          _buildProductRow('추천 알림 OFF', '기능', '3,000원', '무제한', '비활성', '2024-01-25'),
-        ],
-      ),
-    );
-  }
-
-  DataRow _buildProductRow(
-    String name,
-    String category,
-    String price,
-    String stock,
-    String status,
-    String date,
-  ) {
-    return DataRow(
-      cells: [
-        DataCell(Text(name)),
-        DataCell(Text(category)),
-        DataCell(Text(price)),
-        DataCell(Text(stock)),
-        DataCell(
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: status == '활성' 
-                ? AdminTheme.successColor.withValues(alpha: 0.1)
-                : AdminTheme.warningColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: status == '활성'
-                  ? AdminTheme.successColor
-                  : AdminTheme.warningColor,
-              ),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                color: status == '활성'
-                  ? AdminTheme.successColor
-                  : AdminTheme.warningColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        DataCell(Text(date)),
-        DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _addProduct,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.edit, size: 18),
-                onPressed: () => _editProduct(name),
-                tooltip: '수정',
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(40),
+                ),
+                child: Icon(
+                  Icons.add,
+                  size: 40,
+                  color: Colors.grey[600],
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18),
-                onPressed: () => _deleteProduct(name),
-                tooltip: '삭제',
+              const SizedBox(height: 20),
+              Text(
+                '상품 추가하기',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
   void _addProduct() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('상품 추가 기능 구현 예정')),
+    _showProductDialog();
+  }
+
+  void _editProduct(GeneralProduct product) {
+    _showProductDialog(product: product);
+  }
+
+  void _deleteProduct(GeneralProduct product) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('상품 삭제'),
+        content: Text('${product.title} 상품을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref.read(generalProductsProvider.notifier).deleteProduct(product.id);
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
-  void _editProduct(String productName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$productName 수정 기능 구현 예정')),
+  void _showProductDialog({GeneralProduct? product}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ProductEditDialog(product: product),
     );
   }
 
-  void _deleteProduct(String productName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$productName 삭제 기능 구현 예정')),
-    );
-  }
-
-  void _onSearchChanged(String value) {
-    // TODO: Implement search functionality
-  }
-
-  void _onStatusFilterChanged(String? value) {
-    // TODO: Implement status filter functionality
+  Color _getColorFromString(String colorString) {
+    try {
+      return Color(int.parse(colorString.substring(1), radix: 16) | 0xFF000000);
+    } catch (e) {
+      return const Color(0xFFFF6B9D); // 기본 색상
+    }
   }
 }

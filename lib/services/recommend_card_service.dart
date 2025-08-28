@@ -18,6 +18,7 @@ class RecommendCardService {
 
       // AWS Cognito 사용자 정보에서 추천카드 수 가져오기
       if (Amplify.isConfigured) {
+        print("=======> login compelete");
         try {
           final session = await Amplify.Auth.fetchAuthSession();
           
@@ -28,7 +29,8 @@ class RecommendCardService {
             for (final attribute in userAttributes) {
               if (attribute.userAttributeKey.key == 'custom:recommend_cards') {
                 final awsRecommendCards = int.tryParse(attribute.value) ?? localRecommendCards;
-                
+                print("awsRecommendCards=======> ${awsRecommendCards}");
+
                 // AWS와 로컬이 다르면 AWS 값으로 동기화
                 if (awsRecommendCards != localRecommendCards) {
                   await prefs.setInt('user_recommend_cards', awsRecommendCards);
@@ -43,6 +45,7 @@ class RecommendCardService {
           Logger.error('AWS에서 추천카드 정보 가져오기 실패: $e', name: 'RecommendCardService');
         }
       }
+      print("=======> login failed");
 
       Logger.log('로컬 추천카드 더보기 수: $localRecommendCards', name: 'RecommendCardService');
       return localRecommendCards;

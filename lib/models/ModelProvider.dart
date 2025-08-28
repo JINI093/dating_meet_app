@@ -20,27 +20,45 @@
 // ignore_for_file: public_member_api_docs, annotate_overrides, dead_code, dead_codepublic_member_api_docs, depend_on_referenced_packages, file_names, library_private_types_in_public_api, no_leading_underscores_for_library_prefixes, no_leading_underscores_for_local_identifiers, non_constant_identifier_names, null_check_on_nullable_type_parameter, override_on_non_overriding_member, prefer_adjacent_string_concatenation, prefer_const_constructors, prefer_if_null_operators, prefer_interpolation_to_compose_strings, slash_for_doc_comments, sort_child_properties_last, unnecessary_const, unnecessary_constructor_name, unnecessary_late, unnecessary_new, unnecessary_null_aware_assignments, unnecessary_nullable_for_final_variable_declarations, unnecessary_string_interpolations, use_build_context_synchronously
 
 import 'package:amplify_core/amplify_core.dart' as amplify_core;
+import 'Banner.dart';
+import 'Coupon.dart';
+import 'DiscountCoupon.dart';
+import 'GeneralProduct.dart';
 import 'Notice.dart';
+import 'Payment.dart';
 import 'PointPackage.dart';
 import 'PointTransaction.dart';
-import 'Profile.dart';
+import 'Profiles.dart';
+import 'ReferralCode.dart';
+import 'Report.dart';
+import 'SettlementRecord.dart';
 import 'Superchat.dart';
 import 'Todo.dart';
 import 'UserPoints.dart';
+import 'VipProduct.dart';
 
+export 'Banner.dart';
+export 'Coupon.dart';
+export 'DiscountCoupon.dart';
+export 'GeneralProduct.dart';
 export 'Notice.dart';
+export 'Payment.dart';
 export 'PointPackage.dart';
 export 'PointTransaction.dart';
-export 'Profile.dart';
+export 'Profiles.dart';
+export 'ReferralCode.dart';
+export 'Report.dart';
+export 'SettlementRecord.dart';
 export 'Superchat.dart';
 export 'Todo.dart';
 export 'UserPoints.dart';
+export 'VipProduct.dart';
 
 class ModelProvider implements amplify_core.ModelProviderInterface {
   @override
-  String version = "81da9d70e65594b4d4a4d4007dd57a5a";
+  String version = "448979a17e5a8a20ef060703d326c2ff";
   @override
-  List<amplify_core.ModelSchema> modelSchemas = [Notice.schema, PointPackage.schema, PointTransaction.schema, Profile.schema, Superchat.schema, Todo.schema, UserPoints.schema];
+  List<amplify_core.ModelSchema> modelSchemas = [Banner.schema, Coupon.schema, DiscountCoupon.schema, GeneralProduct.schema, Notice.schema, Payment.schema, PointPackage.schema, PointTransaction.schema, Profiles.schema, ReferralCode.schema, Report.schema, SettlementRecord.schema, Superchat.schema, Todo.schema, UserPoints.schema, VipProduct.schema];
   @override
   List<amplify_core.ModelSchema> customTypeSchemas = [];
   static final ModelProvider _instance = ModelProvider();
@@ -49,20 +67,38 @@ class ModelProvider implements amplify_core.ModelProviderInterface {
   
   amplify_core.ModelType getModelTypeByModelName(String modelName) {
     switch(modelName) {
+      case "Banner":
+        return Banner.classType;
+      case "Coupon":
+        return Coupon.classType;
+      case "DiscountCoupon":
+        return DiscountCoupon.classType;
+      case "GeneralProduct":
+        return GeneralProduct.classType;
       case "Notice":
         return Notice.classType;
+      case "Payment":
+        return Payment.classType;
       case "PointPackage":
         return PointPackage.classType;
       case "PointTransaction":
         return PointTransaction.classType;
-      case "Profile":
-        return Profile.classType;
+      case "Profiles":
+        return Profiles.classType;
+      case "ReferralCode":
+        return ReferralCode.classType;
+      case "Report":
+        return Report.classType;
+      case "SettlementRecord":
+        return SettlementRecord.classType;
       case "Superchat":
         return Superchat.classType;
       case "Todo":
         return Todo.classType;
       case "UserPoints":
         return UserPoints.classType;
+      case "VipProduct":
+        return VipProduct.classType;
       default:
         throw Exception("Failed to find model in model provider for model name: " + modelName);
     }

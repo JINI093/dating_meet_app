@@ -28,7 +28,7 @@ class Superchat extends amplify_core.Model {
   static const classType = const _SuperchatModelType();
   final String id;
   final String? _fromUserId;
-  final String? _toProfileId;
+  final String? _toProfilesId;
   final String? _message;
   final int? _pointsUsed;
   final String? _templateType;
@@ -65,9 +65,9 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  String get toProfileId {
+  String get toProfilesId {
     try {
-      return _toProfileId!;
+      return _toProfilesId!;
     } catch(e) {
       throw amplify_core.AmplifyCodeGenModelException(
           amplify_core.AmplifyExceptionMessages.codeGenRequiredFieldForceCastExceptionMessage,
@@ -177,13 +177,13 @@ class Superchat extends amplify_core.Model {
     }
   }
   
-  const Superchat._internal({required this.id, required fromUserId, required toProfileId, required message, required pointsUsed, templateType, customData, required status, required priority, required expiresAt, required createdAt, required updatedAt}): _fromUserId = fromUserId, _toProfileId = toProfileId, _message = message, _pointsUsed = pointsUsed, _templateType = templateType, _customData = customData, _status = status, _priority = priority, _expiresAt = expiresAt, _createdAt = createdAt, _updatedAt = updatedAt;
+  const Superchat._internal({required this.id, required fromUserId, required toProfilesId, required message, required pointsUsed, templateType, customData, required status, required priority, required expiresAt, required createdAt, required updatedAt}): _fromUserId = fromUserId, _toProfilesId = toProfilesId, _message = message, _pointsUsed = pointsUsed, _templateType = templateType, _customData = customData, _status = status, _priority = priority, _expiresAt = expiresAt, _createdAt = createdAt, _updatedAt = updatedAt;
   
-  factory Superchat({String? id, required String fromUserId, required String toProfileId, required String message, required int pointsUsed, String? templateType, String? customData, required String status, required int priority, required amplify_core.TemporalDateTime expiresAt, required amplify_core.TemporalDateTime createdAt, required amplify_core.TemporalDateTime updatedAt}) {
+  factory Superchat({String? id, required String fromUserId, required String toProfilesId, required String message, required int pointsUsed, String? templateType, String? customData, required String status, required int priority, required amplify_core.TemporalDateTime expiresAt, required amplify_core.TemporalDateTime createdAt, required amplify_core.TemporalDateTime updatedAt}) {
     return Superchat._internal(
       id: id == null ? amplify_core.UUID.getUUID() : id,
       fromUserId: fromUserId,
-      toProfileId: toProfileId,
+      toProfilesId: toProfilesId,
       message: message,
       pointsUsed: pointsUsed,
       templateType: templateType,
@@ -205,7 +205,7 @@ class Superchat extends amplify_core.Model {
     return other is Superchat &&
       id == other.id &&
       _fromUserId == other._fromUserId &&
-      _toProfileId == other._toProfileId &&
+      _toProfilesId == other._toProfilesId &&
       _message == other._message &&
       _pointsUsed == other._pointsUsed &&
       _templateType == other._templateType &&
@@ -227,7 +227,7 @@ class Superchat extends amplify_core.Model {
     buffer.write("Superchat {");
     buffer.write("id=" + "$id" + ", ");
     buffer.write("fromUserId=" + "$_fromUserId" + ", ");
-    buffer.write("toProfileId=" + "$_toProfileId" + ", ");
+    buffer.write("toProfilesId=" + "$_toProfilesId" + ", ");
     buffer.write("message=" + "$_message" + ", ");
     buffer.write("pointsUsed=" + (_pointsUsed != null ? _pointsUsed!.toString() : "null") + ", ");
     buffer.write("templateType=" + "$_templateType" + ", ");
@@ -242,11 +242,11 @@ class Superchat extends amplify_core.Model {
     return buffer.toString();
   }
   
-  Superchat copyWith({String? fromUserId, String? toProfileId, String? message, int? pointsUsed, String? templateType, String? customData, String? status, int? priority, amplify_core.TemporalDateTime? expiresAt, amplify_core.TemporalDateTime? createdAt, amplify_core.TemporalDateTime? updatedAt}) {
+  Superchat copyWith({String? fromUserId, String? toProfilesId, String? message, int? pointsUsed, String? templateType, String? customData, String? status, int? priority, amplify_core.TemporalDateTime? expiresAt, amplify_core.TemporalDateTime? createdAt, amplify_core.TemporalDateTime? updatedAt}) {
     return Superchat._internal(
       id: id,
       fromUserId: fromUserId ?? this.fromUserId,
-      toProfileId: toProfileId ?? this.toProfileId,
+      toProfilesId: toProfilesId ?? this.toProfilesId,
       message: message ?? this.message,
       pointsUsed: pointsUsed ?? this.pointsUsed,
       templateType: templateType ?? this.templateType,
@@ -260,7 +260,7 @@ class Superchat extends amplify_core.Model {
   
   Superchat copyWithModelFieldValues({
     ModelFieldValue<String>? fromUserId,
-    ModelFieldValue<String>? toProfileId,
+    ModelFieldValue<String>? toProfilesId,
     ModelFieldValue<String>? message,
     ModelFieldValue<int>? pointsUsed,
     ModelFieldValue<String?>? templateType,
@@ -274,7 +274,7 @@ class Superchat extends amplify_core.Model {
     return Superchat._internal(
       id: id,
       fromUserId: fromUserId == null ? this.fromUserId : fromUserId.value,
-      toProfileId: toProfileId == null ? this.toProfileId : toProfileId.value,
+      toProfilesId: toProfilesId == null ? this.toProfilesId : toProfilesId.value,
       message: message == null ? this.message : message.value,
       pointsUsed: pointsUsed == null ? this.pointsUsed : pointsUsed.value,
       templateType: templateType == null ? this.templateType : templateType.value,
@@ -290,7 +290,7 @@ class Superchat extends amplify_core.Model {
   Superchat.fromJson(Map<String, dynamic> json)  
     : id = json['id'],
       _fromUserId = json['fromUserId'],
-      _toProfileId = json['toProfileId'],
+      _toProfilesId = json['toProfilesId'],
       _message = json['message'],
       _pointsUsed = (json['pointsUsed'] as num?)?.toInt(),
       _templateType = json['templateType'],
@@ -302,13 +302,13 @@ class Superchat extends amplify_core.Model {
       _updatedAt = json['updatedAt'] != null ? amplify_core.TemporalDateTime.fromString(json['updatedAt']) : null;
   
   Map<String, dynamic> toJson() => {
-    'id': id, 'fromUserId': _fromUserId, 'toProfileId': _toProfileId, 'message': _message, 'pointsUsed': _pointsUsed, 'templateType': _templateType, 'customData': _customData, 'status': _status, 'priority': _priority, 'expiresAt': _expiresAt?.format(), 'createdAt': _createdAt?.format(), 'updatedAt': _updatedAt?.format()
+    'id': id, 'fromUserId': _fromUserId, 'toProfilesId': _toProfilesId, 'message': _message, 'pointsUsed': _pointsUsed, 'templateType': _templateType, 'customData': _customData, 'status': _status, 'priority': _priority, 'expiresAt': _expiresAt?.format(), 'createdAt': _createdAt?.format(), 'updatedAt': _updatedAt?.format()
   };
   
   Map<String, Object?> toMap() => {
     'id': id,
     'fromUserId': _fromUserId,
-    'toProfileId': _toProfileId,
+    'toProfilesId': _toProfilesId,
     'message': _message,
     'pointsUsed': _pointsUsed,
     'templateType': _templateType,
@@ -323,7 +323,7 @@ class Superchat extends amplify_core.Model {
   static final amplify_core.QueryModelIdentifier<SuperchatModelIdentifier> MODEL_IDENTIFIER = amplify_core.QueryModelIdentifier<SuperchatModelIdentifier>();
   static final ID = amplify_core.QueryField(fieldName: "id");
   static final FROMUSERID = amplify_core.QueryField(fieldName: "fromUserId");
-  static final TOPROFILEID = amplify_core.QueryField(fieldName: "toProfileId");
+  static final TOPROFILESID = amplify_core.QueryField(fieldName: "toProfilesId");
   static final MESSAGE = amplify_core.QueryField(fieldName: "message");
   static final POINTSUSED = amplify_core.QueryField(fieldName: "pointsUsed");
   static final TEMPLATETYPE = amplify_core.QueryField(fieldName: "templateType");
@@ -350,7 +350,7 @@ class Superchat extends amplify_core.Model {
     
     modelSchemaDefinition.indexes = [
       amplify_core.ModelIndex(fields: const ["fromUserId"], name: "byFromUserId"),
-      amplify_core.ModelIndex(fields: const ["toProfileId"], name: "byToProfileId")
+      amplify_core.ModelIndex(fields: const ["toProfilesId"], name: "byToProfilesId")
     ];
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.id());
@@ -362,7 +362,7 @@ class Superchat extends amplify_core.Model {
     ));
     
     modelSchemaDefinition.addField(amplify_core.ModelFieldDefinition.field(
-      key: Superchat.TOPROFILEID,
+      key: Superchat.TOPROFILESID,
       isRequired: true,
       ofType: amplify_core.ModelFieldType(amplify_core.ModelFieldTypeEnum.string)
     ));

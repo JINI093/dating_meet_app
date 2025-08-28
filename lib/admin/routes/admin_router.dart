@@ -21,7 +21,7 @@ import '../screens/payment/admin_coupons_screen.dart';
 
 // 신고 관리 화면
 import '../screens/report/admin_report_screen.dart';
-import '../screens/report/admin_blacklist_screen.dart';
+// import '../screens/report/admin_blacklist_screen.dart';
 
 // 통계 및 공지사항 화면
 import '../screens/statistics/admin_statistics_screen.dart';
@@ -155,13 +155,13 @@ class AdminRouter {
             child: const AdminReportScreen(),
           ),
         ),
-        GoRoute(
-          path: '/admin/report/blacklist',
-          pageBuilder: (context, state) => MaterialPage(
-            key: state.pageKey,
-            child: const AdminBlacklistScreen(),
-          ),
-        ),
+        // GoRoute(
+        //   path: '/admin/report/blacklist',
+        //   pageBuilder: (context, state) => MaterialPage(
+        //     key: state.pageKey,
+        //     child: const AdminBlacklistScreen(),
+        //   ),
+        // ),
         
         // 통계 데이터
         GoRoute(

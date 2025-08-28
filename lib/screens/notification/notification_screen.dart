@@ -14,6 +14,7 @@ class NotificationScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationScreenState extends ConsumerState<NotificationScreen> {
+  bool _isNotificationEnabled = true; // 알림 토글 상태
 
   @override
   void initState() {
@@ -56,6 +57,23 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           ),
         ),
         actions: [
+          // 알림 토글 스위치
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: CupertinoSwitch(
+              value: _isNotificationEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _isNotificationEnabled = value;
+                });
+                // 여기에 알림 설정 변경 로직 추가 가능
+                _handleNotificationToggle(value);
+              },
+              activeColor: const Color(0xFFFF357B),
+              trackColor: Colors.grey.withValues(alpha: 0.3),
+              thumbColor: Colors.white,
+            ),
+          ),
           if (notifications.isNotEmpty)
             TextButton(
               onPressed: () {
@@ -81,7 +99,8 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             : notifications.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
                       final notification = notifications[index];
@@ -131,8 +150,8 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           color: notification.isRead ? Colors.white : const Color(0xFFF8F9FA),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: notification.isRead 
-                ? const Color(0xFFE5E5E5) 
+            color: notification.isRead
+                ? const Color(0xFFE5E5E5)
                 : const Color(0xFFFF357B).withValues(alpha: 0.2),
             width: 1,
           ),
@@ -165,7 +184,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                     notification.title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.w700,
+                      fontWeight: notification.isRead
+                          ? FontWeight.w500
+                          : FontWeight.w700,
                       color: Colors.black,
                     ),
                   ),
@@ -182,7 +203,8 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                   if (notification.isImportant) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF357B).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -278,6 +300,12 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     }
   }
 
+  void _handleNotificationToggle(bool value) {
+    // 여기에 알림 설정 변경 로직 추가 가능
+    // 예: 사용자 설정 저장 로직
+    print('알림 토글 상태: $value');
+  }
+
   void _createTestNotification() {
     final testNotifications = [
       NotificationModel(
@@ -297,7 +325,11 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         type: NotificationType.newSuperChat,
         createdAt: DateTime.now(),
         isImportant: true,
-        data: {'fromUserId': 'test_user_2', 'type': 'superchat', 'pointsUsed': 300},
+        data: {
+          'fromUserId': 'test_user_2',
+          'type': 'superchat',
+          'pointsUsed': 300
+        },
       ),
       NotificationModel(
         id: 'test_${DateTime.now().millisecondsSinceEpoch + 2}',
@@ -312,9 +344,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     ];
 
     // 랜덤으로 하나 선택해서 추가
-    final randomNotification = testNotifications[DateTime.now().millisecond % 3];
+    final randomNotification =
+        testNotifications[DateTime.now().millisecond % 3];
     ref.read(notificationProvider.notifier).addNotification(randomNotification);
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('테스트 알림이 추가되었습니다: ${randomNotification.title}'),

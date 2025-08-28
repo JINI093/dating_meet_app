@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 import '../models/user_points_model.dart';
 import '../services/aws_points_service.dart';
 import '../utils/logger.dart';
+import '../utils/debug_config.dart';
 import 'enhanced_auth_provider.dart';
 
 // Points State
@@ -102,13 +105,55 @@ class PointsNotifier extends StateNotifier<PointsState> {
       Logger.log('Auth state: isSignedIn=${authState.isSignedIn}, userId=${authState.currentUser?.user?.userId}', name: 'PointsProvider');
       Logger.log('포인트 로드 중 - userId: $userId', name: 'PointsProvider');
       
-      // Load points from AWS
-      final userPoints = await _pointsService.getUserPoints(userId);
+      UserPointsModel? userPoints;
+      List<PointTransaction> transactions = [];
+      
+      // 디버그 모드에서는 로컬 데이터 우선 로드
+      if (DebugConfig.enableDebugPayments) {
+        Logger.log('[DEBUG] 디버그 모드 - 로컬 포인트 로드', name: 'PointsProvider');
+        
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final pointsJson = prefs.getString('debug_user_points_$userId');
+          if (pointsJson != null) {
+            userPoints = UserPointsModel.fromJson(json.decode(pointsJson));
+            transactions = userPoints.transactions;
+            Logger.log('[DEBUG] 로컬 포인트 로드 성공: ${userPoints.currentPoints}P', name: 'PointsProvider');
+          } else {
+            // 로컬 데이터가 없으면 초기 포인트 생성
+            userPoints = UserPointsModel.initial(userId);
+            Logger.log('[DEBUG] 초기 포인트 생성: ${userPoints.currentPoints}P', name: 'PointsProvider');
+          }
+        } catch (e) {
+          Logger.log('[DEBUG] 로컬 포인트 로드 실패, 초기 포인트 생성: $e', name: 'PointsProvider');
+          userPoints = UserPointsModel.initial(userId);
+        }
+      } else {
+        // 실제 AWS 서비스 사용
+        try {
+          userPoints = await _pointsService.getUserPoints(userId);
+          if (userPoints != null) {
+            transactions = await _pointsService.getPointTransactions(userId, limit: 10);
+          }
+        } catch (e) {
+          Logger.log('AWS 포인트 로드 실패, 로컬 데이터 시도: $e', name: 'PointsProvider');
+          // AWS 실패 시 로컬 데이터로 폴백
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final pointsJson = prefs.getString('debug_user_points_$userId');
+            if (pointsJson != null) {
+              userPoints = UserPointsModel.fromJson(json.decode(pointsJson));
+              transactions = userPoints.transactions;
+            } else {
+              userPoints = UserPointsModel.initial(userId);
+            }
+          } catch (localError) {
+            userPoints = UserPointsModel.initial(userId);
+          }
+        }
+      }
       
       if (userPoints != null) {
-        // Load recent transactions
-        final transactions = await _pointsService.getPointTransactions(userId, limit: 10);
-        
         state = state.copyWith(
           userPoints: userPoints,
           recentTransactions: transactions,
@@ -152,16 +197,48 @@ class PointsNotifier extends StateNotifier<PointsState> {
       
       final userId = authState.currentUser!.user!.userId;
       
-      final updatedPoints = await _pointsService.addPoints(
-        userId: userId,
-        amount: amount,
-        description: description,
-        type: type,
-      );
+      UserPointsModel? updatedPoints;
+      
+      // 디버그 모드에서는 로컬 상태만 업데이트
+      if (DebugConfig.enableDebugPayments) {
+        Logger.log('[DEBUG] 디버그 모드 - 로컬 포인트 추가만 수행', name: 'PointsProvider');
+        
+        // 현재 포인트 가져오기 (없으면 기본값)
+        final currentUserPoints = state.userPoints ?? UserPointsModel.initial(userId);
+        
+        // 포인트 추가 (모델의 addPoints 메서드 사용)
+        updatedPoints = currentUserPoints.addPoints(amount, description, type);
+        
+        // 로컬 저장 (SharedPreferences)
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('debug_user_points_$userId', json.encode(updatedPoints.toJson()));
+        } catch (e) {
+          Logger.log('[DEBUG] 로컬 포인트 저장 실패: $e', name: 'PointsProvider');
+        }
+      } else {
+        // 실제 AWS 서비스 사용
+        updatedPoints = await _pointsService.addPoints(
+          userId: userId,
+          amount: amount,
+          description: description,
+          type: type,
+        );
+      }
       
       if (updatedPoints != null) {
         // Update local state
-        final transactions = await _pointsService.getPointTransactions(userId, limit: 10);
+        List<PointTransaction> transactions = [];
+        if (!DebugConfig.enableDebugPayments) {
+          try {
+            transactions = await _pointsService.getPointTransactions(userId, limit: 10);
+          } catch (e) {
+            Logger.log('트랜잭션 로드 실패, 로컬 트랜잭션 사용: $e', name: 'PointsProvider');
+            transactions = updatedPoints.transactions;
+          }
+        } else {
+          transactions = updatedPoints.transactions;
+        }
         
         state = state.copyWith(
           userPoints: updatedPoints,

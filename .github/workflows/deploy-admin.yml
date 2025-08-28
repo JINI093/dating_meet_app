@@ -5,12 +5,13 @@ name: Deploy Admin to GitHub Pages
 on:
   push:
     branches: [ development, main ]
-  pull_request:
-    branches: [ development, main ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout
@@ -19,27 +20,30 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.32.5'
         channel: 'stable'
         
     - name: Install dependencies
-      run: flutter pub get
-      
-    - name: Enable web support
-      run: flutter config --enable-web
+      run: |
+        flutter --version
+        flutter pub get
+    
+    - name: Create empty .env file
+      run: |
+        echo "# Environment variables" > .env
+        echo "Created .env file"
       
     - name: Build for web (Admin)
       run: |
         flutter build web \
-          --web-renderer html \
-          --base-href "/dating_meet_app/" \
           --target lib/admin_main.dart \
-          --output build/admin_web
+          --base-href "/dating_meet_app/" \
+          --release
       
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main'
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build/admin_web
+        publish_dir: ./build/web
         destination_dir: admin
+        keep_files: true

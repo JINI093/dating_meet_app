@@ -215,6 +215,17 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isBiometricAvailable: false);
     }
   }
+
+  // 자동 로그인 여부
+  Future<bool> loadAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('auto_login_enabled') ?? true;
+    } catch(e) {
+      return false;
+    }
+  }
+
   
   // 설정 로드
   Future<void> _loadPreferences() async {
@@ -228,6 +239,8 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
       if (lastLoginAtStr != null) {
         lastLoginAt = DateTime.parse(lastLoginAtStr);
       }
+
+      print("==========> ${isAutoLoginEnabled}");
       
       // 로그인 기록 로드
       final historyJson = prefs.getStringList('login_history') ?? [];
@@ -252,7 +265,7 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
   Future<void> _savePreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('auto_login_enabled', state.isAutoLoginEnabled);
+      await prefs.setBool('auto_login_enabled', true);
       await prefs.setBool('biometric_enabled', state.isBiometricEnabled);
       if (state.lastLoginMethod != null) {
         await prefs.setString('last_login_method', state.lastLoginMethod!);
@@ -272,9 +285,9 @@ class EnhancedAuthNotifier extends StateNotifier<AuthState> {
   
   // 자동 로그인 체크
   Future<AutoLoginResult> checkAutoLogin() async {
-    if (!state.isAutoLoginEnabled) {
-      return AutoLoginResult(success: false, error: '자동 로그인이 비활성화되어 있습니다.');
-    }
+    // if (!state.isAutoLoginEnabled) {
+    //   return AutoLoginResult(success: false, error: '자동 로그인이 비활성화되어 있습니다.');
+    // }
     
     try {
       final canAutoLogin = await _cognitoService.canAutoLogin();

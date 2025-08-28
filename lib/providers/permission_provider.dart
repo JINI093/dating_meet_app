@@ -1,170 +1,219 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/permission_service.dart';
-import '../utils/logger.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-/// 권한 상태
-class PermissionState {
-  final AppPermissionStatus? permissions;
-  final bool isLoading;
-  final String? error;
-  final bool isInitialized;
+/// 권한 관리자
+/// 알림, 위치, 저장소, 카메라, 사진 권한을 확인하고 요청하는 기능 제공
+class PermissionManager {
+  static final PermissionManager _instance = PermissionManager._internal();
+  factory PermissionManager() => _instance;
+  PermissionManager._internal();
 
-  const PermissionState({
-    this.permissions,
-    this.isLoading = false,
-    this.error,
-    this.isInitialized = false,
-  });
-
-  PermissionState copyWith({
-    AppPermissionStatus? permissions,
-    bool? isLoading,
-    String? error,
-    bool? isInitialized,
-  }) {
-    return PermissionState(
-      permissions: permissions ?? this.permissions,
-      isLoading: isLoading ?? this.isLoading,
-      error: error,
-      isInitialized: isInitialized ?? this.isInitialized,
-    );
-  }
-}
-
-/// 권한 관리 Provider
-class PermissionNotifier extends StateNotifier<PermissionState> {
-  final PermissionService _permissionService = PermissionService();
-
-  PermissionNotifier() : super(const PermissionState());
-
-  /// 앱 시작 시 권한 초기화
-  Future<void> initializePermissions() async {
-    if (state.isInitialized) {
-      Logger.log('권한이 이미 초기화됨', name: 'PermissionProvider');
-      return;
-    }
-
-    state = state.copyWith(isLoading: true, error: null);
-
+  /// 모든 권한 확인 및 요청
+  /// Returns: Map<Permission, PermissionStatus>
+  Future<Map<Permission, PermissionStatus>>
+      checkAndRequestAllPermissions() async {
     try {
-      Logger.log('권한 초기화 시작', name: 'PermissionProvider');
-      
-      // 권한 확인 및 요청
-      final permissions = await _permissionService.checkAndRequestPermissions();
-      
-      Logger.log('권한 초기화 완료: ${permissions.allGranted ? "모든 권한 허용됨" : "일부 권한 거부됨"}', 
-        name: 'PermissionProvider');
+      final permissions = [
+        Permission.notification,
+        Permission.location,
+        Permission.storage,
+        Permission.camera,
+        Permission.photos,
+      ];
 
-      state = state.copyWith(
-        permissions: permissions,
-        isLoading: false,
-        isInitialized: true,
-      );
+      final results = <Permission, PermissionStatus>{};
 
-      // 권한 상태 로그
-      _logPermissionStatus(permissions);
+      for (final permission in permissions) {
+        final status = await _checkAndRequestPermission(permission);
+        results[permission] = status;
+      }
 
+      return results;
     } catch (e) {
-      Logger.error('권한 초기화 실패: $e', name: 'PermissionProvider');
-      state = state.copyWith(
-        isLoading: false,
-        error: '권한 초기화에 실패했습니다: ${e.toString()}',
-        isInitialized: false,
-      );
+      // 오류 발생 시 모든 권한을 denied로 처리
+      return {
+        Permission.notification: PermissionStatus.denied,
+        Permission.location: PermissionStatus.denied,
+        Permission.storage: PermissionStatus.denied,
+        Permission.camera: PermissionStatus.denied,
+        Permission.photos: PermissionStatus.denied,
+      };
     }
   }
 
-  /// 현재 권한 상태 새로고침
-  Future<void> refreshPermissions() async {
-    state = state.copyWith(isLoading: true);
-
+  /// 특정 권한 확인 및 요청
+  /// [permission]: 확인할 권한
+  /// Returns: PermissionStatus
+  Future<PermissionStatus> checkAndRequestPermission(
+      Permission permission) async {
     try {
-      final permissions = await _permissionService.getCurrentPermissionStatus();
-      
-      state = state.copyWith(
-        permissions: permissions,
-        isLoading: false,
-        error: null,
-      );
-
-      Logger.log('권한 상태 새로고침 완료', name: 'PermissionProvider');
-      _logPermissionStatus(permissions);
-
+      return await _checkAndRequestPermission(permission);
     } catch (e) {
-      Logger.error('권한 상태 새로고침 실패: $e', name: 'PermissionProvider');
-      state = state.copyWith(
-        isLoading: false,
-        error: '권한 상태 확인에 실패했습니다: ${e.toString()}',
-      );
+      return PermissionStatus.denied;
+    }
+  }
+
+  /// 권한 상태만 확인 (요청하지 않음)
+  /// [permission]: 확인할 권한
+  /// Returns: PermissionStatus
+  Future<PermissionStatus> checkPermissionStatus(Permission permission) async {
+    try {
+      return await permission.status;
+    } catch (e) {
+      return PermissionStatus.denied;
+    }
+  }
+
+  /// 모든 권한 상태 확인 (요청하지 않음)
+  /// Returns: Map<Permission, PermissionStatus>
+  Future<Map<Permission, PermissionStatus>> checkAllPermissionStatuses() async {
+    try {
+      final permissions = [
+        Permission.notification,
+        Permission.location,
+        Permission.storage,
+        Permission.camera,
+        Permission.photos,
+      ];
+
+      final results = <Permission, PermissionStatus>{};
+
+      for (final permission in permissions) {
+        final status = await permission.status;
+        results[permission] = status;
+      }
+
+      return results;
+    } catch (e) {
+      return {
+        Permission.notification: PermissionStatus.denied,
+        Permission.location: PermissionStatus.denied,
+        Permission.storage: PermissionStatus.denied,
+        Permission.camera: PermissionStatus.denied,
+        Permission.photos: PermissionStatus.denied,
+      };
+    }
+  }
+
+  /// 권한이 영구적으로 거부되었는지 확인
+  /// [permission]: 확인할 권한
+  /// Returns: bool
+  Future<bool> isPermissionPermanentlyDenied(Permission permission) async {
+    try {
+      return await permission.isPermanentlyDenied;
+    } catch (e) {
+      return false;
     }
   }
 
   /// 앱 설정으로 이동
-  Future<void> openAppSettings() async {
+  Future<bool> openAppSettings() async {
     try {
-      await _permissionService.openSettings();
+      return await openAppSettings();
     } catch (e) {
-      Logger.error('앱 설정 열기 실패: $e', name: 'PermissionProvider');
-      state = state.copyWith(error: '설정을 열 수 없습니다: ${e.toString()}');
+      return false;
     }
   }
 
-  /// 특정 권한이 허용되었는지 확인
-  bool isPermissionGranted(String permissionType) {
-    final permissions = state.permissions;
-    if (permissions == null) return false;
-
-    switch (permissionType.toLowerCase()) {
-      case 'notification':
-        return permissions.notification;
-      case 'location':
-        return permissions.location;
-      case 'storage':
-        return permissions.storage;
-      case 'camera':
-        return permissions.camera;
-      case 'photos':
-        return permissions.photos;
+  /// 권한 상태를 한글로 변환
+  String getPermissionStatusText(PermissionStatus status) {
+    switch (status) {
+      case PermissionStatus.granted:
+        return '허용됨';
+      case PermissionStatus.denied:
+        return '거부됨';
+      case PermissionStatus.restricted:
+        return '제한됨';
+      case PermissionStatus.limited:
+        return '제한적 허용';
+      case PermissionStatus.permanentlyDenied:
+        return '영구 거부';
       default:
-        return false;
+        return '알 수 없음';
     }
   }
 
-  /// 모든 필수 권한이 허용되었는지 확인
-  bool get areEssentialPermissionsGranted {
-    final permissions = state.permissions;
-    if (permissions == null) return false;
-    
-    // 카메라와 사진 권한은 프로필 사진 등록에 필수
-    return permissions.camera && permissions.photos;
+  /// 권한 이름을 한글로 변환
+  String getPermissionName(Permission permission) {
+    switch (permission) {
+      case Permission.notification:
+        return '알림';
+      case Permission.location:
+        return '위치';
+      case Permission.storage:
+        return '저장소';
+      case Permission.camera:
+        return '카메라';
+      case Permission.photos:
+        return '사진';
+      default:
+        return '알 수 없음';
+    }
   }
 
-  /// 권한 상태 로깅
-  void _logPermissionStatus(AppPermissionStatus permissions) {
-    Logger.log('=== 권한 상태 ===', name: 'PermissionProvider');
-    Logger.log('알림: ${permissions.notification ? "허용" : "거부"}', name: 'PermissionProvider');
-    Logger.log('위치: ${permissions.location ? "허용" : "거부"}', name: 'PermissionProvider');
-    Logger.log('저장소: ${permissions.storage ? "허용" : "거부"}', name: 'PermissionProvider');
-    Logger.log('카메라: ${permissions.camera ? "허용" : "거부"}', name: 'PermissionProvider');
-    Logger.log('사진: ${permissions.photos ? "허용" : "거부"}', name: 'PermissionProvider');
-    Logger.log('요청 완료: ${permissions.allRequested ? "예" : "아니오"}', name: 'PermissionProvider');
-    Logger.log('===============', name: 'PermissionProvider');
+  /// 권한이 필요한 이유 설명
+  String getPermissionReason(Permission permission) {
+    switch (permission) {
+      case Permission.notification:
+        return '새로운 매치와 메시지를 받기 위해 필요합니다.';
+      case Permission.location:
+        return '주변 사용자를 찾기 위해 필요합니다.';
+      case Permission.storage:
+        return '프로필 이미지를 저장하기 위해 필요합니다.';
+      case Permission.camera:
+        return '프로필 사진을 촬영하기 위해 필요합니다.';
+      case Permission.photos:
+        return '갤러리에서 사진을 선택하기 위해 필요합니다.';
+      default:
+        return '앱 기능 사용을 위해 필요합니다.';
+    }
   }
 
-  /// 개발용: 권한 상태 초기화
-  Future<void> resetPermissions() async {
+  /// 내부 권한 확인 및 요청 로직
+  Future<PermissionStatus> _checkAndRequestPermission(Permission permission) async {
     try {
-      await _permissionService.resetPermissions();
-      state = const PermissionState(); // 초기 상태로 리셋
-      Logger.log('권한 상태 초기화 완료', name: 'PermissionProvider');
+      // 현재 권한 상태 확인
+      PermissionStatus status = await permission.status;
+
+      // 이미 허용된 경우
+      if (status.isGranted) {
+        return status;
+      }
+
+      // 권한 요청
+      if (status.isDenied) {
+        status = await permission.request();
+      }
+
+      // 영구적으로 거부된 경우
+      if (status.isPermanentlyDenied) {
+        // 앱 설정으로 이동 안내는 별도로 처리
+        return status;
+      }
+
+      return status;
     } catch (e) {
-      Logger.error('권한 초기화 실패: $e', name: 'PermissionProvider');
-      state = state.copyWith(error: '권한 초기화에 실패했습니다: ${e.toString()}');
+      return PermissionStatus.denied;
     }
   }
 }
 
-/// Provider 인스턴스
-final permissionProvider = StateNotifierProvider<PermissionNotifier, PermissionState>(
-  (ref) => PermissionNotifier(),
-);
+/// PermissionManager 프로바이더
+final permissionManagerProvider = Provider<PermissionManager>((ref) {
+  return PermissionManager();
+});
+
+/// 모든 권한 상태 프로바이더
+final allPermissionsProvider =
+    FutureProvider<Map<Permission, PermissionStatus>>((ref) async {
+  final permissionManager = ref.read(permissionManagerProvider);
+  return await permissionManager.checkAllPermissionStatuses();
+});
+
+/// 특정 권한 상태 프로바이더
+final permissionStatusProvider =
+    FutureProvider.family<PermissionStatus, Permission>(
+        (ref, permission) async {
+  final permissionManager = ref.read(permissionManagerProvider);
+  return await permissionManager.checkPermissionStatus(permission);
+});

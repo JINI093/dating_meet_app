@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../utils/app_colors.dart';
 import '../../utils/app_dimensions.dart';
@@ -10,9 +11,9 @@ import '../../providers/likes_provider.dart';
 import '../../providers/vip_provider.dart';
 import '../../models/vip_model.dart';
 
-
 // Bottom Navigation State Provider
-final bottomNavigationProvider = StateNotifierProvider<BottomNavigationNotifier, int>(
+final bottomNavigationProvider =
+    StateNotifierProvider<BottomNavigationNotifier, int>(
   (ref) => BottomNavigationNotifier(),
 );
 
@@ -24,7 +25,7 @@ class BottomNavigationNotifier extends StateNotifier<int> {
   }
 }
 
-class BottomNavigationScreen extends ConsumerWidget {
+class BottomNavigationScreen extends ConsumerStatefulWidget {
   final Widget child;
 
   const BottomNavigationScreen({
@@ -32,43 +33,82 @@ class BottomNavigationScreen extends ConsumerWidget {
     required this.child,
   });
 
+  @override
+  ConsumerState<BottomNavigationScreen> createState() =>
+      _BottomNavigationScreenState();
+}
+
+class _BottomNavigationScreenState
+    extends ConsumerState<BottomNavigationScreen> {
+  String? _profileImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final profileImageFromPrefs = prefs.getString("profile_image");
+
+    String? finalProfileImage;
+    if (profileImageFromPrefs != null && profileImageFromPrefs.isNotEmpty) {
+      finalProfileImage = profileImageFromPrefs;
+    } else {
+      // SharedPreferences에 없으면 userState에서 가져오기
+      final userState = ref.read(userProvider);
+      if (userState.currentUser?.profileImages != null &&
+          userState.currentUser!.profileImages.isNotEmpty) {
+        finalProfileImage = userState.currentUser!.profileImages.first;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _profileImageUrl = finalProfileImage;
+      });
+    }
+  }
+
   static const List<BottomNavItem> _navItems = [
     BottomNavItem(
-      icon: CupertinoIcons.home,
-      activeIcon: CupertinoIcons.home,
+      icon: "assets/icons/tab_home_unselected.png",
+      activeIcon: "assets/icons/tab_home_selected.png",
       label: '홈',
       route: '/home',
     ),
     BottomNavItem(
-      icon: CupertinoIcons.heart,
-      activeIcon: CupertinoIcons.heart_fill,
+      icon: "assets/icons/tab_like_unselected.png",
+      activeIcon: "assets/icons/tab_like_selected.png",
       label: '좋아요',
       route: '/likes',
     ),
     BottomNavItem(
-      icon: null, // VIP는 이미지로 대체
-      activeIcon: null,
+      icon: "", // VIP는 이미지로 대체
+      activeIcon: "",
       label: 'VIP',
       route: '/vip',
     ),
     BottomNavItem(
-      icon: CupertinoIcons.chat_bubble,
-      activeIcon: CupertinoIcons.chat_bubble_fill,
+      icon: "assets/icons/tab_chat_unselected.png",
+      activeIcon: "assets/icons/tab_chat_selected.png",
       label: '채팅',
       route: '/chat',
     ),
     BottomNavItem(
-      icon: null, // 프로필은 이미지로 대체
-      activeIcon: null,
+      icon: "", // 프로필은 이미지로 대체
+      activeIcon: "",
       label: '프로필',
       route: '/profile',
     ),
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final currentIndex = ref.watch(bottomNavigationProvider);
     final userState = ref.watch(userProvider);
+    final userNotifier = ref.read(userProvider.notifier);
     final unreadLikesCount = ref.watch(unreadLikesCountProvider);
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
@@ -81,28 +121,35 @@ class BottomNavigationScreen extends ConsumerWidget {
       }
     }
 
-    // Update provider if needed
-    if (routeIndex != currentIndex) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(bottomNavigationProvider.notifier).setIndex(routeIndex);
-      });
-    }
+    // // Update provider if needed
+    // if (routeIndex != currentIndex) {
+    //   WidgetsBinding.instance.addPostFrameCallback((_) {
+    //     ref.read(bottomNavigationProvider.notifier).setIndex(routeIndex);
+    //   });
+    // }
 
     return Scaffold(
-      body: child,
-      bottomNavigationBar: _buildBottomNavigationBar(context, ref, routeIndex, userState, unreadLikesCount),
+      body: widget.child,
+      bottomNavigationBar: _buildBottomNavigationBar(
+          context: context,
+          ref: ref,
+          currentIndex: currentIndex,
+          userState: userState,
+          userNotifier: userNotifier,
+          unreadLikesCount: unreadLikesCount),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, WidgetRef ref, int currentIndex, userState, int unreadLikesCount) {
-    // 사용자 프로필 이미지 가져오기
-    String? profileImageUrl;
-    if (userState.currentUser?.profileImages != null && userState.currentUser!.profileImages.isNotEmpty) {
-      profileImageUrl = userState.currentUser!.profileImages.first;
-    }
-    
+  Widget _buildBottomNavigationBar(
+      {required BuildContext context,
+      required WidgetRef ref,
+      required int currentIndex,
+      required UserState userState,
+      required UserNotifier userNotifier,
+      required int unreadLikesCount}) {
     return Container(
-      height: AppDimensions.bottomNavHeight + MediaQuery.of(context).padding.bottom,
+      height:
+          AppDimensions.bottomNavHeight + MediaQuery.of(context).padding.bottom,
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -130,7 +177,6 @@ class BottomNavigationScreen extends ConsumerWidget {
               _navItems[index],
               index,
               currentIndex == index,
-              profileImageUrl: profileImageUrl,
               unreadLikesCount: unreadLikesCount,
             ),
           ),
@@ -145,7 +191,6 @@ class BottomNavigationScreen extends ConsumerWidget {
     BottomNavItem item,
     int index,
     bool isActive, {
-    String? profileImageUrl,
     int? unreadLikesCount,
   }) {
     Widget iconWidget;
@@ -153,20 +198,22 @@ class BottomNavigationScreen extends ConsumerWidget {
       // VIP: Use VIP.png asset
       iconWidget = Image.asset(
         'assets/icons/VIP.png',
-        width: 32,
-        height: 32,
+        width: 45,
+        height: 45,
+        fit: BoxFit.fitWidth,
       );
     } else if (index == 4) {
       // 프로필: 원형 프로필 이미지 또는 기본 아바타
-      iconWidget = _buildProfileImage(profileImageUrl, isActive);
+      iconWidget = _buildProfileImage(_profileImageUrl, isActive);
     } else if (index == 1) {
       // 좋아요: 뱃지가 있는 하트 아이콘
       iconWidget = _buildLikesIcon(isActive, unreadLikesCount ?? 0);
     } else {
-      iconWidget = Icon(
-        isActive ? (item.activeIcon ?? item.icon) : item.icon,
-        color: isActive ? Colors.black : Colors.grey,
-        size: 28,
+      iconWidget = Image.asset(
+        isActive ? item.activeIcon : item.icon,
+        fit: BoxFit.fitWidth,
+        width: 30,
+        height: 30,
       );
     }
 
@@ -184,17 +231,24 @@ class BottomNavigationScreen extends ConsumerWidget {
     );
   }
 
-  void _onNavItemTap(BuildContext context, WidgetRef ref, int index, String route) {
+  void _onNavItemTap(
+      BuildContext context, WidgetRef ref, int index, String route) {
     ref.read(bottomNavigationProvider.notifier).setIndex(index);
-    
+
+    // 프로필 탭 클릭 시 프로필 이미지 새로 로드
+    if (index == 4) {
+      _loadProfileImage();
+    }
+
     // VIP 버튼 클릭 시 특별 처리
-    if (index == 2) { // VIP 탭
+    if (index == 2) {
+      // VIP 탭
       final vipState = ref.read(vipProvider);
       final userState = ref.read(userProvider);
-      
+
       // VIP 상태 확인
       final isVip = _checkVipStatus(userState, vipState);
-      
+
       if (isVip) {
         // VIP 사용자는 기존 VIP 화면으로
         final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
@@ -216,30 +270,36 @@ class BottomNavigationScreen extends ConsumerWidget {
 
   Widget _buildProfileImage(String? profileImageUrl, bool isActive) {
     return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: isActive 
-            ? Border.all(color: AppColors.primary, width: 2) 
-            : null,
-      ),
-      child: ClipOval(
-        child: profileImageUrl != null && profileImageUrl.isNotEmpty
-            ? Image.network(
-                profileImageUrl,
-                width: 28,
-                height: 28,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildDefaultProfileImage();
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _buildDefaultProfileImage();
-                },
-              )
-            : _buildDefaultProfileImage(),
+      width: 34,
+      height: 34,
+      decoration:
+          BoxDecoration(color: Colors.transparent, shape: BoxShape.rectangle),
+      alignment: Alignment.center,
+      child: Container(
+        width: 27,
+        height: 27,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border:
+              isActive ? Border.all(color: AppColors.primary, width: 2) : null,
+        ),
+        child: ClipOval(
+          child: profileImageUrl != null && profileImageUrl.isNotEmpty
+              ? Image.network(
+                  profileImageUrl,
+                  width: 22,
+                  height: 22,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildDefaultProfileImage();
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return _buildDefaultProfileImage();
+                  },
+                )
+              : _buildDefaultProfileImage(),
+        ),
       ),
     );
   }
@@ -271,20 +331,21 @@ class BottomNavigationScreen extends ConsumerWidget {
         return true;
       }
     }
-    
+
     // 2. 사용자 프로필에서 확인
     if (userState.currentUser?.isVip == true) {
       return true;
     }
-    
+
     return false;
   }
 
   Widget _buildLikesIcon(bool isActive, int unreadCount) {
-    final icon = Icon(
-      isActive ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-      color: isActive ? Colors.black : Colors.grey,
-      size: 28,
+    final icon = Image.asset(
+      isActive ? "assets/icons/tab_like_selected.png"  : "assets/icons/tab_like_unselected.png",
+      width: 30,
+      height: 30,
+      fit: BoxFit.fitWidth,
     );
 
     if (unreadCount > 0) {
@@ -324,8 +385,8 @@ class BottomNavigationScreen extends ConsumerWidget {
 }
 
 class BottomNavItem {
-  final IconData? icon;
-  final IconData? activeIcon;
+  final String icon;
+  final String activeIcon;
   final String label;
   final String route;
 

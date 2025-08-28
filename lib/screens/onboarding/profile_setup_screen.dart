@@ -53,6 +53,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   
   // Meeting Type
   String? _selectedMeetingType;
+
+  bool? availableNickname;
   
   // Image picker
   final ImagePicker _imagePicker = ImagePicker();
@@ -288,7 +290,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             const SizedBox(height: 24),
             
             // 닉네임 섹션 (중복 검사)
-            _buildNicknameSection(),
+            _buildNicknameSection(available: availableNickname),
             
             const SizedBox(height: 24),
             
@@ -652,7 +654,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 
-  Widget _buildNicknameSection() {
+  Widget _buildNicknameSection({required bool? available}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -707,6 +709,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             fillColor: AppColors.background,
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          available == null
+              ? ""
+              : available == true
+              ? "사용 가능한 닉네임입니다."
+              : "이미 사용중인 닉네임입니다.",
+          style: TextStyle(
+            color: available == true? Color(0xFF00C95A) : AppColors.primary,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+          ),
+        )
       ],
     );
   }
@@ -1523,6 +1538,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       if (response.statusCode == 200 && mounted) {
         final data = response.data;
         if (data['available'] == true) {
+          setState(() {
+            availableNickname = true;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('사용 가능한 닉네임입니다.'),
@@ -1530,6 +1548,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             ),
           );
         } else {
+          setState(() {
+            availableNickname = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('이미 사용 중인 닉네임입니다.'),

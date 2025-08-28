@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/profile_model.dart';
 import '../../providers/permission_provider.dart';
 import '../../providers/enhanced_auth_provider.dart';
+import '../../routes/route_names.dart';
+import '../../services/aws_profile_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -32,64 +35,67 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _showPermissionSequence() async {
-    final permissionState = ref.read(permissionProvider);
-    
-    // 권한이 이미 초기화되었고 요청이 완료된 경우, 자동로그인 체크
-    if (permissionState.isInitialized && 
-        permissionState.permissions != null && 
-        permissionState.permissions!.allRequested) {
-      print('권한이 이미 요청되었음. 자동로그인 체크');
-      await _checkAutoLogin();
-      return;
-    }
-    
-    // 권한이 초기화되지 않은 경우, 초기화 대기
-    if (!permissionState.isInitialized) {
-      print('권한 초기화 대기 중...');
-      final permissionNotifier = ref.read(permissionProvider.notifier);
-      await permissionNotifier.initializePermissions();
-      
-      // 초기화 후 상태 다시 확인
-      final updatedState = ref.read(permissionProvider);
-      if (updatedState.permissions != null && updatedState.permissions!.allRequested) {
-        print('권한 초기화 완료. 자동로그인 체크');
-        await _checkAutoLogin();
-        return;
-      }
-    }
-    
-    // 여기까지 도달하면 자동로그인 체크
-    print('권한 처리 완료. 자동로그인 체크');
+    final permissionManager = ref.read(permissionManagerProvider);
+    var permissionStatus =  await permissionManager.checkAllPermissionStatuses();
+    print("_showPermissionSequence");
     await _checkAutoLogin();
   }
   
   Future<void> _checkAutoLogin() async {
     try {
+      print("_checkAutoLogin--->1");
+
       final authProvider = ref.read(enhancedAuthProvider.notifier);
-      final authState = ref.read(enhancedAuthProvider);
-      
-      print('자동로그인 활성화 여부: ${authState.isAutoLoginEnabled}');
-      
-      if (authState.isAutoLoginEnabled) {
+      final isAutoLoginEnabled = await authProvider.loadAutoLogin();
+      print("_checkAutoLogin--->2");
+      if (isAutoLoginEnabled) {
         print('자동로그인 시도 중...');
         final result = await authProvider.checkAutoLogin();
-        
+
         if (result.success) {
-          print('자동로그인 성공 - 홈화면으로 이동');
-          if (mounted) {
-            context.go('/home');
+          print('자동로그인 성공 - 메인화면으로 이동');
+          final profileService = AWSProfileService();
+          ProfileModel? profile;
+          if(result.user?.user?.userId != null) {
+            try {
+              print("=====> 자동 로그인 아이디 : ${result.user!.user!.userId}");
+              profile = await profileService.getProfileByUserId(result.user!.user!.userId).timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  print('프로필 조회 타임아웃 - 프로필 없는 것으로 간주');
+                  return null;
+                },
+              );
+
+            } catch (profileError) {
+              print('프로필 조회 실패: $profileError');
+              profile = null; // 조회 실패 시 프로필 없는 것으로 처리
+            }
+
+            if (profile != null) {
+              // 프로필이 존재하면 홈으로
+              print('프로필 존재 - 홈으로 이동: ${profile.name}');
+              context.pushReplacement(RouteNames.home);
+              // context.pushReplacement(RouteNames.profileSetup);
+
+            } else {
+              // 프로필이 없으면 온보딩으로
+              print('프로필 없음 - 온보딩으로 이동');
+              context.pushReplacement(RouteNames.onboardingTutorial);
+            }
+          } else {
+            context.go('/login');
           }
-          return;
         } else {
+          context.go('/login');
           print('자동로그인 실패: ${result.error}');
         }
-      }
-      
-      // 자동로그인 실패 또는 비활성화 시 로그인 화면으로
-      print('로그인 화면으로 이동');
-      if (mounted) {
+      } else {
+        print('로그인 화면으로 이동');
         context.go('/login');
+
       }
+
     } catch (e) {
       print('자동로그인 체크 에러: $e');
       if (mounted) {
