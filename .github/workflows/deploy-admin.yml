@@ -1,5 +1,7 @@
 name: Deploy Admin to GitHub Pages
 
+# Deploy admin page to /admin subdirectory
+
 on:
   push:
     branches: [ development, main ]
