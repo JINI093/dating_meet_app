@@ -31,7 +31,6 @@ jobs:
     - name: Build for web (Admin)
       run: |
         flutter build web \
-          --web-renderer html \
           --base-href "/dating_meet_app/" \
           --target lib/admin_main.dart \
           --output build/admin_web
