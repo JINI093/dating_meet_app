@@ -28,18 +28,28 @@ jobs:
     - name: Enable web support
       run: flutter config --enable-web
       
+    - name: Clean build
+      run: flutter clean
+      
+    - name: Get dependencies again
+      run: flutter pub get
+      
+    - name: Copy admin index.html
+      run: cp web/admin_index.html web/index.html
+      
     - name: Build for web (Admin)
       run: |
         flutter build web \
           --base-href "/dating_meet_app/" \
           --target lib/admin_main.dart \
-          --output build/admin_web
+          --no-tree-shake-icons \
+          --release
       
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main'
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build/admin_web
+        publish_dir: ./build/web
         destination_dir: admin
         keep_files: true
