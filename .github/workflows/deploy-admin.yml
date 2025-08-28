@@ -36,9 +36,14 @@ jobs:
       run: |
         flutter build web \
           --target lib/admin_main.dart \
-          --base-href "/dating_meet_app/" \
+          --base-href "/dating_meet_app/admin/" \
           --release
       
+    - name: List build output
+      run: |
+        echo "Build directory contents:"
+        ls -la build/web/
+        
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main'
