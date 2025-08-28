@@ -110,14 +110,20 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
       
       state = state.copyWith(isLoading: true, error: null);
 
-      final List<ProductDetails> productDetails = await _purchaseService.getProducts();
+      List<ProductDetails> productDetails = [];
       
+      // 디버그 모드가 아닌 경우에만 실제 제품 정보 로드
+      if (!DebugConfig.enableDebugPayments) {
+        productDetails = await _purchaseService.getProducts();
+      }
+
       // 제품 타입별로 분류
       final List<VipProduct> vipProducts = [];
       final List<PointsProduct> pointsProducts = [];
       final List<HeartsProduct> heartsProducts = [];
       final List<PurchaseProduct> allProducts = [];
 
+      // 실제 제품이 있는 경우 처리
       for (final ProductDetails details in productDetails) {
         if (details.id.contains('vip')) {
           final vipProduct = VipProduct.fromProductDetails(details);
@@ -132,6 +138,26 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
           heartsProducts.add(heartsProduct);
           allProducts.add(heartsProduct);
         }
+      }
+
+      // 디버그 모드이거나 제품이 없는 경우 가짜 제품 생성
+      if (DebugConfig.enableDebugPayments || productDetails.isEmpty) {
+        Logger.log('[DEBUG] 디버그 제품 생성', name: 'PurchaseProvider');
+        
+        // 디버그 포인트 제품들
+        final debugPointsProducts = _createDebugPointsProducts();
+        pointsProducts.addAll(debugPointsProducts);
+        allProducts.addAll(debugPointsProducts);
+        
+        // 디버그 하트 제품들
+        final debugHeartsProducts = _createDebugHeartsProducts();
+        heartsProducts.addAll(debugHeartsProducts);
+        allProducts.addAll(debugHeartsProducts);
+        
+        // 디버그 VIP 제품들
+        final debugVipProducts = _createDebugVipProducts();
+        vipProducts.addAll(debugVipProducts);
+        allProducts.addAll(debugVipProducts);
       }
 
       state = state.copyWith(
@@ -157,13 +183,18 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
     try {
       Logger.log('제품 구매 시작: $productId', name: 'PurchaseProvider');
       
+      state = state.copyWith(isLoading: true, error: null);
+
+      // 디버그 모드인 경우 시뮬레이션 구매
+      if (DebugConfig.enableDebugPayments) {
+        return await _handleDebugPurchase(productId);
+      }
+
       // 실제 ProductDetails 찾기
       final productDetails = await _purchaseService.getProducts(productIds: [productId]);
       if (productDetails.isEmpty) {
         throw Exception('제품 정보를 찾을 수 없습니다');
       }
-
-      state = state.copyWith(isLoading: true, error: null);
 
       // 구매 시작
       final bool success = await _purchaseService.purchaseProduct(productDetails.first);
@@ -233,7 +264,7 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
         final bool isValid = await _purchaseService.verifyPurchase(result.purchaseDetails!);
         if (!isValid) {
           Logger.error('구매 영수증 검증 실패', name: 'PurchaseProvider');
-          state = state.copyWith(error: '구매 검증에 실패했습니다');
+          state = state.copyWith(isLoading: false, error: '구매 검증에 실패했습니다');
           return;
         }
       } else if (DebugConfig.enableDebugPayments) {
@@ -256,10 +287,13 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
       // 구매 히스토리 저장
       await _savePurchaseHistory(result, product);
 
+      // 구매 완료 - 로딩 상태 해제
+      state = state.copyWith(isLoading: false, error: null);
+
       Logger.log('구매 처리 완료: ${result.productId}', name: 'PurchaseProvider');
     } catch (e) {
       Logger.error('구매 처리 실패: $e', name: 'PurchaseProvider');
-      state = state.copyWith(error: '구매 처리 중 오류가 발생했습니다');
+      state = state.copyWith(isLoading: false, error: '구매 처리 중 오류가 발생했습니다');
     }
   }
 
@@ -345,6 +379,188 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
     } catch (e) {
       Logger.error('구매 히스토리 로드 실패: $e', name: 'PurchaseProvider');
     }
+  }
+
+  /// 디버그 구매 처리
+  Future<bool> _handleDebugPurchase(String productId) async {
+    try {
+      Logger.log('[DEBUG] 디버그 구매 시뮬레이션: $productId', name: 'PurchaseProvider');
+
+      // 구매 지연 시뮬레이션
+      await Future.delayed(DebugConfig.debugPaymentDelay);
+
+      // 성공률 체크
+      final random = DateTime.now().millisecondsSinceEpoch % 100 / 100.0;
+      if (random > DebugConfig.debugPaymentSuccessRate) {
+        throw Exception('디버그 구매 실패 시뮬레이션');
+      }
+
+      // 가짜 구매 결과 생성
+      final debugResult = PurchaseResult(
+        status: PurchaseResultStatus.success,
+        productId: productId,
+        transactionId: DebugConfig.generateMockTransactionId(),
+        purchaseDetails: null, // 디버그 모드에서는 null
+        error: null,
+      );
+
+      // 구매 성공 처리 (_handleSuccessfulPurchase에서 loading 상태 해제함)
+      await _handleSuccessfulPurchase(debugResult);
+      
+      Logger.log('[DEBUG] 디버그 구매 완료: $productId', name: 'PurchaseProvider');
+      return true;
+    } catch (e) {
+      Logger.error('[DEBUG] 디버그 구매 실패: $e', name: 'PurchaseProvider');
+      state = state.copyWith(
+        isLoading: false,
+        error: '디버그 구매 실패: $e',
+      );
+      return false;
+    }
+  }
+
+  /// 디버그 포인트 제품 생성
+  List<PointsProduct> _createDebugPointsProducts() {
+    return [
+      PointsProduct(
+        id: 'dating_points_100',
+        name: '100 포인트',
+        description: '기본 포인트 패키지',
+        price: '₩1,100',
+        pointsAmount: 100,
+        bonusPoints: 0,
+      ),
+      PointsProduct(
+        id: 'dating_points_500',
+        name: '500 포인트',
+        description: '인기 포인트 패키지',
+        price: '₩5,500',
+        pointsAmount: 500,
+        bonusPoints: 50,
+      ),
+      PointsProduct(
+        id: 'dating_points_1000',
+        name: '1000 포인트',
+        description: '대용량 포인트 패키지',
+        price: '₩11,000',
+        pointsAmount: 1000,
+        bonusPoints: 150,
+      ),
+      PointsProduct(
+        id: 'dating_points_3000',
+        name: '3000 포인트',
+        description: '프리미엄 포인트 패키지',
+        price: '₩33,000',
+        pointsAmount: 3000,
+        bonusPoints: 500,
+      ),
+      PointsProduct(
+        id: 'dating_points_5000',
+        name: '5000 포인트',
+        description: '최고급 포인트 패키지',
+        price: '₩55,000',
+        pointsAmount: 5000,
+        bonusPoints: 1000,
+      ),
+    ];
+  }
+
+  /// 디버그 하트 제품 생성
+  List<HeartsProduct> _createDebugHeartsProducts() {
+    return [
+      HeartsProduct(
+        id: 'dating_hearts_10',
+        name: '10 하트',
+        description: '기본 하트 패키지',
+        price: '₩1,100',
+        heartsAmount: 10,
+        bonusHearts: 0,
+      ),
+      HeartsProduct(
+        id: 'dating_hearts_50',
+        name: '50 하트',
+        description: '인기 하트 패키지',
+        price: '₩5,500',
+        heartsAmount: 50,
+        bonusHearts: 5,
+      ),
+      HeartsProduct(
+        id: 'dating_hearts_100',
+        name: '100 하트',
+        description: '대용량 하트 패키지',
+        price: '₩11,000',
+        heartsAmount: 100,
+        bonusHearts: 15,
+      ),
+      HeartsProduct(
+        id: 'dating_hearts_500',
+        name: '500 하트',
+        description: '프리미엄 하트 패키지',
+        price: '₩55,000',
+        heartsAmount: 500,
+        bonusHearts: 100,
+      ),
+    ];
+  }
+
+  /// 디버그 VIP 제품 생성
+  List<VipProduct> _createDebugVipProducts() {
+    return [
+      VipProduct(
+        id: 'dating_vip_basic_1month',
+        name: 'VIP 베이직 (1개월)',
+        description: '기본 VIP 혜택',
+        price: '₩9,900',
+        vipTier: 'BASIC',
+        durationDays: 30,
+        features: ['무제한 좋아요', '슈퍼챗 2개/일', '기본 필터'],
+      ),
+      VipProduct(
+        id: 'dating_vip_premium_1month',
+        name: 'VIP 프리미엄 (1개월)',
+        description: '프리미엄 VIP 혜택',
+        price: '₩19,900',
+        vipTier: 'PREMIUM',
+        durationDays: 30,
+        features: ['무제한 좋아요', '슈퍼챗 5개/일', '프로필 부스트', '고급 필터'],
+      ),
+      VipProduct(
+        id: 'dating_vip_gold_1month',
+        name: 'VIP 골드 (1개월)',
+        description: '최고급 VIP 혜택',
+        price: '₩29,900',
+        vipTier: 'GOLD',
+        durationDays: 30,
+        features: ['무제한 좋아요', '무제한 슈퍼챗', '프로필 부스트', '모든 필터', '우선 고객지원'],
+      ),
+      VipProduct(
+        id: 'dating_vip_basic_3months',
+        name: 'VIP 베이직 (3개월)',
+        description: '기본 VIP 혜택 3개월',
+        price: '₩26,900',
+        vipTier: 'BASIC',
+        durationDays: 90,
+        features: ['무제한 좋아요', '슈퍼챗 2개/일', '기본 필터'],
+      ),
+      VipProduct(
+        id: 'dating_vip_premium_3months',
+        name: 'VIP 프리미엄 (3개월)',
+        description: '프리미엄 VIP 혜택 3개월',
+        price: '₩53,900',
+        vipTier: 'PREMIUM',
+        durationDays: 90,
+        features: ['무제한 좋아요', '슈퍼챗 5개/일', '프로필 부스트', '고급 필터'],
+      ),
+      VipProduct(
+        id: 'dating_vip_gold_3months',
+        name: 'VIP 골드 (3개월)',
+        description: '최고급 VIP 혜택 3개월',
+        price: '₩80,900',
+        vipTier: 'GOLD',
+        durationDays: 90,
+        features: ['무제한 좋아요', '무제한 슈퍼챗', '프로필 부스트', '모든 필터', '우선 고객지원'],
+      ),
+    ];
   }
 
   /// 오류 초기화

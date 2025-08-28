@@ -43,20 +43,45 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
   @override
   Widget build(BuildContext context) {
     final pointsState = ref.watch(pointsProvider);
+    final purchaseState = ref.watch(purchaseProvider);
     final currentPoints = pointsState.currentPoints;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildAppBar(),
-              _buildPointsHeader(currentPoints),
-              _buildPointsIntro(),
-              _buildPointPackages(),
-            ],
-          ),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildAppBar(),
+                  _buildPointsHeader(currentPoints),
+                  _buildPointsIntro(),
+                  _buildPointPackages(),
+                ],
+              ),
+            ),
+            // 로딩 오버레이
+            if (purchaseState.isLoading)
+              Container(
+                color: Colors.black.withValues(alpha: 0.5),
+                child: const Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('결제 처리 중...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -613,29 +638,9 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
     }
 
     try {
-      // 로딩 다이얼로그 표시
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          content: Row(
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(width: 20),
-              Text('결제 처리 중...', style: AppTextStyles.bodyMedium),
-            ],
-          ),
-        ),
-      );
-
-      // PurchaseProvider를 통해 인앱결제 시작
+      // PurchaseProvider를 통해 인앱결제 시작 (자체 로딩 상태 관리)
       final success =
           await ref.read(purchaseProvider.notifier).purchaseProduct(productId);
-
-      // 로딩 다이얼로그 닫기
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
 
       if (success) {
         // 구매 성공 - PurchaseProvider에서 자동으로 포인트가 추가됨
@@ -746,7 +751,6 @@ class _PointShopScreenState extends ConsumerState<PointShopScreen> {
     } catch (e) {
       // 오류 처리
       if (mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
