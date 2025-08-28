@@ -22,6 +22,13 @@ NC='\033[0m' # No Color
 echo -e "${YELLOW}Building Flutter web app...${NC}"
 flutter build web --target lib/admin_main.dart --release
 
+# 1-1. admin_index.html을 index.html로 복사
+echo -e "${YELLOW}Setting up admin index.html...${NC}"
+if [ -f "web/admin_index.html" ]; then
+    cp web/admin_index.html build/web/index.html
+    echo -e "${GREEN}Admin index.html copied${NC}"
+fi
+
 # 2. S3 버킷 생성 (이미 있으면 스킵)
 echo -e "${YELLOW}Checking S3 bucket...${NC}"
 if aws s3api head-bucket --bucket "$S3_BUCKET_NAME" 2>/dev/null; then
@@ -86,7 +93,7 @@ fi
 
 # 8. 완료 메시지
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
-echo -e "Website URL: ${GREEN}http://$S3_BUCKET_NAME.s3-website-$AWS_REGION.amazonaws.com${NC}"
+echo -e "Website URL: ${GREEN}http://$S3_BUCKET_NAME.s3-website.$AWS_REGION.amazonaws.com${NC}"
 
 if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
     CLOUDFRONT_URL=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DISTRIBUTION_ID" --query "Distribution.DomainName" --output text)
