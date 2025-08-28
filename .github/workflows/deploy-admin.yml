@@ -26,12 +26,18 @@ jobs:
       run: |
         flutter --version
         flutter pub get
+    
+    - name: Create empty .env file
+      run: |
+        echo "# Environment variables" > .env
+        echo "Created .env file"
       
     - name: Build for web (Admin)
       run: |
         flutter build web \
           --target lib/admin_main.dart \
-          --base-href "/dating_meet_app/"
+          --base-href "/dating_meet_app/" \
+          --release
       
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
