@@ -34,13 +34,20 @@ else
         --create-bucket-configuration LocationConstraint="$AWS_REGION"
 fi
 
-# 3. S3 버킷 정적 웹사이트 호스팅 활성화
+# 3. 퍼블릭 액세스 차단 해제
+echo -e "${YELLOW}Removing public access block...${NC}"
+aws s3api put-public-access-block \
+    --bucket "$S3_BUCKET_NAME" \
+    --public-access-block-configuration \
+    "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false"
+
+# 4. S3 버킷 정적 웹사이트 호스팅 활성화
 echo -e "${YELLOW}Configuring bucket for static website hosting...${NC}"
 aws s3 website s3://"$S3_BUCKET_NAME"/ \
     --index-document index.html \
     --error-document index.html
 
-# 4. 버킷 정책 설정 (퍼블릭 읽기 권한)
+# 5. 버킷 정책 설정 (퍼블릭 읽기 권한)
 echo -e "${YELLOW}Setting bucket policy...${NC}"
 cat > bucket-policy.json << EOF
 {
@@ -63,13 +70,13 @@ aws s3api put-bucket-policy \
 
 rm bucket-policy.json
 
-# 5. 파일 업로드
+# 6. 파일 업로드
 echo -e "${YELLOW}Uploading files to S3...${NC}"
 aws s3 sync build/web/ s3://"$S3_BUCKET_NAME"/ \
     --delete \
     --cache-control "public, max-age=3600"
 
-# 6. CloudFront 캐시 무효화 (CloudFront 사용 시)
+# 7. CloudFront 캐시 무효화 (CloudFront 사용 시)
 if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
     echo -e "${YELLOW}Invalidating CloudFront cache...${NC}"
     aws cloudfront create-invalidation \
@@ -77,7 +84,7 @@ if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
         --paths "/*"
 fi
 
-# 7. 완료 메시지
+# 8. 완료 메시지
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo -e "Website URL: ${GREEN}http://$S3_BUCKET_NAME.s3-website-$AWS_REGION.amazonaws.com${NC}"
 
